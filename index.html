@@ -64,6 +64,17 @@
 </section>
 
 <section>
+  <h2>排行榜</h2>
+  <div class="card">
+    <div class="row"><div class="pname" style="font-size:15px">双榜</div>
+      <div><button class="mini act" id="tabRep">声望榜</button> <button class="mini" id="tabOut">训练产出榜</button></div></div>
+    <div id="boardList" style="margin-top:8px"></div>
+    <div class="hint" id="boardMe"></div>
+    <div class="hint">同分先到先得；赢球与特训后实时上榜。</div>
+  </div>
+</section>
+
+<section>
   <h2>一线队 · 安排明日计划</h2>
   <div id="squadList"></div>
 </section>
@@ -190,7 +201,7 @@ async function growPlayer(p){
   const g=mock.state.growth[p.pid]||0; const cost=60+g*40;
   if(mock.state.balance<cost){ toast("资金不够，先等结算攒一攒"); return; }
   mock.state.balance-=cost; mock.state.growth[p.pid]=g+1; mock.state.output+=10; mock.save();
-  toast(`${p.name} 特训完成，能力 ${p.ability}→${p.ability+g+1}（训练产出 +10）`); render();
+  toast(`${p.name} 特训完成，能力 ${p.ability}→${p.ability+g+1}（训练产出 +10）`); render(); submitBoards();
 }
 async function arrange(p, tierKey, tier){
   const body = tier.kind==="loan" ? { loans:[{playerId:p.pid, tier:tierKey, kind:"loan"}] } : { jobs:[{playerId:p.pid, tier:tierKey, kind:"training"}] };
@@ -223,6 +234,40 @@ async function doSettle(showSheet){
   }
   render();
 }
+/* ---------- 双榜（壳内走 BFF；本地为演示榜） ---------- */
+let boardTab = "rep";
+const fmtN = (n) => Number(n || 0).toLocaleString("zh-CN");
+const esc = (x) => String(x == null ? "" : x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const NPC_BOARDS = { rep:[["铁血教头",86],["南桥经理人",64],["北看台主席",41]], output:[["铁血教头",1250],["数据狂人",980],["南桥经理人",640]] };
+async function submitBoards(){
+  if(inShell){
+    try{ await api("/api/leaderboard/submit",{board:"rep",score:mock.state.rep,nickname:"",avatar:""}); }catch(e){}
+    try{ await api("/api/leaderboard/submit",{board:"output",nickname:"",avatar:""}); }catch(e){}
+  }
+  renderBoard();
+}
+async function renderBoard(){
+  const el=$("#boardList"); if(!el) return;
+  const me=$("#boardMe");
+  $("#tabRep").className="mini"+(boardTab==="rep"?" act":""); $("#tabOut").className="mini"+(boardTab==="output"?" act":"");
+  if(inShell){
+    try{
+      const r = await api("/api/leaderboard",{board:boardTab,limit:20});
+      el.innerHTML = ((r&&r.top)||[]).map(x=>`<div class="brow"><span>${x.rank}. ${esc(x.nickname||("经理"+String(x.puid).slice(-4)))}</span><b>${fmtN(x.score)}</b></div>`).join("") || '<div class="hint">暂无数据，来打第一场。</div>';
+      me.textContent = (r&&r.me) ? `我的名次：第 ${r.me.rank} 名（${fmtN(r.me.score)}）` : "我还没上榜，先赢一场或完成一次结算。";
+      return;
+    }catch(e){ el.innerHTML='<div class="hint">榜单读取失败，稍后再试。</div>'; return; }
+  }
+  const myScore = boardTab==="rep" ? mock.state.rep : mock.state.output;
+  const rows = NPC_BOARDS[boardTab].map(([n,sc])=>({n,s:sc})).concat([{n:"我（"+(mock.state.clubName||"新星联队")+"）",s:myScore,me:true}])
+    .sort((a,b)=>b.s-a.s).map((x,i)=>`<div class="brow"><span>${i+1}. ${esc(x.n)}${x.me?" ★":""}</span><b>${fmtN(x.s)}</b></div>`).join("");
+  el.innerHTML = rows; me.textContent = "本地演示榜；进游戏壳后切换为全服真实榜。";
+}
+document.addEventListener("click",e=>{
+  if(e.target&&e.target.id==="tabRep"){boardTab="rep";renderBoard();}
+  if(e.target&&e.target.id==="tabOut"){boardTab="output";renderBoard();}
+});
+
 async function render(){
   const h = await api("/api/home");
   if(h.ok){
@@ -259,7 +304,7 @@ async function render(){
     mock.state.rep=Math.max(0,mock.state.rep+repD); mock.state.balance+=fundD;
     mock.state.played[dayN]=`${res} ${mine}:${theirs}`;
     mock.state.log.push(`第${dayN}轮 ${res} ${opp}（${mine}:${theirs}）声望${repD>=0?"+":""}${repD}${fundD?" · 奖金+"+fundD:""}`);
-    mock.save(); toast(`比赛结束：${res} ${opp} ${mine}:${theirs}`); render();
+    mock.save(); toast(`比赛结束：${res} ${opp} ${mine}:${theirs}`); render(); submitBoards();
   };
   const fs=$("#finaleSlot");
   if(dayN>=14 && !mock.state.finale){
@@ -271,6 +316,7 @@ async function render(){
   const hr2=new Date().getHours(); $("#eveningBar").classList.toggle("hidden", !(hr2>=19&&hr2<23));
   const sq=$("#squadList"); sq.innerHTML="";
   PLAYERS.forEach(p=>sq.appendChild(playerCard(p)));
+  if(!inShell) renderBoard();
 }
 $("#adBtn").onclick = async () => {
   const dayKey = new Date(Date.now()+8*3600*1000).toISOString().slice(0,10);
