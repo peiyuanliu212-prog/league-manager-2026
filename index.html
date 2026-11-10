@@ -130,6 +130,10 @@
     <div id="financeBody" style="margin-top:6px"></div>
   </div>
   <div class="card">
+    <div class="pname">俱乐部设施</div>
+    <div id="facilityBody" style="margin-top:6px"></div>
+  </div>
+  <div class="card">
     <div class="row"><div><div class="pname">补给加速</div><div class="pmeta" id="adDesc">看一段广告，立即到账 120 资金（每日 3 次）</div></div><button id="adBtn">领取</button></div>
     <div class="hint">奖励走服务端幂等发放，看完才算数，中途关掉不发。</div>
   </div>
@@ -182,8 +186,8 @@ const mock = {
   async call(path, body){
     const s=this.state, now=Date.now();
     if(path==="/api/home"){
-      const pending=Object.values(s.contracts).filter(c=>c.state==="away"&&c.plannedReturnEpoch<=now).map(c=>({...c,state:"pendingReturn"}));
-      pending.forEach(c=>{ s.contracts[c.playerId+"|"+c.plannedReturnEpoch].state="pendingReturn"; });
+      const pending=Object.values(s.contracts).filter(c=>(c.state==="away"&&c.plannedReturnEpoch<=now)||c.state==="pendingReturn").map(c=>({...c,state:"pendingReturn"}));
+      pending.forEach(c=>{ const k=c.playerId+"|"+c.plannedReturnEpoch; if(s.contracts[k]) s.contracts[k].state="pendingReturn"; });
       this.save();
       return { ok:true, clubName:s.clubName||"新星联队", capacityTier:s.tier, balance:s.balance, pendingReturns:pending };
     }
@@ -199,7 +203,7 @@ const mock = {
       return { ok:true, elapsedMs:elapsed, fundsGain:gain, earlyBonus:bonus, totalFunds:gain+bonus, cappedFunds:lost, capacityTier:s.tier };
     }
     if(path==="/api/arrange"){
-      const durMs={T1:120000,T2:900000,T3:7200000,T4:28800000,T5:79200000};
+      const durMs={T1:120000,T2:900000,T3:7200000,T4:28800000,T5:79200000,CX:43200000};
       const made=[];
       for(const it of [...(body.jobs||[]),...(body.loans||[])]){ if(it.playerId){ const pr=now+durMs[it.tier]; s.contracts[it.playerId+"|"+pr]={playerId:it.playerId,plannedReturnEpoch:pr,state:"away",kind:it.kind}; made.push({plannedReturnEpoch:pr}); } }
       this.save(); return { ok:true, jobs:made };
@@ -274,6 +278,8 @@ function ensureV2State(){
   if(!s.scout) s.scout = {};
   if(!s.quotes) s.quotes = {};
   if(!s.customPlayers) s.customPlayers = [];
+  if(!s.facilityLv) s.facilityLv = 1;
+  if(!s.p3Used) s.p3Used = {};
 }
 function settleWages(){
   ensureV2State();
@@ -379,7 +385,7 @@ function renderFinance(){
 
 const SPORT_PACKS = {
   football: { id:"football", label:"足球", icon:"⚽", positions:["门将","后卫","中场","边锋","中锋"], powerN:11,
-    players:()=>PLAYERS, leagues:()=>LEAGUES, opp:()=>OPP_POWER,
+    players:()=>PLAYERS.concat(packPlayersFor("football")), leagues:()=>LEAGUES, opp:()=>OPP_POWER,
     terms:{ match:"比赛", league:"明星联赛 · 跨联赛对决", loan:"外租锻炼", train:"封闭特训" } },
   basketball: { id:"basketball", label:"篮球", icon:"🏀", positions:["控卫","分卫","小前锋","大前锋","中锋"], powerN:8,
     players:()=>BPLAYERS, leagues:()=>B_LEAGUES, opp:()=>BOPP_POWER,
@@ -389,13 +395,13 @@ const SPORTS = SPORT_PACKS;
 function curSport(){ return SPORT_PACKS[mock.state.sport||"football"] || SPORT_PACKS.football; }
 function sportTerms(){ return curSport().terms || {}; }
 function teamPower(){ const sp=curSport(); const all=sp.players().concat((mock.state.customPlayers||[]).filter(c=>c.sport===sp.id)); const mine=all.filter(p=>isSigned(p)&&isArrived(p)&&!isOut(p.pid)); if(!mine.length) return 0; const sorted=mine.map(p=>p.ability+(mock.state.growth[p.pid]||0)).sort((a,b)=>b-a); const n=Math.min(sp.powerN, sorted.length); return Math.round(sorted.slice(0,n).reduce((a,b)=>a+b,0)/n) + (mock.state.moraleBoost||0); }
-function findPlayer(pid){ return PLAYERS.find(x=>x.pid===pid) || BPLAYERS.find(x=>x.pid===pid) || (mock.state.customPlayers||[]).find(x=>x.pid===pid); }
+function findPlayer(pid){ return PLAYERS.find(x=>x.pid===pid) || BPLAYERS.find(x=>x.pid===pid) || (mock.state.customPlayers||[]).find(x=>x.pid===pid) || P1_PLAYERS.find(x=>x.pid===pid) || P3_PLAYERS.find(x=>x.pid===pid); }
 function playerCard(p){
   const away = awayMap.get(p.pid);
   const g = mock.state.growth[p.pid]||0;
   const el=document.createElement("div"); el.className="card";
   const meta = p.club ? `${p.pos} · ${p.club} · ${p.age}岁 · 工资${p.wage}档${p.pot!=="无(即战力)"?" · 潜力"+p.pot:""}${p.role!=="首发"?" · "+p.role:""}` : `${p.pos} · ${p.en||""}`;
-  el.innerHTML = `<div class="row"><div><span class="pname">${p.name}</span> ${away?'<span class="tag away">'+away+'</span>':''}${isArrived(p)?'':'<span class="tag away">回租中 · 赛季第 '+arriveDay()+' 天到队</span>'}${isOut(p.pid)?'<span class="tag away">租出练级中 · 赛季第 '+mock.state.loansOut[p.pid].returnDay+' 天归队</span>':''}${(mock.state.loansIn||{})[p.pid]?'<span class="tag away">租入 · 赛季末回母队</span>':''}<div class="pmeta">${meta}</div></div><span class="ab"${p.ability+g>=88?' style="color:var(--acc)"':''}>${p.ability+g}${g?'<small style="color:var(--acc2)"> +'+g+'</small>':''}</span></div>`;
+  el.innerHTML = `<div class="row"><div><span class="pname">${p.name}</span> ${away?'<span class="tag away">'+away+'</span>':''}${isArrived(p)?'':'<span class="tag away">回租中 · 赛季第 '+arriveDay()+' 天到队</span>'}${isOut(p.pid)?'<span class="tag away">租出练级中 · 赛季第 '+mock.state.loansOut[p.pid].returnDay+' 天归队</span>':''}${(mock.state.loansIn||{})[p.pid]?'<span class="tag away">租入 · 赛季末回母队</span>':''}<div class="pmeta">${meta}${ratingBadge(p)}</div></div><span class="ab"${p.ability+g>=88?' style="color:var(--acc)"':''}>${p.ability+g}${g?'<small style="color:var(--acc2)"> +'+g+'</small>':''}</span></div>`;
   if(!away && isArrived(p) && !isOut(p.pid)){
     const t=document.createElement("div"); t.className="tiers";
     for(const [k,v] of Object.entries(TIERS)){
@@ -405,30 +411,37 @@ function playerCard(p){
     }
     el.appendChild(t);
     const gb=document.createElement("button"); gb.className="ghost"; gb.style.marginTop="8px"; gb.style.fontSize="12px"; gb.style.padding="6px 10px";
-    const cost=60+g*40; gb.textContent = g>=5 ? "已练满（+5）" : `特训升级 +1 · ${cost} 资金`;
+    const cost=growCostOf(p); gb.textContent = g>=5 ? "已练满（+5）" : `特训升级 +1 · ${cost} 资金`;
     gb.disabled = g>=5;
     gb.onclick=()=>growPlayer(p);
     el.appendChild(gb);
     const lb=document.createElement("button"); lb.className="ghost"; lb.style.marginTop="8px"; lb.style.marginLeft="6px"; lb.style.fontSize="12px"; lb.style.padding="6px 10px";
     if((mock.state.loansIn||{})[p.pid]){ const bp=Math.round(signPrice(p)*0.8); lb.textContent=`买断 · ${bp} 资金`; lb.onclick=()=>buyoutPlayer(p); el.appendChild(lb); }
     else if(p.ability<=84){ lb.textContent="租出练级 · 3 天后归队 +1"; lb.onclick=()=>loanOutPlayer(p); el.appendChild(lb); }
+    if(packActive("2026-11-22")){ const cb2=document.createElement("button"); cb2.className="ghost"; cb2.style.marginTop="8px"; cb2.style.marginLeft="6px"; cb2.style.fontSize="12px"; cb2.style.padding="6px 10px"; cb2.textContent="拉练委托 12h · 费 180"; cb2.onclick=()=>arrangeCommission(p); el.appendChild(cb2); }
   }
   return el;
 }
 async function growPlayer(p){
-  const g=mock.state.growth[p.pid]||0; const cost=60+g*40;
+  const g=mock.state.growth[p.pid]||0; const cost=growCostOf(p);
   if(mock.state.balance<cost){ toast("资金不够，先等结算攒一攒"); return; }
-  mock.state.balance-=cost; mock.state.growth[p.pid]=g+1; mock.state.output+=10; mock.save();
+  mock.state.balance-=cost; mock.state.growth[p.pid]=g+1; mock.state.output+=10; if(mock.state.commSynergy) mock.state.commSynergy=false; mock.save();
   toast(`${p.name} 特训完成，能力 ${p.ability}→${p.ability+g+1}（训练产出 +10）`); render(); submitBoards();
 }
 async function arrange(p, tierKey, tier){
-  const body = tier.kind==="loan" ? { loans:[{playerId:p.pid, tier:tierKey, kind:"loan"}] } : { jobs:[{playerId:p.pid, tier:tierKey, kind:"training"}] };
+  const body = tier.kind==="loan" ? { loans:[{playerId:p.pid, tier:tierKey, kind:"loan"}] } : { jobs:[{playerId:p.pid, tier:tierKey, kind:tier.kind||"training"}] };
   const r = await api("/api/arrange", body);
   if(r.ok){ awayMap.set(p.pid, tier.label+"中"); toast(`${p.name} 已出发：${tier.label}（${tier.dur}后归队）`); render(); }
   else toast("安排失败："+(r.code||""));
 }
 async function claimReturn(c){
   const p = findPlayer(c.playerId);
+  if(c.kind==="commission"){
+    const r = await api("/api/return/claim", { playerId:c.playerId, plannedReturnEpoch:c.plannedReturnEpoch, baseReward:150 });
+    if(r.ok && !r.replayed){ ensureV2State(); mock.state.output += 25; mock.state.commSynergy = true; mock.state.buckets.commercial += (r.reward||180); mock.save(); toast(`${p?p.name:c.playerId} 委托归队！委托费 ${r.reward||180} 到账、训练产出 +25、下一次特训 -20%（默契加成）`); }
+    else if(r.ok){ toast("已领过啦"); }
+    awayMap.delete(c.playerId); render(); return;
+  }
   const base = 40 + Math.round((p?p.ability:70)/2);
   const r = await api("/api/return/claim", { playerId:c.playerId, plannedReturnEpoch:c.plannedReturnEpoch, baseReward:base });
   if(r.ok && !r.replayed){ ensureV2State(); mock.state.buckets.commercial += (r.reward||0); mock.save(); toast(`${p?p.name:c.playerId} 归队！${RETURN_LINES[Math.floor(Math.random()*RETURN_LINES.length)]} 奖励 ${r.reward} 资金（践约加成 +${r.promiseBonus}）`); }
@@ -465,6 +478,76 @@ async function doSettle(showSheet){
 
 /* ---------- 名单渲染（运动/筛选/搜索）与快捷操作 ---------- */
 let squadPosFilter = "";
+
+
+/* ---------- 内容包 1–4（日期门：北京时间；__LM_PACK_NOW 为测试钩子） ---------- */
+function packNow(){ return window.__LM_PACK_NOW || Date.now(); }
+function beijingDateStr(t){ return new Date(t || packNow()).toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" }); }
+function packActive(dateStr){ return beijingDateStr() >= dateStr; }
+const P1_PLAYERS = [
+  { pid:"P301", name:"奥纳纳", pos:"GK", posGroup:"GK", ability:82, age:"29", club:"曼联", wage:"B", pot:"中", role:"首发" },
+  { pid:"P302", name:"托莫里", pos:"CB", posGroup:"DF", ability:82, age:"27", club:"AC米兰", wage:"B", pot:"中", role:"首发" },
+  { pid:"P303", name:"板仓滉", pos:"CB", posGroup:"DF", ability:80, age:"28", club:"阿贾克斯", wage:"B", pot:"中", role:"首发" },
+  { pid:"P304", name:"蒋圣龙", pos:"CB", posGroup:"DF", ability:75, age:"24", club:"上海申花", wage:"C", pot:"中高", role:"轮换" },
+  { pid:"P305", name:"朱辰杰", pos:"CB", posGroup:"DF", ability:74, age:"25", club:"上海申花", wage:"D", pot:"中高", role:"轮换" },
+  { pid:"P306", name:"刘洋", pos:"FB", posGroup:"DF", ability:72, age:"30", club:"山东泰山", wage:"D", pot:"低", role:"轮换" },
+  { pid:"P307", name:"韦世豪", pos:"WF", posGroup:"WG", ability:75, age:"30", club:"成都蓉城", wage:"C", pot:"中", role:"轮换" },
+  { pid:"P308", name:"拜合拉木", pos:"CF", posGroup:"FW", ability:71, age:"22", club:"深圳新鹏城", wage:"D", pot:"高", role:"轮换" }
+];
+const P3_PLAYERS = [
+  { pid:"P311", name:"京多安", pos:"CM", posGroup:"MF", ability:83, age:"35", club:"加拉塔萨雷", wage:"B", pot:"低", role:"首发" },
+  { pid:"P312", name:"卡塞米罗", pos:"DM", posGroup:"MF", ability:82, age:"33", club:"曼联", wage:"B", pot:"低", role:"首发" },
+  { pid:"P313", name:"加克波", pos:"CF", posGroup:"FW", ability:83, age:"26", club:"利物浦", wage:"B", pot:"中", role:"首发" }
+];
+function packPlayersFor(sport){
+  if(sport !== "football") return [];
+  let out = [];
+  if(packActive("2026-11-19")) out = out.concat(P1_PLAYERS);
+  if(packActive("2026-11-26")) out = out.concat(P3_PLAYERS);
+  return out;
+}
+function ratingOf(p){ const v = p.ability + (mock.state.growth[p.pid] || 0); return v >= 92 ? "S" : v >= 85 ? "A" : v >= 78 ? "B" : "C"; }
+function ratingBadge(p){ return packActive("2026-11-26") ? ` · 评级 <b>${ratingOf(p)}</b>` : ""; }
+function effSignPrice(p){
+  const base = signPrice(p);
+  if(P3_PLAYERS.some(x => x.pid === p.pid) && packActive("2026-11-26") && !(mock.state.p3Used || {})[p.pid]) return Math.round(base * 0.8);
+  return base;
+}
+function marketAbilityText(p){
+  if(P3_PLAYERS.some(x => x.pid === p.pid) && packActive("2026-11-26") && !(mock.state.p3Used || {})[p.pid])
+    return `能力约 ${p.ability - 4}–${p.ability + 4} · 球探置信度 60% · 推荐位 8 折`;
+  return `能力 ${p.ability}`;
+}
+function growCostOf(p){
+  const g = mock.state.growth[p.pid] || 0;
+  let c = 60 + g * 40;
+  if((mock.state.facilityLv || 1) >= 2) c = Math.round(c * 0.9);
+  if(mock.state.commSynergy) c = Math.round(c * 0.8);
+  return c;
+}
+const COMM_TIER = { label: "拉练委托", dur: "12 小时", kind: "commission" };
+const COMM_CLUBS = ["皇家马德里","曼城","拜仁慕尼黑","巴塞罗那","利物浦","阿森纳","巴黎圣日耳曼","国际米兰","AC米兰","马德里竞技","切尔西","曼联","多特蒙德","那不勒斯","托特纳姆热刺"];
+function commClubToday(){ return COMM_CLUBS[hashN(beijingDateStr()) % COMM_CLUBS.length]; }
+async function arrangeCommission(p){
+  ensureV2State();
+  const s = mock.state, today = beijingDateStr();
+  if(s.commDayKey !== today){ s.commDayKey = today; s.commCount = 0; }
+  if(s.commCount >= 2){ toast("今日委托名额已满（2 人），明天再来"); return; }
+  const club = commClubToday();
+  const r = await api("/api/arrange", { jobs: [{ playerId: p.pid, tier: "CX", kind: "commission" }] });
+  if(r.ok){ s.commCount += 1; mock.save(); awayMap.set(p.pid, "拉练委托中"); toast(`${club} 的委托函已接下：${p.name} 外出拉练 12 小时，归队结算委托费 180＋产出 25`); render(); }
+  else toast("委托安排失败：" + (r.code || ""));
+}
+function renderFacility(){
+  const el = $("#facilityBody"); if(!el) return;
+  ensureV2State();
+  const s = mock.state;
+  if(!packActive("2026-11-19")){ el.innerHTML = `<div class="pmeta">训练场 Lv${s.facilityLv}。扩建计划 11/19 随新球员群一同开放。</div>`; return; }
+  if(s.facilityLv >= 2){ el.innerHTML = `<div class="pmeta">训练场 Lv2 已建成：全队特训成本 −10%（与委托默契加成可叠加）。</div>`; return; }
+  el.innerHTML = `<div class="row"><div class="pmeta">训练场 Lv1 → Lv2：特训成本 −10%，一次性投入 300 资金。</div><button id="facBtn" ${(s.balance || 0) >= 300 ? "" : "disabled"}>扩建 300</button></div>`;
+  const b = $("#facBtn");
+  if(b) b.onclick = () => { if((s.balance || 0) < 300) return; s.balance -= 300; s.facilityLv = 2; mock.save(); toast("训练场扩建完成：特训成本 −10%"); render(); };
+}
 
 /* ---------- 二期：租借/免签/球探/询价/事件链 ---------- */
 function hashN(s){ let h = 0; for(const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; }
@@ -645,6 +728,29 @@ function renderEvents(){
   const s = mock.state, dayN = seasonDayN();
   el.innerHTML = "";
   let any = false;
+  if(s.founded && packActive("2026-11-19") && !s.p1Seen){
+    any = true;
+    const card = document.createElement("div"); card.className = "card";
+    card.innerHTML = `<div class="pname">🌟 新星来投</div><div class="pmeta">转会窗的风吹进了训练基地。8 名球员已抵达，等待你的签约决定：奥纳纳、托莫里、板仓滉、蒋圣龙、朱辰杰、刘洋、韦世豪、拜合拉木——已加入签约市场。训练场即日起可扩建至 Lv2。</div><div class="tiers"><button>知道了</button></div>`;
+    card.querySelector("button").onclick = () => { s.p1Seen = true; mock.save(); render(); };
+    el.appendChild(card);
+  }
+  if(s.founded && packActive("2026-11-26") && !s.p3NoteSeen){
+    any = true;
+    const card = document.createElement("div"); card.className = "card";
+    card.innerHTML = `<div class="pname">📓 球探手记 · 未完</div><div class="pmeta">球探带着报告回来了：全队评级已公布（名单卡上可见），京多安、卡塞米罗、加克波 3 人列入推荐签约（8 折，只此一次）。附：另有一份关于『特邀导师』的旧档案，球探说等赛季结束再打开。</div><div class="tiers"><button>收下报告</button></div>`;
+    card.querySelector("button").onclick = () => { s.p3NoteSeen = true; mock.save(); render(); };
+    el.appendChild(card);
+  }
+  if(s.founded && packActive("2026-11-29") && !s.p4Seen){
+    any = true;
+    const totalMatches = Object.values(s.played || {}).reduce((a, b) => a + b, 0) / 2;
+    const veterans = PLAYERS.concat(P1_PLAYERS).filter(p => isSigned(p) && +p.age >= 35).map(p => p.name);
+    const card = document.createElement("div"); card.className = "card";
+    card.innerHTML = `<div class="pname">🏆 最后一周 · 收官预告</div><div class="pmeta">明天（11/30）赛季收官：冠军典礼＋老将告别赛。本季回顾——总场次 ${totalMatches}、总产出 ${s.output || 0}、本季声望 ${s.rep || 0}。${veterans.length ? "告别赛致谢名单：" + veterans.join("、") + "。" : ""}嘉宾席还空着一席——听说有位老朋友会在典礼那天出现。</div><div class="tiers"><button>知道了</button></div>`;
+    card.querySelector("button").onclick = () => { s.p4Seen = true; mock.save(); render(); };
+    el.appendChild(card);
+  }
   if(s.founded && dayN >= 5 && !s.chain && !s.chainDone){
     const cand = PLAYERS.filter(p => isSigned(p) && +p.age >= 30 && !(s.loansIn || {})[p.pid]).sort((a, b) => +b.age - +a.age)[0]
       || BPLAYERS.filter(p => isSigned(p) && p.ability >= 85).sort((a, b) => b.ability - a.ability)[0];
@@ -737,9 +843,9 @@ function renderMarket(){
   }
   if(!free.length){ const d=document.createElement("div"); d.className="hint"; d.textContent="常规市场已无自由球员。"; ml.appendChild(d); return; }
   for(const p of free.slice(0, 12)){
-    const price = signPrice(p); const afford = (mock.state.balance||0) >= price;
+    const price = effSignPrice(p); const afford = (mock.state.balance||0) >= price;
     const el = document.createElement("div"); el.className = "card";
-    el.innerHTML = `<div class="row"><div><span class="pname">${p.name}</span><div class="pmeta">${p.pos} · 能力 ${p.ability} · 日薪 ${wageOf(p)} · 自由球员</div></div><button ${afford?"":"disabled"}>签约 ${price} 资金</button></div>`;
+    el.innerHTML = `<div class="row"><div><span class="pname">${p.name}</span><div class="pmeta">${p.pos} · ${marketAbilityText(p)} · 日薪 ${wageOf(p)} · 自由球员</div></div><button ${afford?"":"disabled"}>签约 ${price} 资金</button></div>`;
     const btn = el.querySelector("button");
     if(btn) btn.onclick = ()=>signPlayer(p);
     const sb2 = document.createElement("button"); sb2.className = "mini"; sb2.style.marginTop = "8px"; sb2.textContent = "球探考察";
@@ -753,7 +859,7 @@ function renderMarket(){
 async function signPlayer(p, priceOverride){
   const price = priceOverride || signPrice(p);
   if((mock.state.balance||0) < price){ toast("资金不够，还差 " + (price - (mock.state.balance||0))); return; }
-  mock.state.balance -= price; signedSet().push(p.pid); if(mock.state.quotes) delete mock.state.quotes[p.pid]; if(mock.state.scout) delete mock.state.scout[p.pid]; mock.save();
+  mock.state.balance -= price; signedSet().push(p.pid); if(mock.state.quotes) delete mock.state.quotes[p.pid]; if(mock.state.scout) delete mock.state.scout[p.pid]; if(mock.state.p3Used && P3_PLAYERS.some(x=>x.pid===p.pid)) mock.state.p3Used[p.pid]=true; mock.save();
   toast(`${p.name} 签约加盟！（-${price} 资金）`); render();
 }
 function renderSquad(){
@@ -916,7 +1022,7 @@ async function render(){
   const hr2=new Date().getHours(); $("#eveningBar").classList.toggle("hidden", !(hr2>=19&&hr2<23));
   const sq=$("#squadList"); sq.innerHTML="";
   renderSquad();
-  renderFinance();
+  renderFinance(); renderFacility();
   renderEvents(); renderScout(); renderLoanPending();
   if(!inShell) renderBoard();
 }
