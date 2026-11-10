@@ -98,6 +98,8 @@
     <div id="posChips" style="margin-top:8px"></div>
   </div>
   <div id="squadList"></div>
+  <h2 style="margin-top:14px">签约市场 <span class="hint" id="marketHint"></span></h2>
+  <div id="marketList"></div>
 </section>
 
 <section>
@@ -207,6 +209,11 @@ const RETURN_LINES = ["回来时鞋钉上还沾着客场的草屑。","行李都
 /* 运动包接口（SPORT_PACKS）：加新运动＝按此结构加一个包＋名单数据，引擎零改动。
  * 必填：id/label/icon/positions/powerN/players/leagues/oppPower；
  * terms 为该运动的术语覆盖（缺省用通用词）。电竞等后续包照此结构接入（见 docs/运动包扩展设计.md）。 */
+const STARTER_SQUADS = {"football": ["P008", "P045", "P040", "P039", "P070", "P072", "P087", "P096", "P118", "P085", "P036"], "basketball": ["B16", "B22", "B39", "B36", "B59", "B134", "B87", "B88", "B113", "B147"]};
+const SIGN_CFG = { base: 60, quad: 0.9, min: 60 };
+function signPrice(p){ return Math.max(SIGN_CFG.min, Math.round(Math.pow(Math.max(0, p.ability - SIGN_CFG.base), 2) * SIGN_CFG.quad)); }
+function signedSet(){ if(!mock.state.signed) mock.state.signed = [...STARTER_SQUADS.football, ...STARTER_SQUADS.basketball]; return mock.state.signed; }
+function isSigned(p){ return signedSet().includes(p.pid); }
 const SPORT_PACKS = {
   football: { id:"football", label:"足球", icon:"⚽", positions:["门将","后卫","中场","边锋","中锋"], powerN:11,
     players:()=>PLAYERS, leagues:()=>LEAGUES, opp:()=>OPP_POWER,
@@ -218,7 +225,7 @@ const SPORT_PACKS = {
 const SPORTS = SPORT_PACKS;
 function curSport(){ return SPORT_PACKS[mock.state.sport||"football"] || SPORT_PACKS.football; }
 function sportTerms(){ return curSport().terms || {}; }
-function teamPower(){ const sp=curSport(); const sorted=[...sp.players()].map(p=>p.ability+(mock.state.growth[p.pid]||0)).sort((a,b)=>b-a); const n=sp.powerN; return Math.round(sorted.slice(0,n).reduce((a,b)=>a+b,0)/n); }
+function teamPower(){ const sp=curSport(); const mine=sp.players().filter(isSigned); if(!mine.length) return 0; const sorted=mine.map(p=>p.ability+(mock.state.growth[p.pid]||0)).sort((a,b)=>b-a); const n=Math.min(sp.powerN, sorted.length); return Math.round(sorted.slice(0,n).reduce((a,b)=>a+b,0)/n); }
 function findPlayer(pid){ return PLAYERS.find(x=>x.pid===pid) || BPLAYERS.find(x=>x.pid===pid); }
 function playerCard(p){
   const away = awayMap.get(p.pid);
@@ -291,8 +298,33 @@ async function doSettle(showSheet){
 
 /* ---------- 名单渲染（运动/筛选/搜索）与快捷操作 ---------- */
 let squadPosFilter = "";
+function renderMarket(){
+  const ml = $("#marketList"); if(!ml) return;
+  const hint = $("#marketHint");
+  const all = curSport().players(); const mine = all.filter(isSigned);
+  if(hint) hint.textContent = `已组建 ${mine.length}/${all.length} 人 · 用资金签下自由球员，慢慢把队伍做大`;
+  ml.innerHTML = "";
+  const free = all.filter(p=>!isSigned(p)).sort((a,b)=>b.ability-a.ability);
+  if(!free.length){ const d=document.createElement("div"); d.className="hint"; d.textContent="本运动球员已全部签下。"; ml.appendChild(d); return; }
+  for(const p of free.slice(0, 12)){
+    const price = signPrice(p); const afford = (mock.state.balance||0) >= price;
+    const el = document.createElement("div"); el.className = "card";
+    el.innerHTML = `<div class="row"><div><span class="pname">${p.name}</span><div class="pmeta">${p.pos} · 能力 ${p.ability} · 自由球员</div></div><button ${afford?"":"disabled"}>签约 ${price} 资金</button></div>`;
+    const btn = el.querySelector("button");
+    if(btn) btn.onclick = ()=>signPlayer(p);
+    ml.appendChild(el);
+  }
+  if(free.length > 12){ const d=document.createElement("div"); d.className="hint"; d.textContent = `市场共 ${free.length} 名自由球员，先显示能力最高的 12 名；签下后自动刷新。`; ml.appendChild(d); }
+}
+async function signPlayer(p){
+  const price = signPrice(p);
+  if((mock.state.balance||0) < price){ toast("资金不够，还差 " + (price - (mock.state.balance||0))); return; }
+  mock.state.balance -= price; signedSet().push(p.pid); mock.save();
+  toast(`${p.name} 签约加盟！（-${price} 资金）`); render();
+}
 function renderSquad(){
   const sq = $("#squadList"); if(!sq) return;
+  renderMarket();
   sq.innerHTML = "";
   const q = ($("#squadSearch") && $("#squadSearch").value || "").trim();
   const f = $("#squadFilter") ? $("#squadFilter").value : "";
@@ -307,7 +339,7 @@ function renderSquad(){
   const tabs = $("#sportTabs");
   if(tabs){ tabs.innerHTML=""; for(const sp of Object.values(SPORT_PACKS)){ const b=document.createElement("button"); b.className="mini"+((mock.state.sport||"football")===sp.id?" act":""); b.textContent = sp.icon+" "+sp.label+"队"; b.onclick=()=>{ mock.state.sport=sp.id; mock.save(); render(); toast("已切换到"+sp.label+"队"); }; tabs.appendChild(b); tabs.appendChild(document.createTextNode(" ")); } }
   let shown = 0;
-  for(const p of curSport().players()){
+  for(const p of curSport().players().filter(isSigned)){
     const away = awayMap.get(p.pid);
     if(squadPosFilter && p.pos!==squadPosFilter) continue;
     if(f==="idle" && away) continue;
@@ -318,7 +350,7 @@ function renderSquad(){
   if(!shown){ const d=document.createElement("div"); d.className="hint"; d.textContent="没有符合条件的球员，换个筛选试试。"; sq.appendChild(d); }
 }
 async function quickArrangeAll(){
-  const idle = curSport().players().filter(p=>!awayMap.get(p.pid));
+  const idle = curSport().players().filter(p=>isSigned(p) && !awayMap.get(p.pid));
   if(!idle.length){ toast("当前运动没有空闲球员"); return; }
   let n = 0;
   for(const p of idle){ const r = await api("/api/arrange", { jobs:[{playerId:p.pid, tier:"T1", kind:"training"}] }); if(r.ok){ awayMap.set(p.pid, TIERS.T1.label+"中"); n++; } }
@@ -331,7 +363,7 @@ async function quickClaimAll(){
   toast(`一键迎接完成：${pend.length} 人归队`);
 }
 async function quickTrainWeakest(){
-  const idle = curSport().players().filter(p=>!awayMap.get(p.pid)).sort((a,b)=>(a.ability+(mock.state.growth[a.pid]||0))-(b.ability+(mock.state.growth[b.pid]||0)));
+  const idle = curSport().players().filter(p=>isSigned(p) && !awayMap.get(p.pid)).sort((a,b)=>(a.ability+(mock.state.growth[a.pid]||0))-(b.ability+(mock.state.growth[b.pid]||0)));
   if(!idle.length){ toast("没有空闲球员可特训"); return; }
   growPlayer(idle[0]);
 }
