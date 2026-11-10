@@ -279,6 +279,7 @@
       <button class="mini" id="matchSpeed" onclick="matchToggleSpeed()">倍速 ×1</button>
       <button class="mini ghost" onclick="matchSkip()">跳过并结算</button>
     </div>
+    <canvas id="matchPitch" width="680" height="400" style="width:100%;display:block;border-radius:12px;margin:4px 0"></canvas>
     <div id="matchNode"></div>
     <div id="matchTicker" class="ticker"></div>
   </div>
@@ -315,7 +316,8 @@
     <h2 style="color:var(--ink);font-size:16px;">给你的俱乐部起个名字</h2>
     <input type="text" id="nameInput" maxlength="10" placeholder="新星联队">
     <div class="hint">1–10 个字，不填就用默认名「新星联队」。这支队是你自己的，对手是 15 家真实豪门。<br>领队老陈：「名字先定下来，剩下的交给我们。」</div>
-    <div style="margin-top:14px; display:flex; gap:8px;"><button id="nameOk" style="flex:1;">就叫这个</button></div>
+    <div class="hint hidden" id="nameAdHint" style="margin-top:8px;color:#a83226;">改名需看一次广告，完整看完并确认奖励到账后才生效；中途退出或广告不可用，不落名、不惩罚，原名保留。</div>
+    <div style="margin-top:14px; display:flex; gap:8px;"><button id="nameOk" style="flex:1;">就叫这个</button><button id="nameCancel" class="ghost hidden" style="flex:0 0 96px;">取消</button></div>
   </div>
 </div>
 
@@ -1391,7 +1393,7 @@ function openLiveMatch(){
   $("#matchModal").classList.remove("hidden");
   const mn = $("#matchNode"); if(mn) mn.innerHTML = "";
   const ms = $("#matchSpeed"); if(ms) ms.textContent = "倍速 ×1";
-  renderMatchHead(); renderMatchTicker(); matchAdvance(false);
+  renderMatchHead(); renderMatchTicker(); pitchStart(); matchAdvance(false);
 }
 function segBounds(L){ return L.sportId === "basketball" ? [0, 12, 24, 36, 48] : [0, 15, 30, 45, 60, 75, 90]; }
 function renderMatchHead(){
@@ -1577,6 +1579,96 @@ function htPickIn(pid){ const L = LIVE; if(!L || !HT_OUT){ toast("先点要换�
   pushLine(L.minute, `换人：${(findPlayer(HT_OUT) || {}).name || HT_OUT} 下，${(findPlayer(pid) || {}).name || pid} 上。`, "chance");
   if(typeof bumpDaily === "function") bumpDaily("sub", 1); HT_OUT = null; htDone(); }
 function matchSkip(){ const L = LIVE; if(!L || L.settled) return; if(L.timer) clearTimeout(L.timer); const wasHT = L.atHT; L.atHT = false; closeNode(); L.paused = false; if(wasHT) matchAdvance(true); else finishSegment(true); }
+/* ---------- v14.1 2D 小点比赛可视化（纯表现层：事件流驱动，不动模拟引擎） ---------- */
+const PD = { dots: [], away: [], ball: { x: .5, y: .5 }, poss: "my", possT: 0, flash: null, lastMy: -1, lastOpp: -1, raf: 0, t: 0 };
+window.__PD = PD;
+function pitchBasePos(sportId, groups, mirror){
+  const pos = [];
+  const put = (gx, ys)=>{ for(const y of ys) pos.push({ bx: mirror ? 1 - gx : gx, by: y }); };
+  if(sportId === "basketball"){ put(.18, [.5]); put(.34, [.22, .78]); put(.52, [.38, .62]); }
+  else {
+    const g = { GK:0, DF:0, MF:0, WG:0, ST:0, FW:0 };
+    for(const k of groups) g[k] = (g[k] || 0) + 1;
+    const spread = n => n <= 1 ? [.5] : Array.from({length:n}, (_,i)=> .12 + .76 * (i / (n - 1)));
+    put(.06, [.5]);
+    if(g.DF) put(.24, spread(g.DF));
+    if(g.MF) put(.46, spread(g.MF));
+    if(g.WG) put(.62, spread(g.WG));
+    const fw = (g.ST || 0) + (g.FW || 0); if(fw) put(.74, spread(fw));
+    while(pos.length < groups.length) pos.push({ bx: .5, by: .5 });
+  }
+  return pos.slice(0, groups.length || pos.length);
+}
+function pitchStart(){
+  const L = LIVE; if(!L) return;
+  const cv = $("#matchPitch"); if(!cv) return;
+  const groups = L.onPitch.map(x=>{ const p = findPlayer(x.pid); return p ? slotGroupOf(p, L.sportId) : "MF"; });
+  const awayGroups = L.sportId === "basketball" ? ["控卫","分卫","小前锋","大前锋","中锋"] : ["GK","DF","DF","DF","DF","MF","MF","MF","WG","ST","ST"];
+  const awaySlot = L.sportId === "basketball" ? ["中锋","大前锋","小前锋","分卫","控卫"] : null;
+  const mk = (arr, mirror)=>pitchBasePos(L.sportId, arr, mirror).map(b=>({ bx: b.bx, by: b.by, x: b.bx, y: b.by }));
+  PD.dots = mk(groups, false);
+  PD.away = L.sportId === "basketball" ? mk(awayGroups, true) : mk(awayGroups.map(g=>g), true);
+  PD.ball = { x: .5, y: .5 }; PD.poss = "my"; PD.possT = 0; PD.flash = null;
+  PD.lastMy = L.my; PD.lastOpp = L.oppScore; PD.t = 0;
+  PD.gen = (PD.gen || 0) + 1; const gen = PD.gen;
+  if(PD.raf) cancelAnimationFrame(PD.raf);
+  const frame = ()=>{
+    if(PD.gen !== gen || !LIVE || LIVE !== L){ PD.raf = 0; return; }
+    const modal = $("#matchModal");
+    if(!modal || modal.classList.contains("hidden")){ PD.raf = 0; return; }
+    pitchTick();
+    PD.raf = requestAnimationFrame(frame);
+  };
+  PD.raf = requestAnimationFrame(frame);
+}
+function pitchTick(){
+  const L = LIVE, cv = $("#matchPitch"); if(!L || !cv) return;
+  const ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
+  const frozen = L.paused || L.settled;
+  if(!frozen){
+    PD.t += (1 / 60) * (L.speed || 1);
+    if(PD.dots.length !== L.onPitch.length) pitchStart();
+    if(L.my !== PD.lastMy || L.oppScore !== PD.lastOpp){
+      const mine = L.my > PD.lastMy;
+      PD.flash = { x: mine ? .985 : .015, y: .5, until: PD.t + 1.1 };
+      PD.lastMy = L.my; PD.lastOpp = L.oppScore;
+    }
+    PD.possT -= 1 / 60;
+    if(PD.possT <= 0){ PD.poss = Math.random() < .52 ? "my" : "opp"; PD.possT = 1.1 + Math.random() * 1.6; }
+    const shift = PD.poss === "my" ? .09 : -.09;
+    const move = (d, i, atk)=>{ const jx = Math.sin(PD.t * 1.7 + i * 1.93) * .008, jy = Math.cos(PD.t * 1.45 + i * 2.31) * .012;
+      const tx = Math.max(.03, Math.min(.97, d.bx + (atk ? shift : -shift * .7) + jx)), ty = Math.max(.06, Math.min(.94, d.by + jy));
+      d.x += (tx - d.x) * .06; d.y += (ty - d.y) * .06; };
+    PD.dots.forEach((d, i)=>move(d, i, PD.poss === "my"));
+    PD.away.forEach((d, i)=>move(d, i + 7, PD.poss === "opp"));
+    if(PD.flash && PD.t < PD.flash.until){ PD.ball.x += (PD.flash.x - PD.ball.x) * .16; PD.ball.y += (PD.flash.y - PD.ball.y) * .16; }
+    else { PD.flash = null;
+      const team = PD.poss === "my" ? PD.dots : PD.away;
+      if(team.length){ const c = team[Math.floor((PD.t * .7) % team.length)]; PD.ball.x += (c.x - PD.ball.x) * .08; PD.ball.y += (c.y - PD.ball.y) * .08; } }
+  }
+  pitchDraw(ctx, W, H, L);
+}
+function pitchDraw(ctx, W, H, L){
+  const isB = L.sportId === "basketball";
+  ctx.clearRect(0, 0, W, H);
+  if(isB){ ctx.fillStyle = "#d9a45b"; ctx.fillRect(0, 0, W, H); ctx.fillStyle = "#c98f3d"; ctx.fillRect(0, H * .42, W, H * .16); }
+  else { const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#2e6b46"); g.addColorStop(1, "#256040"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "rgba(255,255,255,.045)"; for(let i = 0; i < 6; i += 2) ctx.fillRect(W * i / 6, 0, W / 6, H); }
+  ctx.strokeStyle = "rgba(255,253,247,.75)"; ctx.lineWidth = 2;
+  ctx.strokeRect(14, 14, W - 28, H - 28);
+  ctx.beginPath(); ctx.moveTo(W / 2, 14); ctx.lineTo(W / 2, H - 14); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W / 2, H / 2, H * .16, 0, Math.PI * 2); ctx.stroke();
+  if(isB){ for(const sx of [0, 1]){ const hx = sx ? W - 30 : 30; ctx.beginPath(); ctx.arc(hx, H / 2, 13, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeRect(sx ? W - 14 - W * .16 : 14, H * .28, W * .16, H * .44); } }
+  else { for(const sx of [0, 1]){ const bx = sx ? W - 14 - W * .13 : 14; ctx.strokeRect(bx, H * .24, W * .13, H * .52); ctx.strokeRect(sx ? W - 14 - W * .05 : 14, H * .38, W * .05, H * .24); } }
+  const dot = (d, fill)=>{ ctx.beginPath(); ctx.arc(d.x * W, d.y * H, 9, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = "#fffdf7"; ctx.stroke(); };
+  PD.away.forEach(d=>dot(d, "#2f5d8a"));
+  PD.dots.forEach(d=>dot(d, "#a83226"));
+  ctx.beginPath(); ctx.arc(PD.ball.x * W, PD.ball.y * H, 5.5, 0, Math.PI * 2); ctx.fillStyle = "#fffdf7"; ctx.fill(); ctx.lineWidth = 1.6; ctx.strokeStyle = "#23201a"; ctx.stroke();
+  ctx.fillStyle = "rgba(255,253,247,.85)"; ctx.font = "600 17px sans-serif"; ctx.textAlign = "left";
+  ctx.fillText(L.sportId === "basketball" ? "🏀 2D 直播" : "⚽ 2D 直播", 22, 36);
+  if(L.paused && !L.settled){ ctx.textAlign = "right"; ctx.fillText("⏸ 已暂停", W - 22, 36); }
+}
 function matchToggleSpeed(){ const L = LIVE; if(!L) return; L.speed = L.speed === 1 ? 3 : 1; const b = $("#matchSpeed"); if(b) b.textContent = "倍速 ×" + L.speed; }
 function settleMatch(){
   const L = LIVE; if(!L || L.settled) return; L.settled = true;
@@ -1971,8 +2063,37 @@ $("#adBtn").onclick = async () => {
   toast(`补给到账 +120 资金（今日 ${mock.state.adCount}/3）`); render();
 };
 const cbTop = $("#capBtn"); if(cbTop) cbTop.onclick = async () => { const r = await api("/api/capacity/upgrade"); if(r.ok){ toast("仓储已扩到 12 小时档！"); render(); } };
-$("#renameBtn").onclick = () => { $("#nameInput").value=$("#clubName").textContent; $("#nameModal").classList.remove("hidden"); };
-$("#nameOk").onclick = async () => { const r = await api("/api/club-name", { name: $("#nameInput").value }); if(r.ok){ $("#nameModal").classList.add("hidden"); if(!mock.state.founded && !mock.state.founding){ startFounding(); } else render(); } else toast("名字太长了（最多 10 字）"); };
+$("#renameBtn").onclick = () => { window.__renameMode = true; $("#nameInput").value=$("#clubName").textContent; const h=$("#nameAdHint"); if(h) h.classList.remove("hidden"); const c=$("#nameCancel"); if(c) c.classList.remove("hidden"); const ok=$("#nameOk"); if(ok) ok.textContent = "看广告并改名"; $("#nameModal").classList.remove("hidden"); };
+$("#nameCancel").onclick = () => { window.__renameMode = false; $("#nameModal").classList.add("hidden"); };
+$("#nameOk").onclick = async () => {
+  const isRename = !!window.__renameMode && !!mock.state.founded;
+  if(isRename){
+    const nm = ($("#nameInput").value || "").trim();
+    if(nm.length < 1 || nm.length > 10){ toast("名字要 1–10 个字"); return; }
+    if(nm === (mock.state.clubName || "")){ toast("和现在的名字一样，不用改"); return; }
+    const btn = $("#nameOk"); btn.disabled = true; btn.textContent = "广告播放中…";
+    const okAd = await watchRenameAd();
+    btn.disabled = false; btn.textContent = "看广告并改名";
+    if(!okAd){ toast("广告未完成，改名未生效（原名保留）"); return; }
+  }
+  const r = await api("/api/club-name", { name: $("#nameInput").value });
+  if(r.ok){ $("#nameModal").classList.add("hidden"); window.__renameMode = false; if(!mock.state.founded && !mock.state.founding){ startFounding(); } else { render(); if(isRename) toast("改名成功！新名字已经挂上俱乐部大门"); } }
+  else toast("名字太长了（最多 10 字）");
+};
+async function watchRenameAd(){
+  if(inShell){
+    try{
+      if(window.ColorboxAI && window.ColorboxAI.vatask && window.ColorboxAI.vatask.completeRewardVideo){
+        const res = await window.ColorboxAI.vatask.completeRewardVideo();
+        return !!(res && res.code === 200 && res.data && res.data.rewarded === true);
+      }
+    }catch(e){}
+    return false;
+  }
+  await new Promise(r=>setTimeout(r, 900));
+  return true;
+}
+window.watchRenameAd = watchRenameAd;
 
 /* ---------- v14 新手引导（经理任务链） ---------- */
 const GUIDE_STEPS = [
