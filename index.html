@@ -112,6 +112,18 @@
 .ttable tr.me{background:#fdf6e3;font-weight:700}
 
 .trio{display:flex;gap:8px;flex-wrap:wrap}
+.gstep{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px dashed #e7ddc6}
+.gstep:last-child{border-bottom:none}
+.gstep .gn{flex:0 0 22px;height:22px;border-radius:50%;background:#e7ddc6;color:#7a7261;text-align:center;line-height:22px;font-size:12px;font-weight:700}
+.gstep.done .gn{background:#2e6b46;color:#fff}
+.gstep.cur .gn{background:#a83226;color:#fff}
+.gstep .gt{flex:1}
+.gstep .gt b{font-size:14px}
+.gstep.done .gt b{color:#7a7261;text-decoration:line-through}
+.obar{height:10px;background:#e7ddc6;border-radius:5px;overflow:hidden;margin:6px 0 2px}
+.obar i{display:block;height:100%;background:linear-gradient(90deg,#2e6b46,#c9962e);border-radius:5px}
+.livedot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#2e6b46;margin-right:5px;animation:lpulse 1.6s infinite}
+@keyframes lpulse{0%,100%{opacity:1}50%{opacity:.35}}
 .trio .card{flex:1 1 30%;min-width:150px;margin-top:0}
 </style>
 </head>
@@ -128,10 +140,13 @@
   <div style="color:#7a7261;margin:16px 0 4px;font-size:13px">多运动集团经营 · 足球/篮球已开，后续持续扩充</div>
   <div id="bootBarWrap" style="width:min(72vw,340px);height:6px;background:#e3dac4;border-radius:3px;overflow:hidden;margin-top:10px"><div id="bootBar" style="height:100%;width:8%;background:#a83226;border-radius:3px;transition:width .3s"></div></div>
   <div id="bootTip" style="color:#5c5546;font-size:12px;margin-top:10px">正在整理训练场…</div>
+  <div style="color:#2e6b46;font-size:12.5px;margin-top:8px;font-weight:600">🌙 你离开的时候，球队照常训练、照常赚钱——回来记得收。</div>
   <button id="bootEnter" class="hidden" style="margin-top:18px;padding:12px 34px;font-size:17px">进入俱乐部</button>
 </div>
 <div id="eveningBar" class="hidden" style="background:#f7e8c9;color:#8a6d1a;border-bottom:1px solid var(--line);padding:8px 16px;font-size:13px;">晚市窗开启中（19:00–23:00）：离线产出 ×1.5</div>
 <div class="page on" data-page="league">
+<div id="guideSlot"></div>
+<div id="offlineSlot"></div>
 <section>
   <h2 data-no="01"><span class="eb">STAR LEAGUE</span>明星联赛 · 跨联赛对决</h2>
   <div class="card" id="leagueCard"></div>
@@ -228,6 +243,16 @@
     <div class="hint">奖励走服务端幂等发放，看完才算数，中途关掉不发。</div>
   </div>
   <div class="card">
+    <div class="pname">经理台</div>
+    <div class="pmeta" style="margin:4px 0 8px">新手任务、离线规则、把俱乐部递出去，都在这里。</div>
+    <div class="quickgrid">
+      <button class="mini" onclick="guideReopen()">📖 新手任务</button>
+      <button class="mini" onclick="openRules()">🌙 离线成长说明</button>
+      <button class="mini" onclick="shareClub()">📣 分享俱乐部</button>
+    </div>
+    <div class="row" style="margin-top:8px"><span class="hint">虎扑 App 内可把游戏加到手机桌面，明天一键回来收菜。</span><button class="mini ghost" onclick="addDesktop()">添加到桌面</button></div>
+  </div>
+  <div class="card">
     <div class="row"><div><div class="pname">存档</div><div class="pmeta" id="saveInfo">本地自动保存中</div></div><button id="saveExportBtn">导出存档码</button></div>
     <textarea id="saveCode" rows="3" style="width:100%;margin-top:8px" placeholder="导出时存档码显示在这里；换设备时把存档码粘贴到这里再点导入"></textarea>
     <div class="row" style="margin-top:6px"><span class="hint">长按文本框全选复制（平台限制，无法一键复制）。导入会覆盖当前进度，请先导出备份。</span><button class="mini" id="saveImportBtn">导入存档码</button></div>
@@ -261,6 +286,24 @@
 
 <div class="modal hidden" id="signModal">
   <div class="sheet" id="signSheet"></div>
+</div>
+
+<div class="modal hidden" id="rulesModal">
+  <div class="sheet" style="max-height:92vh;overflow-y:auto">
+    <h2 style="color:var(--ink);font-size:16px;">🌙 离线成长说明</h2>
+    <div class="hint" style="margin-bottom:8px">这支球队不打烊：你关掉页面，时间照走、成长照算。规则全部写在这里，不藏。</div>
+    <div class="kv"><span><b>1 · 谁在成长</b></span></div>
+    <div class="hint" style="margin-bottom:6px">俱乐部资金按小时自动进账；在外集训、外租、拉练委托的球员，归队倒计时照常推进，到点自己回来报到。</div>
+    <div class="kv"><span><b>2 · 成长规则</b></span></div>
+    <div class="hint" style="margin-bottom:6px">离线产出速率＝在线的 60%（60 资金/小时）。派出时长五档：队内加练 2 分钟／专项集训 15 分钟／封闭特训 2 小时／外租锻炼 8 小时／海外拉练 22 小时。仓满之前回来有「早归加成」：离线满 30 分钟起算，最高 +30%，越早回来加成越高。每晚 19:00–23:00「晚市窗」离线产出 ×1.5。</div>
+    <div class="kv"><span><b>3 · 积累上限</b></span></div>
+    <div class="hint" style="margin-bottom:6px">仓储默认 8 小时档（最多攒 480 资金），赛季第 3 天可扩到 12 小时档（720 资金）。仓满后停止累计，多出来的会在结算单里明明白白告诉你损失了多少。</div>
+    <div class="kv"><span><b>4 · 回归反馈</b></span></div>
+    <div class="hint" style="margin-bottom:6px">每次回来先给你一张结算单：离开了多久、到账多少、早归加成多少、溢出损失多少，分项列清，不玩糊涂账。</div>
+    <div class="kv"><span><b>5 · 结算一致性</b></span></div>
+    <div class="hint">结算由平台权威时钟执行并带幂等校验：重复进入、刷新、断线重连，都不会重复领取，也不会漏算。</div>
+    <div style="margin-top:14px;"><button style="width:100%;" onclick="closeRules()">知道了</button></div>
+  </div>
 </div>
 
 <div class="modal hidden" id="foundingModal">
@@ -304,7 +347,7 @@ const mock = {
       const pending=Object.values(s.contracts).filter(c=>(c.state==="away"&&c.plannedReturnEpoch<=now)||c.state==="pendingReturn").map(c=>({...c,state:"pendingReturn"}));
       pending.forEach(c=>{ const k=c.playerId+"|"+c.plannedReturnEpoch; if(s.contracts[k]) s.contracts[k].state="pendingReturn"; });
       this.save();
-      return { ok:true, clubName:s.clubName||"新星联队", capacityTier:s.tier, balance:s.balance, pendingReturns:pending };
+      return { ok:true, clubName:s.clubName||"新星联队", capacityTier:s.tier, balance:s.balance, pendingReturns:pending, settledTo:s.lastSettle };
     }
     if(path==="/api/club-name"){ s.clubName=(body.name||"").trim()||"新星联队"; this.save(); return { ok:true, clubName:s.clubName }; }
     if(path==="/api/settle"){
@@ -673,20 +716,20 @@ async function growPlayer(p){
 async function arrange(p, tierKey, tier){
   const body = tier.kind==="loan" ? { loans:[{playerId:p.pid, tier:tierKey, kind:"loan"}] } : { jobs:[{playerId:p.pid, tier:tierKey, kind:tier.kind||"training"}] };
   const r = await api("/api/arrange", body);
-  if(r.ok){ awayMap.set(p.pid, tier.label+"中"); toast(`${p.name} 已出发：${tier.label}（${tier.dur}后归队）`); render(); }
+  if(r.ok){ guideFlag("arranged"); awayMap.set(p.pid, tier.label+"中"); toast(`${p.name} 已出发：${tier.label}（${tier.dur}后归队）`); render(); }
   else toast("安排失败："+(r.code||""));
 }
 async function claimReturn(c){
   const p = findPlayer(c.playerId);
   if(c.kind==="commission"){
     const r = await api("/api/return/claim", { playerId:c.playerId, plannedReturnEpoch:c.plannedReturnEpoch, baseReward:150 });
-    if(r.ok && !r.replayed){ ensureV2State(); if(typeof bumpDaily === "function") bumpDaily("train", 1); mock.state.output += 25; mock.state.commSynergy = true; mock.state.buckets.commercial += (r.reward||180); mock.save(); toast(`${p?p.name:c.playerId} 委托归队！委托费 ${r.reward||180} 到账、训练产出 +25、下一次特训 -20%（默契加成）`); }
+    if(r.ok && !r.replayed){ guideFlag("claimed"); ensureV2State(); if(typeof bumpDaily === "function") bumpDaily("train", 1); mock.state.output += 25; mock.state.commSynergy = true; mock.state.buckets.commercial += (r.reward||180); mock.save(); toast(`${p?p.name:c.playerId} 委托归队！委托费 ${r.reward||180} 到账、训练产出 +25、下一次特训 -20%（默契加成）`); }
     else if(r.ok){ toast("已领过啦"); }
     awayMap.delete(c.playerId); render(); return;
   }
   const base = 40 + Math.round((p?p.ability:70)/2);
   const r = await api("/api/return/claim", { playerId:c.playerId, plannedReturnEpoch:c.plannedReturnEpoch, baseReward:base });
-  if(r.ok && !r.replayed){ ensureV2State(); if(typeof bumpDaily === "function") bumpDaily("train", 1); mock.state.buckets.commercial += (r.reward||0); mock.save(); toast(`${p?p.name:c.playerId} 归队！${RETURN_LINES[Math.floor(Math.random()*RETURN_LINES.length)]} 奖励 ${r.reward} 资金（践约加成 +${r.promiseBonus}）`); }
+  if(r.ok && !r.replayed){ guideFlag("claimed"); ensureV2State(); if(typeof bumpDaily === "function") bumpDaily("train", 1); mock.state.buckets.commercial += (r.reward||0); mock.save(); toast(`${p?p.name:c.playerId} 归队！${RETURN_LINES[Math.floor(Math.random()*RETURN_LINES.length)]} 奖励 ${r.reward} 资金（践约加成 +${r.promiseBonus}）`); }
   else if(r.ok){ toast("已领过啦"); }
   awayMap.delete(c.playerId); render();
 }
@@ -703,6 +746,8 @@ async function doSettle(showSheet){
       <div class="kv"><span>离线产出（60/小时）</span><b>+${r.fundsGain}</b></div>
       ${r.earlyBonus?`<div class="kv"><span>早归加成（仓满前回来）</span><b>+${r.earlyBonus}</b></div>`:""}
       ${r.cappedFunds?`<div class="kv"><span class="loss">仓储已满溢出损失</span><b class="loss">-${r.cappedFunds}</b></div><div class="hint">仓储 ${r.capacityTier} 小时档已满。扩到 12 小时档能少损失一些（赛季第 3 天解锁）。</div>`:""}
+      ${(window.__awayNames && window.__awayNames.length) ? `<div class="kv"><span>在外成长中</span><b>${window.__awayNames.join("、")}</b></div><div class="hint">他们的归队倒计时一直在走，到点回联赛页迎接。</div>` : ""}
+      <div class="hint" style="margin-top:8px">结算由平台权威时钟执行：重复进入、刷新或断线重连，不会重复领取，也不会漏算。</div>
       <div style="margin-top:14px;"><button style="width:100%;" onclick="document.querySelector('#settleModal').classList.add('hidden')">收下，开始安排</button></div>`;
     $("#settleModal").classList.remove("hidden");
   }
@@ -779,7 +824,7 @@ async function arrangeCommission(p){
   if(s.commCount >= 2){ toast("今日委托名额已满（2 人），明天再来"); return; }
   const club = commClubToday();
   const r = await api("/api/arrange", { jobs: [{ playerId: p.pid, tier: "CX", kind: "commission" }] });
-  if(r.ok){ s.commCount += 1; mock.save(); awayMap.set(p.pid, "拉练委托中"); toast(`${club} 的委托函已接下：${p.name} 外出拉练 12 小时，归队结算委托费 180＋产出 25`); render(); }
+  if(r.ok){ guideFlag("arranged"); s.commCount += 1; mock.save(); awayMap.set(p.pid, "拉练委托中"); toast(`${club} 的委托函已接下：${p.name} 外出拉练 12 小时，归队结算委托费 180＋产出 25`); render(); }
   else toast("委托安排失败：" + (r.code || ""));
 }
 /* ---------- v3 设施注册表（等级单源：训练场→facilityLv、仓储→tier、医疗室→fac.medical） ---------- */
@@ -1188,7 +1233,7 @@ async function quickArrangeAll(){
   const idle = curSport().players().filter(p=>isSigned(p) && isArrived(p) && !isOut(p.pid) && !awayMap.get(p.pid));
   if(!idle.length){ toast("当前运动没有空闲球员"); return; }
   let n = 0;
-  for(const p of idle){ const r = await api("/api/arrange", { jobs:[{playerId:p.pid, tier:"T1", kind:"training"}] }); if(r.ok){ awayMap.set(p.pid, TIERS.T1.label+"中"); n++; } }
+  for(const p of idle){ const r = await api("/api/arrange", { jobs:[{playerId:p.pid, tier:"T1", kind:"training"}] }); if(r.ok){ guideFlag("arranged"); awayMap.set(p.pid, TIERS.T1.label+"中"); n++; } }
   toast(`一键加练完成：${n} 人已出发（${TIERS.T1.label}）`); render();
 }
 async function quickClaimAll(){
@@ -1867,6 +1912,8 @@ async function render(){
     $("#seasonDay").textContent = "赛季第 "+Math.min(day,14)+" 天";
     const cbEl = $("#capBtn"); if(cbEl){ cbEl.disabled = !(day>=3 && h.capacityTier===8); if(h.capacityTier===12){ cbEl.textContent="已扩容"; cbEl.disabled=true; } }
     window.__lastPending = h.pendingReturns || [];
+    if(h.settledTo) window.__settledTo = h.settledTo;
+    window.__awayNames = [...awayMap.keys()].map(pid=>{ const pp = findPlayer(pid); return pp ? pp.name : pid; });
     const pl=$("#pendingList");
     if(h.pendingReturns && h.pendingReturns.length){
       pl.innerHTML="";
@@ -1902,7 +1949,7 @@ async function render(){
   const hr2=new Date().getHours(); $("#eveningBar").classList.toggle("hidden", !(hr2>=19&&hr2<23));
   const sq=$("#squadList"); sq.innerHTML="";
   healCheck(); renderSquad(); renderTactics(); renderTable(); renderCoach(); renderDaily(); renderWheel();
-  renderFinance(); renderFacility();
+  renderFinance(); renderFacility(); renderGuide(); renderOffline(h);
   renderEvents(); renderScout(); renderLoanPending();
   if(!inShell) renderBoard();
   const hb=$("#heroBand");
@@ -1912,9 +1959,9 @@ async function render(){
   const bdC=$("#bdClub"); if(bdC){ const n=$("#eventList").querySelectorAll(".card").length; bdC.textContent=n; bdC.style.display=n>0?"":"none"; }
 }
 let CUR_TAB="league";
-function switchTab(name){ CUR_TAB=name; document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.dataset.page===name)); document.querySelectorAll("#tabbar .tabbtn").forEach(b=>b.classList.toggle("on",b.dataset.tab===name)); window.scrollTo(0,0); }
+function switchTab(name){ if(name==="market") guideFlag("market"); CUR_TAB=name; try{ renderGuide(); }catch(e){} document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.dataset.page===name)); document.querySelectorAll("#tabbar .tabbtn").forEach(b=>b.classList.toggle("on",b.dataset.tab===name)); window.scrollTo(0,0); }
 window.switchTab=switchTab;
-document.querySelectorAll("#tabbar .tabbtn").forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+document.querySelectorAll("#tabbar .tabbtn").forEach(b=>b.onclick=()=>{ if(b.dataset.tab==="market") guideFlag("market"); switchTab(b.dataset.tab); });
 $("#adBtn").onclick = async () => {
   const dayKey = new Date(Date.now()+8*3600*1000).toISOString().slice(0,10);
   if(mock.state.adDay!==dayKey){ mock.state.adDay=dayKey; mock.state.adCount=0; }
@@ -1926,6 +1973,86 @@ $("#adBtn").onclick = async () => {
 const cbTop = $("#capBtn"); if(cbTop) cbTop.onclick = async () => { const r = await api("/api/capacity/upgrade"); if(r.ok){ toast("仓储已扩到 12 小时档！"); render(); } };
 $("#renameBtn").onclick = () => { $("#nameInput").value=$("#clubName").textContent; $("#nameModal").classList.remove("hidden"); };
 $("#nameOk").onclick = async () => { const r = await api("/api/club-name", { name: $("#nameInput").value }); if(r.ok){ $("#nameModal").classList.add("hidden"); if(!mock.state.founded && !mock.state.founding){ startFounding(); } else render(); } else toast("名字太长了（最多 10 字）"); };
+
+/* ---------- v14 新手引导（经理任务链） ---------- */
+const GUIDE_STEPS = [
+  { id:"tactics", t:"排兵布阵", d:"去阵容页选一个战术心态，或开一个战术指令", tip:"老陈：先把打法立住，克制对面比堆战力划算。", tab:"squad" },
+  { id:"arranged", t:"派人成长", d:"安排 1 名球员去集训或外租——离线也在长", tip:"老陈：人派出去了，你关掉页面他也照练。", tab:"squad" },
+  { id:"match", t:"打第一场联赛", d:"在联赛页完成 1 场比赛（可倍速、可跳过）", tip:"老陈：赢了涨声望，输了也给教练经验，不亏。", tab:"league" },
+  { id:"market", t:"逛签约市场", d:"打开市场页看看今天有哪些人", tip:"老陈：先看价再下手，工资占比别过 70% 红线。", tab:"market" },
+  { id:"claimed", t:"迎接归队", d:"有球员归队时，在联赛页点「迎接归队」", tip:"老陈：加练 2 分钟就回，迎接还有践约加成。", tab:"league" },
+];
+function ensureGuide(){ const s = mock.state; if(!s.guide) s.guide = { flags:{}, rewarded:{}, hidden:false, allDone:false }; if(!s.guide.flags) s.guide.flags = {}; if(!s.guide.rewarded) s.guide.rewarded = {}; return s.guide; }
+function guideFlag(name){ try{ const g = ensureGuide(); if(!g.flags[name]){ g.flags[name] = true; mock.save(); } }catch(e){} }
+window.guideFlag = guideFlag;
+function guideStepDone(st){
+  const s = mock.state, g = ensureGuide();
+  if(st.id === "tactics"){ const tp = s.tprof || {}; for(const k of ["football","basketball"]){ const t = tp[k]; if(t && (t.mentality !== "bal" || Object.values(t.instr || {}).some(v=>v))) return true; } return false; }
+  if(st.id === "match") return Object.keys(s.played || {}).length > 0;
+  return !!g.flags[st.id];
+}
+function renderGuide(){
+  const el = $("#guideSlot"); if(!el) return;
+  const s = mock.state, g = ensureGuide();
+  if(!s.founded || g.hidden){ el.innerHTML = ""; return; }
+  ensureV2State(); ensureMatchState();
+  let changed = false;
+  GUIDE_STEPS.forEach((st, i)=>{ if(guideStepDone(st) && !g.rewarded[i]){ g.rewarded[i] = true; changed = true; s.coach.xp += 15; toast(`新手任务完成：${st.t}（教练经验 +15）`); } });
+  const doneN = GUIDE_STEPS.filter(st=>guideStepDone(st)).length;
+  if(doneN === GUIDE_STEPS.length && !g.allDone){ g.allDone = true; changed = true; s.balance += 100; s.buckets.commercial += 100; toast("新手任务全清！毕业奖金 +100 资金"); }
+  if(changed) mock.save();
+  if(g.allDone){ el.innerHTML = `<div class="card" style="border-color:#2e6b46"><div class="row"><div><span class="pname" style="font-size:15px">🎓 经理手册 · 已毕业</span><div class="pmeta">五步全清，毕业奖金已到账。接下来就按赛季日历往前推：每天一场联赛，球员常派常新。</div></div><button class="mini ghost" onclick="guideHide()">收起</button></div></div>`; return; }
+  const cur = GUIDE_STEPS.findIndex(st=>!guideStepDone(st));
+  el.innerHTML = `<div class="card" style="border-color:#c9962e">
+    <div class="row"><div><span class="eb">MANAGER HANDBOOK</span><div class="pname" style="font-size:15px">新手任务 · ${doneN}/5</div></div><button class="mini ghost" onclick="guideHide()">先收起</button></div>
+    ${GUIDE_STEPS.map((st, i)=>{ const dn = guideStepDone(st); return `<div class="gstep ${dn ? "done" : i === cur ? "cur" : ""}"><div class="gn">${dn ? "✓" : i + 1}</div><div class="gt"><b>${st.t}</b><div class="pmeta">${st.d} · 每步奖励教练经验 +15</div>${i === cur ? `<div class="hint" style="margin-top:2px">${st.tip}</div>` : ""}</div>${i === cur ? `<button class="mini" onclick="switchTab('${st.tab}')">去完成</button>` : ""}</div>`; }).join("")}
+    <div class="hint">五步全清另有毕业奖金 +100 资金。随时可从「俱乐部 → 经理台」重新打开。</div>
+  </div>`;
+}
+function guideHide(){ ensureGuide().hidden = true; mock.save(); renderGuide(); }
+function guideReopen(){ ensureGuide().hidden = false; mock.save(); switchTab("league"); render(); toast("新手任务在联赛页顶部"); }
+window.guideHide = guideHide; window.guideReopen = guideReopen;
+
+/* ---------- v14 离线成长卡 ---------- */
+function renderOffline(h){
+  const el = $("#offlineSlot"); if(!el) return;
+  const tier = (h && h.capacityTier) || window.__capTier || 8;
+  const capFunds = tier * 60;
+  const from = window.__settledTo || mock.state.lastSettle || Date.now();
+  const elapsed = Math.max(0, Date.now() - from);
+  const hr = new Date().getHours(), inWin = hr >= 19 && hr < 23;
+  const rate = inWin ? 90 : 60;
+  const accrued = Math.min(capFunds, Math.floor(elapsed / 3600000 * rate));
+  const pct = Math.min(100, Math.round(accrued / capFunds * 100));
+  const remainMs = Math.max(0, tier * 3600000 - elapsed);
+  const awayN = awayMap.size, pendN = (window.__lastPending || []).length;
+  el.innerHTML = `<div class="card" style="border-color:#2e6b46">
+    <div class="row"><div><span class="eb">OFFLINE GROWTH</span><div class="pname" style="font-size:15px"><span class="livedot"></span>离线成长 · 球队从不打烊</div></div><button class="mini ghost" onclick="openRules()">规则说明</button></div>
+    <div class="pmeta" style="margin-top:4px">你不在的时候：资金按 <b>${rate} / 小时</b> 自动进账（离线速率＝在线 60%${inWin ? "，晚市窗 ×1.5 生效中" : ""}），派出去的球员照常训练、到点归队。</div>
+    <div class="obar"><i style="width:${pct}%"></i></div>
+    <div class="row"><span class="hint">仓储已攒约 <b>${accrued}</b> / ${capFunds} 资金（${tier} 小时档）</span><span class="hint">${accrued >= capFunds ? "已满仓！回来正好收，别让它溢出" : "约 " + fmtDur(remainMs) + " 后满仓"}</span></div>
+    <div class="row" style="margin-top:6px"><span class="hint">${awayN ? `🏃 ${awayN} 人在外成长中` : "🏃 还没派人出去成长"}${pendN ? ` · 🎉 ${pendN} 人已归队待迎接` : ""}</span><button class="mini" onclick="switchTab('squad')">去安排球员</button></div>
+    ${inWin ? "" : `<div class="hint" style="margin-top:4px">今晚 19:00–23:00 晚市窗：离线产出 ×1.5（90 / 小时）。</div>`}
+  </div>`;
+}
+function openRules(){ $("#rulesModal").classList.remove("hidden"); }
+function closeRules(){ $("#rulesModal").classList.add("hidden"); }
+window.openRules = openRules; window.closeRules = closeRules;
+
+/* ---------- v14 分享 / 添加到桌面（壳内能力，点击触发，试玩版降级提示） ---------- */
+function shareClub(){
+  const data = { title: "我在联赛当经理", link: window.location.href, text: "接手一家自创俱乐部，足球篮球双队同营——你离开时球队照常训练赚钱，14 天赛季冲榜。" };
+  try{
+    if(window.ColorboxAI && window.ColorboxAI.social && window.ColorboxAI.social.share) return window.ColorboxAI.social.share(data);
+    if(window.ColorboxAI && window.ColorboxAI.bridge && window.ColorboxAI.bridge.device && window.ColorboxAI.bridge.device.share) return window.ColorboxAI.bridge.device.share(data);
+  }catch(e){}
+  toast("分享面板在虎扑 App 内打开；试玩版先把链接发给朋友也一样");
+}
+function addDesktop(){
+  try{ if(window.ColorboxAI && window.ColorboxAI.addToDesktop) return window.ColorboxAI.addToDesktop(); }catch(e){}
+  toast("添加到桌面在虎扑 App 内可用");
+}
+window.shareClub = shareClub; window.addDesktop = addDesktop;
 
 (async function boot(){
   const h = await api("/api/home");
