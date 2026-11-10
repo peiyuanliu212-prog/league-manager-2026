@@ -256,9 +256,14 @@
     <div class="row" style="margin-top:8px"><span class="hint">虎扑 App 内可把游戏加到手机桌面，明天一键回来收菜。</span><button class="mini ghost" onclick="addDesktop()">添加到桌面</button></div>
   </div>
   <div class="card">
-    <div class="row"><div><div class="pname">存档</div><div class="pmeta" id="saveInfo">本地自动保存中</div></div><button id="saveExportBtn">导出存档码</button></div>
-    <textarea id="saveCode" rows="3" style="width:100%;margin-top:8px" placeholder="导出时存档码显示在这里；换设备时把存档码粘贴到这里再点导入"></textarea>
-    <div class="row" style="margin-top:6px"><span class="hint">长按文本框全选复制（平台限制，无法一键复制）。导入会覆盖当前进度，请先导出备份。</span><button class="mini" id="saveImportBtn">导入存档码</button></div>
+    <div class="row"><div><div class="pname">存档</div><div class="pmeta" id="saveInfo">本地自动保存中</div></div><span class="hint" id="activeSlotHint"></span></div>
+    <div id="slotsBody" style="margin-top:8px"><div class="hint">档位加载中…</div></div>
+    <div class="row" style="margin-top:12px"><div><div class="pname" style="font-size:14px">云端短码</div><div class="pmeta">8 位短码永久有效，凭码在任何设备取回；与档位槽互通。发码/取码每小时合计 10 次。</div></div><button id="codeIssueBtn">生成短码</button></div>
+    <div id="shortCodeOut" style="margin-top:6px"></div>
+    <div class="row" style="margin-top:8px"><input id="shortCodeIn" placeholder="输入 8 位短码" maxlength="8" style="flex:1;min-width:100px;text-transform:uppercase"><span class="hint">导入到</span><select id="importSlotSel"><option value="1">存档 1</option><option value="2">存档 2</option><option value="3">存档 3</option><option value="4">存档 4</option><option value="5">存档 5</option></select><button class="mini" id="codeFetchBtn">凭短码导入</button></div>
+    <div class="hint" style="margin-top:12px">长码（离线兜底，老存档码继续可用）：</div>
+    <textarea id="saveCode" rows="3" style="width:100%;margin-top:6px" placeholder="导出时长码显示在这里；换设备时把长码粘贴到这里再点导入"></textarea>
+    <div class="row" style="margin-top:6px"><span class="hint">长按文本框全选复制（平台限制，无法一键复制）。导入会先进所选档位再载入，请先备份。</span><span><button class="mini ghost" id="saveExportBtn">导出长码</button> <button class="mini" id="saveImportBtn">导入长码</button></span></div>
   </div>
   <div class="card">
     <div class="row"><div><div class="pname">俱乐部改名</div><div class="pmeta">1–10 个字</div></div><button class="ghost" id="renameBtn">改名</button></div>
@@ -380,6 +385,27 @@ const mock = {
       return { ok:true, reward:base+bonus, base, promiseBonus:bonus };
     }
     if(path==="/api/capacity/upgrade"){ s.tier=12; this.save(); return { ok:true, capacityTier:12 }; }
+    if(path==="/api/savecode"||path==="/api/savecode/fetch"){
+      const hr=Math.floor(now/3600000); let rate={}; try{ rate=JSON.parse(localStorage.getItem("lm_rate")||"{}"); }catch(e){}
+      rate[hr]=(rate[hr]||0)+1; localStorage.setItem("lm_rate", JSON.stringify(rate));
+      if(rate[hr]>10) return { ok:false, code:"RATE_LIMITED" };
+      let codes={}; try{ codes=JSON.parse(localStorage.getItem("lm_codes")||"{}"); }catch(e){}
+      if(path==="/api/savecode"){
+        const payload=body.payload; if(typeof payload!=="string"||!payload||payload.length>200000) return { ok:false, code:"BAD_PAYLOAD" };
+        const A="ABCDEFGHJKMNPQRSTUVWXYZ23456789"; let code=""; for(let i=0;i<8;i++) code+=A[Math.floor(Math.random()*A.length)];
+        codes[code]=payload; localStorage.setItem("lm_codes", JSON.stringify(codes)); return { ok:true, code };
+      }
+      const code=String(body.code||"").trim().toUpperCase();
+      return codes[code] ? { ok:true, payload:codes[code] } : { ok:false, code:"CODE_NOT_FOUND" };
+    }
+    if(path==="/api/slots/list"||path==="/api/slots/save"||path==="/api/slots/load"){
+      let slots={}; try{ slots=JSON.parse(localStorage.getItem("lm_slots")||"{}"); }catch(e){}
+      const metaOf=(pl)=>{ try{ const o=JSON.parse(decodeURIComponent(escape(atob(pl)))); const st=o&&o.lmSave?o.state:o; return { at:(o&&o.at)||null, clubName:st.clubName||"", balance:Math.floor(Number(st.balance)||0), played:st.played?Object.keys(st.played).length:0 }; }catch(e){ return null; } };
+      if(path==="/api/slots/list"){ const out=[]; for(let n=1;n<=5;n++) out.push({ slot:n, meta: slots[n]?metaOf(slots[n]):null }); return { ok:true, slots:out }; }
+      const slot=Math.floor(Number(body.slot)); if(!(slot>=1&&slot<=5)) return { ok:false, code:"BAD_SLOT" };
+      if(path==="/api/slots/save"){ if(typeof body.payload!=="string"||!body.payload) return { ok:false, code:"BAD_PAYLOAD" }; slots[slot]=body.payload; localStorage.setItem("lm_slots", JSON.stringify(slots)); return { ok:true, slot, meta: metaOf(body.payload) }; }
+      return slots[slot] ? { ok:true, slot, payload: slots[slot] } : { ok:false, code:"SLOT_EMPTY" };
+    }
     return { ok:false, code:"NO_ROUTE" };
   }
 };
@@ -1263,7 +1289,7 @@ document.addEventListener("click", e=>{
     const v = ($("#saveCode").value||"").trim();
     if(!v){ toast("先把存档码粘贴到文本框"); return; }
     try{ const st = JSON.parse(decodeURIComponent(escape(atob(v)))); if(!st || typeof st!=="object" || !("balance" in st)) throw new Error("bad");
-      mock.state = st; mock.save(); toast("导入成功，正在刷新"); setTimeout(()=>location.reload(), 600);
+      applyImportedState(st, v);
     }catch(err){ toast("存档码不对，导入失败（原进度未动）"); }
     return;
   }
@@ -1273,6 +1299,69 @@ document.addEventListener("click", e=>{
 });
 document.addEventListener("input", e=>{ if(e.target && (e.target.id==="squadSearch")) renderSquad(); });
 document.addEventListener("change", e=>{ if(e.target && e.target.id==="squadFilter") renderSquad(); });
+
+/* ---------- 存档批：5 档位槽 + 8 位短码（走 api 层：壳内 BFF、本地同形） ---------- */
+function savePayload(){ return btoa(unescape(encodeURIComponent(JSON.stringify({ lmSave:1, at:Date.now(), state: mock.state })))); }
+function unwrapState(payload){ const o = JSON.parse(decodeURIComponent(escape(atob(payload)))); const st = o && o.lmSave ? o.state : o; if(!st || typeof st!=="object" || !("balance" in st)) throw new Error("bad"); return st; }
+function activeSlot(){ return Math.min(5, Math.max(1, Number(localStorage.getItem("lm_active_slot")||1))); }
+async function applyImportedState(st, rawPayload){
+  const sel = Math.min(5, Math.max(1, Number(($("#importSlotSel")||{}).value || activeSlot())));
+  try{ await api("/api/slots/save", { slot: sel, payload: rawPayload }); }catch(e){}
+  localStorage.setItem("lm_active_slot", String(sel));
+  mock.state = st; mock.save(); toast("已导入到存档 " + sel + "，正在刷新"); setTimeout(()=>location.reload(), 600);
+}
+let slotsCache = null;
+async function refreshSlots(){
+  const r = await api("/api/slots/list");
+  if(r && r.ok){
+    slotsCache = r.slots;
+    if(!localStorage.getItem("lm_slots_migrated") && slotsCache.every(x=>!x.meta)){
+      localStorage.setItem("lm_slots_migrated", "1");
+      await api("/api/slots/save", { slot: 1, payload: savePayload() });
+      const r2 = await api("/api/slots/list"); if(r2 && r2.ok) slotsCache = r2.slots;
+    }
+  }
+  renderSlots();
+}
+function slotTimeText(at){ if(!at) return ""; const d = new Date(at); return (d.getMonth()+1) + "/" + d.getDate() + " " + String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0"); }
+function renderSlots(){
+  const el = $("#slotsBody"); if(!el) return;
+  const hint = $("#activeSlotHint"); if(hint) hint.textContent = "当前：存档 " + activeSlot();
+  const sel = $("#importSlotSel"); if(sel && !sel.dataset.touched) sel.value = String(activeSlot());
+  if(!slotsCache){ el.innerHTML = '<div class="hint">档位加载中…</div>'; return; }
+  el.innerHTML = slotsCache.map(x=>{
+    const m = x.meta;
+    const meta = m ? esc(m.clubName || "新星联队") + " · 资金 " + fmtN(m.balance) + " · 已赛 " + m.played + " 场" + (m.at ? " · " + slotTimeText(m.at) : "") : "空档位";
+    return '<div class="row" style="padding:7px 0;border-bottom:1px dashed var(--line)"><div style="flex:1;min-width:120px"><div class="pname" style="font-size:14px">存档 ' + x.slot + (x.slot===activeSlot() ? ' <span class="hint">（当前）</span>' : "") + '</div><div class="pmeta">' + meta + '</div></div>' +
+      '<span><button class="mini" onclick="slotSaveClick(' + x.slot + ',this)">保存</button> <button class="mini ghost" onclick="slotLoadClick(' + x.slot + ',this)"' + (m ? "" : " disabled") + '>读取</button> <button class="mini ghost" onclick="slotCodeClick(' + x.slot + ',this)"' + (m ? "" : " disabled") + '>短码</button></span></div>';
+  }).join("");
+}
+function armBtn(el, text){ if(el.dataset.armed){ el.dataset.armed=""; return true; } el.dataset.armed="1"; const old=el.textContent; el.textContent=text; setTimeout(()=>{ el.dataset.armed=""; el.textContent=old; }, 2600); return false; }
+async function slotSaveClick(n, el){ if(!armBtn(el, "确认覆盖？")) return; const r = await api("/api/slots/save", { slot:n, payload: savePayload() }); if(r && r.ok){ localStorage.setItem("lm_active_slot", String(n)); toast("已保存到存档 " + n); refreshSlots(); } else toast("保存失败，请稍后再试"); }
+async function slotLoadClick(n, el){ if(!armBtn(el, "确认读取？")) return; const r = await api("/api/slots/load", { slot:n }); if(r && r.ok && r.payload){ try{ const st = unwrapState(r.payload); localStorage.setItem("lm_active_slot", String(n)); mock.state = st; mock.save(); toast("已读取存档 " + n + "，正在刷新"); setTimeout(()=>location.reload(), 600); }catch(e){ toast("这个档位的数据不对，读取失败"); } } else toast("这个档位是空的"); }
+async function slotCodeClick(n){ const r = await api("/api/slots/load", { slot:n }); if(!r || !r.ok || !r.payload){ toast("这个档位是空的"); return; } const c = await api("/api/savecode", { payload: r.payload }); showShortCode(c, "存档 " + n + " 的短码"); }
+function showShortCode(c, label){
+  const out = $("#shortCodeOut"); if(!out) return;
+  if(c && c.ok && c.code){ out.innerHTML = '<div class="card" style="background:#f7e8c9;border-color:#d9b96a"><div class="pmeta">' + label + '（永久有效，记好它）</div><div style="font-size:26px;font-weight:800;letter-spacing:3px">' + esc(c.code) + '</div></div>'; }
+  else if(c && c.code === "RATE_LIMITED"){ toast("发码/取码太频繁了，每小时合计 10 次，稍后再试"); }
+  else toast("短码生成失败，请稍后再试");
+}
+document.addEventListener("click", e=>{
+  if(!e.target) return;
+  if(e.target.id==="codeIssueBtn"){ api("/api/savecode", { payload: savePayload() }).then(c=>showShortCode(c, "当前进度的短码")); return; }
+  if(e.target.id==="codeFetchBtn"){
+    const code = ($("#shortCodeIn").value||"").trim().toUpperCase();
+    if(code.length!==8){ toast("短码是 8 位"); return; }
+    api("/api/savecode/fetch", { code }).then(async r=>{
+      if(r && r.ok && r.payload){ try{ const st = unwrapState(r.payload); applyImportedState(st, r.payload); }catch(err){ toast("短码对应的存档不对，导入失败"); } }
+      else if(r && r.code==="RATE_LIMITED") toast("发码/取码太频繁了，每小时合计 10 次，稍后再试");
+      else toast("短码不存在或已失效");
+    });
+    return;
+  }
+  if(e.target.id==="importSlotSel") return;
+});
+document.addEventListener("change", e=>{ if(e.target && e.target.id==="importSlotSel") e.target.dataset.touched="1"; });
 
 /* ---------- 双榜（壳内走 BFF；本地为演示榜） ---------- */
 let boardTab = "rep";
@@ -2054,7 +2143,7 @@ async function render(){
   const bdC=$("#bdClub"); if(bdC){ const n=$("#eventList").querySelectorAll(".card").length; bdC.textContent=n; bdC.style.display=n>0?"":"none"; }
 }
 let CUR_TAB="league";
-function switchTab(name){ if(name==="market") guideFlag("market"); CUR_TAB=name; try{ renderGuide(); }catch(e){} document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.dataset.page===name)); document.querySelectorAll("#tabbar .tabbtn").forEach(b=>b.classList.toggle("on",b.dataset.tab===name)); window.scrollTo(0,0); }
+function switchTab(name){ if(name==="market") guideFlag("market"); CUR_TAB=name; try{ renderGuide(); }catch(e){} if(name==="club"){ try{ refreshSlots(); }catch(e){} } document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.dataset.page===name)); document.querySelectorAll("#tabbar .tabbtn").forEach(b=>b.classList.toggle("on",b.dataset.tab===name)); window.scrollTo(0,0); }
 window.switchTab=switchTab;
 document.querySelectorAll("#tabbar .tabbtn").forEach(b=>b.onclick=()=>{ if(b.dataset.tab==="market") guideFlag("market"); switchTab(b.dataset.tab); });
 $("#adBtn").onclick = async () => {
