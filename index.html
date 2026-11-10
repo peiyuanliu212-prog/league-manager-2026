@@ -109,6 +109,10 @@
     <div class="hint">赛季第 3 天解锁。扩容只涨上限，不动正在进行的安排。</div>
   </div>
   <div class="card">
+    <div class="pname">财务面板</div>
+    <div id="financeBody" style="margin-top:6px"></div>
+  </div>
+  <div class="card">
     <div class="row"><div><div class="pname">补给加速</div><div class="pmeta" id="adDesc">看一段广告，立即到账 120 资金（每日 3 次）</div></div><button id="adBtn">领取</button></div>
     <div class="hint">奖励走服务端幂等发放，看完才算数，中途关掉不发。</div>
   </div>
@@ -122,6 +126,10 @@
   </div>
 </section>
 <footer>离线产出由平台权威时钟结算 · 资金每小时 60（在线 100 的 60%）</footer>
+
+<div class="modal hidden" id="foundingModal">
+  <div class="sheet" id="foundingSheet"></div>
+</div>
 
 <div class="modal hidden" id="nameModal">
   <div class="sheet">
@@ -212,8 +220,140 @@ const RETURN_LINES = ["回来时鞋钉上还沾着客场的草屑。","行李都
 const STARTER_SQUADS = {"football": ["P008", "P045", "P040", "P039", "P070", "P072", "P087", "P096", "P118", "P085", "P036"], "basketball": ["B16", "B22", "B39", "B36", "B59", "B134", "B87", "B88", "B113", "B147"]};
 const SIGN_CFG = { base: 60, quad: 0.9, min: 60 };
 function signPrice(p){ return Math.max(SIGN_CFG.min, Math.round(Math.pow(Math.max(0, p.ability - SIGN_CFG.base), 2) * SIGN_CFG.quad)); }
-function signedSet(){ if(!mock.state.signed) mock.state.signed = [...STARTER_SQUADS.football, ...STARTER_SQUADS.basketball]; return mock.state.signed; }
+function signedSet(){ if(!mock.state.signed) mock.state.signed = mock.state.clubName ? [...STARTER_SQUADS.football, ...STARTER_SQUADS.basketball] : []; return mock.state.signed; }
 function isSigned(p){ return signedSet().includes(p.pid); }
+/* ---------- v2.0 真实建队：班底＋扩张选秀＋工资＋财务三桶＋巨星锁 ---------- */
+const V2_CFG = {
+  startFunds: 5000,
+  baseSquads: { football:["P008","P045","P070","P072","P118","P096"], basketball:["B39","B36","B87","B88","B113"] },
+  packAExtra: { football:"P040", basketball:"B16" },
+  draftPools: {
+    football:["P009","P031","P032","P034","P036","P039","P062","P063","P065","P080","P085","P105"],
+    basketball:["B12","B14","B32","B33","B56","B57","B59","B78","B79","B107","B109","B111"]
+  },
+  draftNeed: { A:6, B:5 },
+  packBBonus: 1500,
+  wagePer: 1.2,
+  estDailyIncome: 700,
+  tvDay7: 400, tvDay14: 600,
+  starAbility: 92, starDay: 7, starMul: 2,
+  loanPid: "P096", loanDayA: 3, loanDayB: 2
+};
+function seasonDayN(){ return Math.min(Math.max(1, Math.floor((Date.now()-(mock.state.createdAt||Date.now()))/86400000)+1),14); }
+function wageOf(p){ return Math.round(Math.max(0, p.ability - 60) * V2_CFG.wagePer); }
+function arriveDay(){ return mock.state.pack === "B" ? V2_CFG.loanDayB : V2_CFG.loanDayA; }
+function isArrived(p){ return p.pid !== V2_CFG.loanPid || seasonDayN() >= arriveDay(); }
+function dailyWageBill(){ let t = 0; for(const pid of signedSet()){ const p = findPlayer(pid); if(p && isArrived(p)) t += wageOf(p); } return t; }
+function ensureV2State(){
+  const s = mock.state;
+  if(!s.buckets) s.buckets = { match:0, commercial:0, broadcast:0 };
+  if(s.wagePaid === undefined) s.wagePaid = 0;
+  if(!s.log) s.log = [];
+  if(s.founded === undefined && s.clubName && !s.founding){ s.founded = true; s.lastWageDay = seasonDayN(); }
+  if(s.lastWageDay === undefined) s.lastWageDay = 1;
+}
+function settleWages(){
+  ensureV2State();
+  const s = mock.state; if(!s.clubName) return;
+  const cur = seasonDayN();
+  if(cur <= s.lastWageDay) return;
+  const bill = dailyWageBill();
+  let charged = 0, sponsor = 0;
+  for(let d = s.lastWageDay + 1; d <= cur; d++){
+    charged += bill;
+    sponsor += Math.floor((s.rep || 0) * 0.5);
+    if(d === 7 && !s.tv7){ s.tv7 = 1; s.balance += V2_CFG.tvDay7; s.buckets.broadcast += V2_CFG.tvDay7; s.log.push("第7天 转播分成到账 +"+V2_CFG.tvDay7); }
+    if(d === 14 && !s.tv14){ s.tv14 = 1; s.balance += V2_CFG.tvDay14; s.buckets.broadcast += V2_CFG.tvDay14; s.log.push("第14天 转播分成到账 +"+V2_CFG.tvDay14); }
+  }
+  const pay = Math.min(s.balance, charged);
+  s.balance -= pay; s.wagePaid += pay;
+  s.wageNote = pay < charged ? ("工资欠薪 " + (charged - pay) + "：资金不足以全额发放，先赢球或等结算回血。") : "";
+  if(sponsor > 0){ s.balance += sponsor; s.buckets.commercial += sponsor; }
+  s.lastWageDay = cur; mock.save();
+  toast("工资结算：-" + pay + "（全队日薪 " + bill + "）" + (sponsor ? " · 赞助 +" + sponsor : ""));
+}
+function startFounding(){
+  const s = mock.state;
+  s.founding = { step:"pack", sport:"football", picks:[] };
+  ensureV2State();
+  s.founded = false;
+  s.signed = [...V2_CFG.baseSquads.football, ...V2_CFG.baseSquads.basketball];
+  s.balance += V2_CFG.startFunds; s.buckets.commercial += V2_CFG.startFunds;
+  s.lastWageDay = 1;
+  mock.save(); openFounding();
+}
+function openFounding(){ renderFounding(); $("#foundingModal").classList.remove("hidden"); }
+function choosePack(pk){
+  const s = mock.state; s.pack = pk;
+  if(pk === "A"){ for(const sp of ["football","basketball"]){ const pid = V2_CFG.packAExtra[sp]; if(!s.signed.includes(pid)) s.signed.push(pid); } }
+  if(pk === "B"){ s.balance += V2_CFG.packBBonus; s.buckets.commercial += V2_CFG.packBBonus; }
+  s.founding.step = "draft"; s.founding.sport = "football"; s.founding.picks = [];
+  mock.save(); renderFounding();
+}
+function draftNeedNow(){ return V2_CFG.draftNeed[mock.state.pack || "B"]; }
+function togglePick(pid){
+  const f = mock.state.founding; if(!f) return;
+  const i = f.picks.indexOf(pid);
+  if(i >= 0) f.picks.splice(i, 1);
+  else { if(f.picks.length >= draftNeedNow()){ toast("名额已满，先取消一个再换"); return; } f.picks.push(pid); }
+  mock.save(); renderFounding();
+}
+function confirmDraft(){
+  const s = mock.state, f = s.founding; if(!f) return;
+  for(const pid of f.picks){ if(!s.signed.includes(pid)) s.signed.push(pid); }
+  if(f.sport === "football"){ f.sport = "basketball"; f.picks = []; mock.save(); renderFounding(); return; }
+  s.founded = true; s.founding = null; mock.save();
+  $("#foundingModal").classList.add("hidden");
+  toast("建队完成！班底＋选秀拼出第一支队伍，赛季开始。");
+  render();
+}
+function renderFounding(){
+  const s = mock.state, f = s.founding, sheet = $("#foundingSheet"); if(!sheet || !f) return;
+  if(f.step === "pack"){
+    sheet.innerHTML = `<h2 style="color:var(--ink);font-size:16px;">集团创始 · 先定建队路线</h2>
+      <div class="hint">真实世界的新队第一步不是买人，是先定路线：先手抢即战力，还是攒资源赌未来。两条路没有对错，只有取舍。</div>
+      <div class="card" style="margin-top:10px"><div class="pname">方案 A · 阵容优先（即战力包）</div><div class="pmeta">班底直接多一名主力：足球 阿坎吉（82）、篮球 穆雷（83）即刻入队；每支队选秀可多选 1 人（共 6 人）。代价：工资总额更高，每天发薪压力更大。</div><button style="margin-top:8px" onclick="choosePack('A')">选阵容优先</button></div>
+      <div class="card"><div class="pname">方案 B · 资源优先（潜力包）</div><div class="pmeta">创始资金 +${V2_CFG.packBBonus}；回租新星王钰栋提前一天到队（赛季第 2 天）；选秀每队 5 人。代价：开局阵容更薄，前两轮更难打。</div><button style="margin-top:8px" onclick="choosePack('B')">选资源优先</button></div>
+      <div class="hint">班底已经入队：足球 6 人（拉亚/蒋光太/远藤航/吴曦/武磊/王钰栋，其中王钰栋回租中、对方俱乐部承担其工资）、篮球 5 人（里夫斯/德罗赞/兰德尔/戈登/凯斯勒）。都是熟人压阵，没有巨星——巨星要等赛季第 7 天的指定球员窗口。</div>`;
+    return;
+  }
+  const sp = SPORT_PACKS[f.sport]; const need = draftNeedNow();
+  const pool = V2_CFG.draftPools[f.sport].map(findPlayer).filter(p => p && !signedSet().includes(p.pid));
+  const bill = dailyWageBill() + f.picks.reduce((t, pid) => t + wageOf(findPlayer(pid)), 0);
+  const budget = Math.round(V2_CFG.estDailyIncome * 0.7);
+  const pct = Math.min(100, Math.round(bill / budget * 100));
+  const over = bill > budget;
+  sheet.innerHTML = `<h2 style="color:var(--ink);font-size:16px;">建队选秀 · ${sp.label}队（选 ${need} 人）</h2>
+    <div class="hint">各队保护名单已冻结，池里是没被保护的实力派。选人先看工资：全队日薪会每天从资金里扣。</div>
+    <div class="kv"><span>集团全队日薪（含已选）</span><b class="${over ? "loss" : ""}">${bill}</b></div>
+    <div style="height:8px;background:#0d2c1e;border-radius:4px;position:relative;margin:6px 0 2px"><div style="height:100%;width:${pct}%;background:${over ? "#e05d4f" : "#e8c96a"};border-radius:4px"></div></div>
+    <div class="hint">${over ? "已超工资红线（预估收入的 70%）：再签贵人，每天结算会被工资吃穿。" : "工资红线（预估收入 70%）约 " + budget + "/日，还在安全区。"}</div>
+    <div id="draftPool"></div>
+    <button id="draftOk" style="width:100%;margin-top:10px" ${f.picks.length === need ? "" : "disabled"}>确认${sp.label}队选秀（${f.picks.length}/${need}）</button>`;
+  const dp = sheet.querySelector("#draftPool");
+  for(const p of pool){
+    const sel = f.picks.includes(p.pid);
+    const d = document.createElement("div"); d.className = "card"; if(sel) d.style.borderColor = "var(--acc)";
+    d.innerHTML = `<div class="row"><div><span class="pname">${p.name}</span><div class="pmeta">${p.pos} · 能力 ${p.ability}${p.club ? " · " + p.club : ""} · 日薪 ${wageOf(p)}</div></div><button class="${sel ? "" : "ghost"}">${sel ? "已选 ✓" : "选他"}</button></div>`;
+    d.querySelector("button").onclick = () => togglePick(p.pid);
+    dp.appendChild(d);
+  }
+  sheet.querySelector("#draftOk").onclick = confirmDraft;
+}
+function renderFinance(){
+  const el = $("#financeBody"); if(!el) return;
+  ensureV2State();
+  const s = mock.state, b = s.buckets;
+  const total = Math.max(0, b.match + b.commercial + b.broadcast);
+  const ratio = total > 0 ? Math.round(s.wagePaid / total * 100) : 0;
+  const row = (name, v) => `<div class="kv"><span>${name}</span><b>${v}</b></div><div style="height:6px;background:#0d2c1e;border-radius:3px;margin:2px 0 8px"><div style="height:100%;width:${total ? Math.round(v / total * 100) : 0}%;background:#7fb069;border-radius:3px"></div></div>`;
+  el.innerHTML = row("比赛日收入（联赛奖金）", b.match) + row("商业收入（离线赞助/周边＋归队与补给）", b.commercial) + row("转播分成（第 7/14 天结算）", b.broadcast)
+    + `<div class="kv"><span>累计工资支出</span><b>${s.wagePaid}</b></div>`
+    + `<div class="kv"><span>工资占收入比（红线 70%）</span><b class="${ratio > 70 ? "loss" : ""}">${ratio}%</b></div>`
+    + `<div style="height:8px;background:#0d2c1e;border-radius:4px;position:relative;margin:6px 0 2px"><div style="height:100%;width:${Math.min(100, ratio)}%;background:${ratio > 70 ? "#e05d4f" : "#e8c96a"};border-radius:4px"></div><div style="position:absolute;top:-2px;bottom:-2px;left:70%;width:2px;background:#e05d4f"></div></div>`
+    + `<div class="hint">全队日薪 ${dailyWageBill()}，每天结算时从资金扣除（回租中的王钰栋由对方俱乐部承担，不计）。真实俱乐部工资约占收入 65%，超 70% 就算玩脱了。${s.wageNote ? " ⚠ " + s.wageNote : ""}</div>`;
+}
+
 const SPORT_PACKS = {
   football: { id:"football", label:"足球", icon:"⚽", positions:["门将","后卫","中场","边锋","中锋"], powerN:11,
     players:()=>PLAYERS, leagues:()=>LEAGUES, opp:()=>OPP_POWER,
@@ -225,15 +365,15 @@ const SPORT_PACKS = {
 const SPORTS = SPORT_PACKS;
 function curSport(){ return SPORT_PACKS[mock.state.sport||"football"] || SPORT_PACKS.football; }
 function sportTerms(){ return curSport().terms || {}; }
-function teamPower(){ const sp=curSport(); const mine=sp.players().filter(isSigned); if(!mine.length) return 0; const sorted=mine.map(p=>p.ability+(mock.state.growth[p.pid]||0)).sort((a,b)=>b-a); const n=Math.min(sp.powerN, sorted.length); return Math.round(sorted.slice(0,n).reduce((a,b)=>a+b,0)/n); }
+function teamPower(){ const sp=curSport(); const mine=sp.players().filter(p=>isSigned(p)&&isArrived(p)); if(!mine.length) return 0; const sorted=mine.map(p=>p.ability+(mock.state.growth[p.pid]||0)).sort((a,b)=>b-a); const n=Math.min(sp.powerN, sorted.length); return Math.round(sorted.slice(0,n).reduce((a,b)=>a+b,0)/n); }
 function findPlayer(pid){ return PLAYERS.find(x=>x.pid===pid) || BPLAYERS.find(x=>x.pid===pid); }
 function playerCard(p){
   const away = awayMap.get(p.pid);
   const g = mock.state.growth[p.pid]||0;
   const el=document.createElement("div"); el.className="card";
   const meta = p.club ? `${p.pos} · ${p.club} · ${p.age}岁 · 工资${p.wage}档${p.pot!=="无(即战力)"?" · 潜力"+p.pot:""}${p.role!=="首发"?" · "+p.role:""}` : `${p.pos} · ${p.en||""}`;
-  el.innerHTML = `<div class="row"><div><span class="pname">${p.name}</span> ${away?'<span class="tag away">'+away+'</span>':''}<div class="pmeta">${meta}</div></div><span class="ab">${p.ability+g}${g?'<small style="color:var(--acc2)"> +'+g+'</small>':''}</span></div>`;
-  if(!away){
+  el.innerHTML = `<div class="row"><div><span class="pname">${p.name}</span> ${away?'<span class="tag away">'+away+'</span>':''}${isArrived(p)?'':'<span class="tag away">回租中 · 赛季第 '+arriveDay()+' 天到队</span>'}<div class="pmeta">${meta}</div></div><span class="ab">${p.ability+g}${g?'<small style="color:var(--acc2)"> +'+g+'</small>':''}</span></div>`;
+  if(!away && isArrived(p)){
     const t=document.createElement("div"); t.className="tiers";
     for(const [k,v] of Object.entries(TIERS)){
       const b=document.createElement("button"); b.className="ghost"; b.textContent=`${v.label} ${v.dur}`;
@@ -265,7 +405,7 @@ async function claimReturn(c){
   const p = findPlayer(c.playerId);
   const base = 40 + Math.round((p?p.ability:70)/2);
   const r = await api("/api/return/claim", { playerId:c.playerId, plannedReturnEpoch:c.plannedReturnEpoch, baseReward:base });
-  if(r.ok && !r.replayed){ toast(`${p?p.name:c.playerId} 归队！${RETURN_LINES[Math.floor(Math.random()*RETURN_LINES.length)]} 奖励 ${r.reward} 资金（践约加成 +${r.promiseBonus}）`); }
+  if(r.ok && !r.replayed){ ensureV2State(); mock.state.buckets.commercial += (r.reward||0); mock.save(); toast(`${p?p.name:c.playerId} 归队！${RETURN_LINES[Math.floor(Math.random()*RETURN_LINES.length)]} 奖励 ${r.reward} 资金（践约加成 +${r.promiseBonus}）`); }
   else if(r.ok){ toast("已领过啦"); }
   awayMap.delete(c.playerId); render();
 }
@@ -273,6 +413,7 @@ function fmtDur(ms){ const m=Math.floor(ms/60000); if(m<60) return m+" 分钟"; 
 async function doSettle(showSheet){
   const r = await api("/api/settle", { trigger:"login" });
   if(!r.ok){ if(showSheet) toast("结算失败："+(r.code||"")); return; }
+  if(r.totalFunds){ ensureV2State(); mock.state.buckets.commercial += r.totalFunds; mock.save(); }
   if(showSheet && (r.elapsedMs>=60000 || r.totalFunds>0)){
     const s=$("#settleSheet");
     s.innerHTML = `<h2 style="color:var(--ink);font-size:16px;">欢迎回来，经理</h2>
@@ -304,20 +445,38 @@ function renderMarket(){
   const all = curSport().players(); const mine = all.filter(isSigned);
   if(hint) hint.textContent = `已组建 ${mine.length}/${all.length} 人 · 用资金签下自由球员，慢慢把队伍做大`;
   ml.innerHTML = "";
-  const free = all.filter(p=>!isSigned(p)).sort((a,b)=>b.ability-a.ability);
-  if(!free.length){ const d=document.createElement("div"); d.className="hint"; d.textContent="本运动球员已全部签下。"; ml.appendChild(d); return; }
+  const dayN = seasonDayN();
+  const stars = all.filter(p=>!isSigned(p) && p.ability >= V2_CFG.starAbility);
+  const free = all.filter(p=>!isSigned(p) && p.ability < V2_CFG.starAbility).sort((a,b)=>b.ability-a.ability);
+  if(stars.length){
+    const head = document.createElement("div"); head.className = "card";
+    if(dayN < V2_CFG.starDay){
+      head.innerHTML = `<div class="pname">🔒 指定球员窗口</div><div class="pmeta">${stars.map(p=>p.name+"（"+p.ability+"）").join("、")}等巨星不在常规市场流通。真实世界里新队赛季初也签不到他们——窗口在赛季第 ${V2_CFG.starDay} 天开启，届时限时天价竞签。</div>`;
+    } else {
+      head.innerHTML = `<div class="pname">⭐ 指定球员窗口（已开启）</div><div class="pmeta">巨星限时竞签，价格为常规公式的 ${V2_CFG.starMul} 倍，签下还要付他的顶薪日薪。</div>`;
+      for(const p of stars){
+        const price = signPrice(p) * V2_CFG.starMul; const afford = (mock.state.balance||0) >= price;
+        const rowEl = document.createElement("div"); rowEl.className = "row"; rowEl.style.marginTop = "8px";
+        rowEl.innerHTML = `<div><span class="pname">${p.name}</span><div class="pmeta">${p.pos} · 能力 ${p.ability} · 日薪 ${wageOf(p)}</div></div><button ${afford?"":"disabled"}>竞签 ${price} 资金</button>`;
+        const sb = rowEl.querySelector("button"); if(sb) sb.onclick = ()=>signPlayer(p, price);
+        head.appendChild(rowEl);
+      }
+    }
+    ml.appendChild(head);
+  }
+  if(!free.length){ const d=document.createElement("div"); d.className="hint"; d.textContent="常规市场已无自由球员。"; ml.appendChild(d); return; }
   for(const p of free.slice(0, 12)){
     const price = signPrice(p); const afford = (mock.state.balance||0) >= price;
     const el = document.createElement("div"); el.className = "card";
-    el.innerHTML = `<div class="row"><div><span class="pname">${p.name}</span><div class="pmeta">${p.pos} · 能力 ${p.ability} · 自由球员</div></div><button ${afford?"":"disabled"}>签约 ${price} 资金</button></div>`;
+    el.innerHTML = `<div class="row"><div><span class="pname">${p.name}</span><div class="pmeta">${p.pos} · 能力 ${p.ability} · 日薪 ${wageOf(p)} · 自由球员</div></div><button ${afford?"":"disabled"}>签约 ${price} 资金</button></div>`;
     const btn = el.querySelector("button");
     if(btn) btn.onclick = ()=>signPlayer(p);
     ml.appendChild(el);
   }
   if(free.length > 12){ const d=document.createElement("div"); d.className="hint"; d.textContent = `市场共 ${free.length} 名自由球员，先显示能力最高的 12 名；签下后自动刷新。`; ml.appendChild(d); }
 }
-async function signPlayer(p){
-  const price = signPrice(p);
+async function signPlayer(p, priceOverride){
+  const price = priceOverride || signPrice(p);
   if((mock.state.balance||0) < price){ toast("资金不够，还差 " + (price - (mock.state.balance||0))); return; }
   mock.state.balance -= price; signedSet().push(p.pid); mock.save();
   toast(`${p.name} 签约加盟！（-${price} 资金）`); render();
@@ -350,7 +509,7 @@ function renderSquad(){
   if(!shown){ const d=document.createElement("div"); d.className="hint"; d.textContent="没有符合条件的球员，换个筛选试试。"; sq.appendChild(d); }
 }
 async function quickArrangeAll(){
-  const idle = curSport().players().filter(p=>isSigned(p) && !awayMap.get(p.pid));
+  const idle = curSport().players().filter(p=>isSigned(p) && isArrived(p) && !awayMap.get(p.pid));
   if(!idle.length){ toast("当前运动没有空闲球员"); return; }
   let n = 0;
   for(const p of idle){ const r = await api("/api/arrange", { jobs:[{playerId:p.pid, tier:"T1", kind:"training"}] }); if(r.ok){ awayMap.set(p.pid, TIERS.T1.label+"中"); n++; } }
@@ -363,7 +522,7 @@ async function quickClaimAll(){
   toast(`一键迎接完成：${pend.length} 人归队`);
 }
 async function quickTrainWeakest(){
-  const idle = curSport().players().filter(p=>isSigned(p) && !awayMap.get(p.pid)).sort((a,b)=>(a.ability+(mock.state.growth[a.pid]||0))-(b.ability+(mock.state.growth[b.pid]||0)));
+  const idle = curSport().players().filter(p=>isSigned(p) && isArrived(p) && !awayMap.get(p.pid)).sort((a,b)=>(a.ability+(mock.state.growth[a.pid]||0))-(b.ability+(mock.state.growth[b.pid]||0)));
   if(!idle.length){ toast("没有空闲球员可特训"); return; }
   growPlayer(idle[0]);
 }
@@ -424,6 +583,7 @@ document.addEventListener("click",e=>{
 });
 
 async function render(){
+  settleWages();
   const h = await api("/api/home");
   if(h.ok){
     $("#clubName").textContent = h.clubName;
@@ -439,7 +599,7 @@ async function render(){
     if(h.pendingReturns && h.pendingReturns.length){
       pl.innerHTML="";
       for(const c of h.pendingReturns){
-        const p=PLAYERS.find(x=>x.pid===c.playerId);
+        const p=findPlayer(c.playerId);
         const d=document.createElement("div"); d.className="card";
         d.innerHTML=`<div class="row"><div><span class="pname">${p?p.name:c.playerId}</span> <span class="tag back">已归队</span><div class="pmeta">${c.kind==="loan"?"外租":"集训"}结束，回来报到了</div></div><button>迎接归队</button></div>`;
         d.querySelector("button").onclick=()=>claimReturn(c);
@@ -458,6 +618,7 @@ async function render(){
     let res, repD, fundD;
     if(mine>theirs){ res="胜"; repD=10; fundD=80; } else if(mine===theirs){ res="平"; repD=4; fundD=30; } else { res="负"; repD=-2; fundD=0; }
     mock.state.rep=Math.max(0,mock.state.rep+repD); mock.state.balance+=fundD;
+    if(fundD){ ensureV2State(); mock.state.buckets.match+=fundD; }
     mock.state.played[(mock.state.sport||"football")+":"+dayN]=`${res} ${mine}:${theirs}`;
     mock.state.log.push(`第${dayN}轮 ${res} ${opp}（${mine}:${theirs}）声望${repD>=0?"+":""}${repD}${fundD?" · 奖金+"+fundD:""}`);
     mock.save(); toast(`比赛结束：${res} ${opp} ${mine}:${theirs}`); render(); submitBoards();
@@ -466,12 +627,13 @@ async function render(){
   if(dayN>=14 && !mock.state.finale){
     fs.innerHTML=`<div class="card"><div class="pname">赛季收官日</div><div class="pmeta">老将告别赛已经排好。收官奖励二选一，选了就是这赛季的句号。</div><div class="tiers"><button id="finRep">声望 +50</button><button id="finFund" class="ghost">资金 +500</button></div></div>`;
     $("#finRep").onclick=()=>{ mock.state.rep+=50; mock.state.finale="rep"; mock.save(); toast("收官：声望 +50，这赛季值了"); render(); };
-    $("#finFund").onclick=()=>{ mock.state.balance+=500; mock.state.finale="fund"; mock.save(); toast("收官：资金 +500，下赛季见"); render(); };
+    $("#finFund").onclick=()=>{ mock.state.balance+=500; ensureV2State(); mock.state.buckets.commercial+=500; mock.state.finale="fund"; mock.save(); toast("收官：资金 +500，下赛季见"); render(); };
   } else if(mock.state.finale){ fs.innerHTML=`<div class="card"><div class="pmeta">本赛季已收官（${mock.state.finale==="rep"?"声望路线":"资金路线"}）。新赛季筹备中。</div></div>`; }
   else fs.innerHTML="";
   const hr2=new Date().getHours(); $("#eveningBar").classList.toggle("hidden", !(hr2>=19&&hr2<23));
   const sq=$("#squadList"); sq.innerHTML="";
   renderSquad();
+  renderFinance();
   if(!inShell) renderBoard();
 }
 $("#adBtn").onclick = async () => {
@@ -479,17 +641,20 @@ $("#adBtn").onclick = async () => {
   if(mock.state.adDay!==dayKey){ mock.state.adDay=dayKey; mock.state.adCount=0; }
   if(mock.state.adCount>=3){ toast("今天的加速次数用完了（3/3）"); return; }
   if(inShell){ toast("壳内广告位已留好，上线接平台激励视频后生效"); return; }
-  mock.state.adCount+=1; mock.state.balance+=120; mock.save();
+  mock.state.adCount+=1; mock.state.balance+=120; ensureV2State(); mock.state.buckets.commercial+=120; mock.save();
   toast(`补给到账 +120 资金（今日 ${mock.state.adCount}/3）`); render();
 };
 $("#capBtn").onclick = async () => { const r = await api("/api/capacity/upgrade"); if(r.ok){ toast("仓储已扩到 12 小时档！"); render(); } };
 $("#renameBtn").onclick = () => { $("#nameInput").value=$("#clubName").textContent; $("#nameModal").classList.remove("hidden"); };
-$("#nameOk").onclick = async () => { const r = await api("/api/club-name", { name: $("#nameInput").value }); if(r.ok){ $("#nameModal").classList.add("hidden"); render(); } else toast("名字太长了（最多 10 字）"); };
+$("#nameOk").onclick = async () => { const r = await api("/api/club-name", { name: $("#nameInput").value }); if(r.ok){ $("#nameModal").classList.add("hidden"); if(!mock.state.founded && !mock.state.founding){ startFounding(); } else render(); } else toast("名字太长了（最多 10 字）"); };
 
 (async function boot(){
   const h = await api("/api/home");
+  if(inShell && h && h.clubName && !mock.state.clubName){ mock.state.clubName = h.clubName; mock.save(); }
+  ensureV2State();
   if(!inShell && !mock.state.clubName){ $("#nameModal").classList.remove("hidden"); }
   await render();
+  if(mock.state.founding){ openFounding(); }
   await doSettle(true);
 })();
 </script>

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>我在联赛当经理</title>
+<style>
+  :root { --bg:#0d1512; --panel:#16211b; --panel2:#1c2a21; --line:#2b3d31; --ink:#e8f0e9; --dim:#9db3a4; --acc:#e8c33a; --acc2:#57b06a; --bad:#e05d4f; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--ink); font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; max-width:480px; margin:0 auto; min-height:100vh; }
+  header { padding:14px 16px 10px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:baseline; }
+  header h1 { font-size:19px; letter-spacing:1px; }
+  header .day { color:var(--dim); font-size:12px; }
+  .clubbar { padding:12px 16px; display:flex; justify-content:space-between; align-items:center; background:var(--panel); border-bottom:1px solid var(--line); }
+  .clubname { font-size:17px; font-weight:700; }
+  .funds { color:var(--acc); font-weight:700; font-size:17px; }
+  .funds small { color:var(--dim); font-weight:400; font-size:11px; display:block; text-align:right; }
+  section { padding:14px 16px; }
+  h2 { font-size:14px; color:var(--dim); margin-bottom:10px; font-weight:600; letter-spacing:1px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:10px; }
+  .row { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .pname { font-weight:700; font-size:15px; }
+  .pmeta { color:var(--dim); font-size:12px; margin-top:2px; }
+  .ab { background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:2px 8px; font-weight:700; color:var(--acc); }
+  button { background:var(--acc); color:#191204; border:none; border-radius:8px; padding:9px 14px; font-size:14px; font-weight:700; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  button:disabled { opacity:.45; }
+  .tiers { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+  .tiers button { padding:6px 10px; font-size:12px; }
+  .tag { font-size:11px; padding:2px 7px; border-radius:99px; border:1px solid var(--line); color:var(--dim); }
+  .tag.away { color:var(--acc); border-color:var(--acc); }
+  .tag.back { color:#0d1512; background:var(--acc2); border-color:var(--acc2); font-weight:700; }
+  .big { font-size:26px; font-weight:800; color:var(--acc); }
+  .kv { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed var(--line); font-size:14px; }
+  .kv:last-child { border-bottom:none; }
+  .loss { color:var(--bad); }
+  input[type=text] { width:100%; background:var(--panel2); border:1px solid var(--line); border-radius:8px; color:var(--ink); padding:11px; font-size:16px; }
+  .hint { color:var(--dim); font-size:12px; margin-top:8px; line-height:1.6; }
+  .modal { position:fixed; inset:0; background:rgba(4,8,6,.78); display:flex; align-items:flex-end; justify-content:center; z-index:9; }
+  .sheet { background:var(--panel); width:100%; max-width:480px; border-radius:16px 16px 0 0; padding:20px 18px 28px; max-height:86vh; overflow:auto; }
+  .hidden { display:none !important; }
+  .toast { position:fixed; left:50%; bottom:26px; transform:translateX(-50%); background:#243528; border:1px solid var(--line); padding:9px 16px; border-radius:99px; font-size:13px; z-index:20; }
+  footer { padding:18px 16px 30px; color:var(--dim); font-size:11px; text-align:center; }
+</style>
+</head>
+<body>
+<header><h1>我在联赛当经理</h1><span class="day" id="seasonDay">赛季第 1 天</span></header>
+<div class="clubbar">
+  <div><div class="clubname" id="clubName">新星联队</div><div class="pmeta" id="capInfo">仓储 8 小时档</div></div>
+  <div class="funds"><span id="balance">0</span><small>俱乐部资金</small></div>
+</div>
+
+<div id="eveningBar" class="hidden" style="background:#3a2f10;color:var(--acc);padding:8px 16px;font-size:13px;">晚市窗开启中（19:00–23:00）：离线产出 ×1.5</div>
+<section>
+  <h2>明星联赛 · 跨联赛对决</h2>
+  <div class="card" id="leagueCard"></div>
+  <div id="finaleSlot"></div>
+</section>
+<section id="settleSlot"></section>
+
+<section>
+  <h2>待归队</h2>
+  <div id="pendingList"><div class="hint">暂无。把球员派去集训或外租，归队日他会自己回来。</div></div>
+</section>
+
+<section>
+  <h2>一线队 · 安排明日计划</h2>
+  <div id="squadList"></div>
+</section>
+
+<section>
+  <h2>俱乐部</h2>
+  <div class="card">
+    <div class="row"><div><div class="pname">训练仓储扩容</div><div class="pmeta" id="capDesc">当前离线积累上限 8 小时（480 资金）</div></div><button id="capBtn" class="ghost">扩到 12 小时</button></div>
+    <div class="hint">赛季第 3 天解锁。扩容只涨上限，不动正在进行的安排。</div>
+  </div>
+  <div class="card">
+    <div class="row"><div><div class="pname">俱乐部改名</div><div class="pmeta">1–10 个字</div></div><button class="ghost" id="renameBtn">改名</button></div>
+  </div>
+</section>
+<footer>离线产出由平台权威时钟结算 · 资金每小时 60（在线 100 的 60%）</footer>
+
+<div class="modal hidden" id="nameModal">
+  <div class="sheet">
+    <h2 style="color:var(--ink);font-size:16px;">给你的俱乐部起个名字</h2>
+    <input type="text" id="nameInput" maxlength="10" placeholder="新星联队">
+    <div class="hint">1–10 个字，不填就用默认名「新星联队」。这支队是你自己的，对手是 15 家真实豪门。</div>
+    <div style="margin-top:14px; display:flex; gap:8px;"><button id="nameOk" style="flex:1;">就叫这个</button></div>
+  </div>
+</div>
+
+<div class="modal hidden" id="settleModal">
+  <div class="sheet" id="settleSheet"></div>
+</div>
+
+<script>
+const PLAYERS = [{"pid": "P003", "name": "库尔图瓦", "pos": "GK", "posGroup": "GK", "ability": 91, "age": "34", "club": "皇家马德里", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P004", "name": "多纳鲁马", "pos": "GK", "posGroup": "GK", "ability": 91, "age": "27", "club": "曼城", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P005", "name": "阿利松", "pos": "GK", "posGroup": "GK", "ability": 90, "age": "34", "club": "利物浦", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P006", "name": "奥布拉克", "pos": "GK", "posGroup": "GK", "ability": 90, "age": "33", "club": "马德里竞技", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P008", "name": "拉亚", "pos": "GK", "posGroup": "GK", "ability": 87, "age": "31", "club": "阿森纳", "wage": "A", "pot": "低", "role": "首发"}, {"pid": "P009", "name": "马马尔达什维利", "pos": "GK", "posGroup": "GK", "ability": 87, "age": "26", "club": "瓦伦西亚*", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P029", "name": "范戴克", "pos": "CB", "posGroup": "DF", "ability": 90, "age": "35", "club": "利物浦", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P030", "name": "鲁本·迪亚斯", "pos": "CB", "posGroup": "DF", "ability": 89, "age": "29", "club": "曼城", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P031", "name": "萨利巴", "pos": "CB", "posGroup": "DF", "ability": 88, "age": "25", "club": "阿森纳", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P032", "name": "巴斯托尼", "pos": "CB", "posGroup": "DF", "ability": 88, "age": "27", "club": "国际米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P033", "name": "加布里埃尔", "pos": "CB", "posGroup": "DF", "ability": 87, "age": "28", "club": "阿森纳", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P034", "name": "格瓦迪奥尔", "pos": "FB", "posGroup": "DF", "ability": 87, "age": "24", "club": "曼城", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P036", "name": "金玟哉", "pos": "CB", "posGroup": "DF", "ability": 85, "age": "30", "club": "拜仁慕尼黑", "wage": "B", "pot": "低", "role": "轮换"}, {"pid": "P038", "name": "卢卡斯·埃尔南德斯", "pos": "FB", "posGroup": "DF", "ability": 83, "age": "30", "club": "巴黎圣日耳曼", "wage": "B", "pot": "低", "role": "轮换"}, {"pid": "P039", "name": "富安健洋", "pos": "FB", "posGroup": "DF", "ability": 82, "age": "28", "club": "阿贾克斯*", "wage": "C", "pot": "中", "role": "轮换"}, {"pid": "P040", "name": "阿坎吉", "pos": "CB", "posGroup": "DF", "ability": 82, "age": "31", "club": "国际米兰*", "wage": "C", "pot": "低", "role": "轮换"}, {"pid": "P045", "name": "蒋光太", "pos": "CB", "posGroup": "DF", "ability": 76, "age": "32", "club": "上海海港", "wage": "D", "pot": "低", "role": "轮换"}, {"pid": "P052", "name": "罗德里", "pos": "DM", "posGroup": "MF", "ability": 91, "age": "30", "club": "曼城", "wage": "S", "pot": "低", "role": "首发"}, {"pid": "P055", "name": "莫德里奇", "pos": "CM", "posGroup": "MF", "ability": 91, "age": "41", "club": "AC米兰", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P056", "name": "德布劳内", "pos": "AM", "posGroup": "MF", "ability": 90, "age": "35", "club": "那不勒斯", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P057", "name": "贝林厄姆", "pos": "AM", "posGroup": "MF", "ability": 90, "age": "23", "club": "皇家马德里", "wage": "S", "pot": "中高", "role": "首发"}, {"pid": "P058", "name": "穆西亚拉", "pos": "AM", "posGroup": "MF", "ability": 90, "age": "23", "club": "拜仁慕尼黑", "wage": "S", "pot": "中高", "role": "首发"}, {"pid": "P061", "name": "维尔茨", "pos": "AM", "posGroup": "MF", "ability": 89, "age": "23", "club": "利物浦", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P062", "name": "佩德里", "pos": "CM", "posGroup": "MF", "ability": 88, "age": "24", "club": "巴塞罗那", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P063", "name": "维蒂尼亚", "pos": "CM", "posGroup": "MF", "ability": 88, "age": "26", "club": "巴黎圣日耳曼", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P064", "name": "麦卡利斯特", "pos": "CM", "posGroup": "MF", "ability": 87, "age": "27", "club": "利物浦", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P065", "name": "巴雷拉", "pos": "CM", "posGroup": "MF", "ability": 87, "age": "29", "club": "国际米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P067", "name": "恩佐·费尔南德斯", "pos": "DM", "posGroup": "MF", "ability": 86, "age": "25", "club": "切尔西", "wage": "B", "pot": "中高", "role": "首发"}, {"pid": "P070", "name": "远藤航", "pos": "DM", "posGroup": "MF", "ability": 80, "age": "33", "club": "利物浦", "wage": "C", "pot": "无(即战力)", "role": "轮换"}, {"pid": "P072", "name": "吴曦", "pos": "CM", "posGroup": "MF", "ability": 74, "age": "37", "club": "上海申花", "wage": "D", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P073", "name": "梅西", "pos": "WF", "posGroup": "WG", "ability": 97, "age": "39", "club": "迈阿密国际", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P076", "name": "姆巴佩", "pos": "WF", "posGroup": "WG", "ability": 92, "age": "27", "club": "皇家马德里", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P077", "name": "亚马尔", "pos": "WF", "posGroup": "WG", "ability": 91, "age": "19", "club": "巴塞罗那", "wage": "S", "pot": "高", "role": "青训梯队"}, {"pid": "P078", "name": "维尼修斯", "pos": "WF", "posGroup": "WG", "ability": 91, "age": "26", "club": "皇家马德里", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P079", "name": "萨拉赫", "pos": "WF", "posGroup": "WG", "ability": 90, "age": "34", "club": "利物浦", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P080", "name": "萨卡", "pos": "WF", "posGroup": "WG", "ability": 88, "age": "25", "club": "阿森纳", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P081", "name": "莱奥", "pos": "WF", "posGroup": "WG", "ability": 88, "age": "27", "club": "AC米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P085", "name": "三笘薰", "pos": "WM", "posGroup": "WG", "ability": 85, "age": "29", "club": "布莱顿", "wage": "B", "pot": "中", "role": "轮换"}, {"pid": "P087", "name": "久保建英", "pos": "WM", "posGroup": "WG", "ability": 82, "age": "25", "club": "皇家社会", "wage": "C", "pot": "中高", "role": "轮换"}, {"pid": "P096", "name": "王钰栋", "pos": "WF", "posGroup": "WG", "ability": 72, "age": "20", "club": "浙江队", "wage": "D", "pot": "高", "role": "青训梯队"}, {"pid": "P098", "name": "C罗", "pos": "CF", "posGroup": "ST", "ability": 95, "age": "41", "club": "利雅得胜利", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P101", "name": "哈兰德", "pos": "CF", "posGroup": "ST", "ability": 92, "age": "26", "club": "曼城", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P102", "name": "凯恩", "pos": "CF", "posGroup": "ST", "ability": 91, "age": "33", "club": "拜仁慕尼黑", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P103", "name": "莱万多夫斯基", "pos": "CF", "posGroup": "ST", "ability": 90, "age": "38", "club": "巴塞罗那", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P104", "name": "孙兴慜", "pos": "SS", "posGroup": "ST", "ability": 89, "age": "34", "club": "洛杉矶FC", "wage": "A", "pot": "无(即战力)", "role": "首发"}, {"pid": "P105", "name": "奥斯梅恩", "pos": "CF", "posGroup": "ST", "ability": 88, "age": "27", "club": "加拉塔萨雷", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P106", "name": "劳塔罗·马丁内斯", "pos": "SS", "posGroup": "ST", "ability": 88, "age": "29", "club": "国际米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P107", "name": "伊萨克", "pos": "CF", "posGroup": "ST", "ability": 88, "age": "27", "club": "利物浦", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P108", "name": "阿尔瓦雷斯", "pos": "SS", "posGroup": "ST", "ability": 88, "age": "26", "club": "马德里竞技", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P118", "name": "武磊", "pos": "SS", "posGroup": "ST", "ability": 76, "age": "34", "club": "上海海港", "wage": "D", "pot": "无(即战力)", "role": "轮换"}];
+const LEAGUES = ["皇家马德里","巴塞罗那","曼城","利物浦","阿森纳","拜仁慕尼黑","巴黎圣日耳曼","国际米兰","AC米兰","马德里竞技","切尔西","曼联","多特蒙德","那不勒斯","托特纳姆热刺"];
+const TIERS = {
+  T1:{label:"队内加练", dur:"2 分钟", kind:"training"},
+  T2:{label:"专项集训", dur:"15 分钟", kind:"training"},
+  T3:{label:"封闭特训", dur:"2 小时", kind:"training"},
+  T4:{label:"外租锻炼", dur:"8 小时", kind:"loan"},
+  T5:{label:"海外拉练", dur:"22 小时", kind:"loan"},
+};
+const $ = (s) => document.querySelector(s);
+function toast(msg){ const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2400); }
+
+/* ---------- 数据层：优先走 BFF（Shaper 壳内 ColorboxAI.cloud.request），无壳时本地模拟同形接口 ---------- */
+const inShell = typeof window!=="undefined" && window.ColorboxAI && window.ColorboxAI.cloud;
+const mock = {
+  state: JSON.parse(localStorage.getItem("lm_mock")||"null") || { clubName:"", createdAt:Date.now(), tier:8, balance:0, lastSettle:Date.now(), contracts:{}, settledOnce:false, rep:0, output:0, growth:{}, played:{}, finale:null, log:[] },
+  save(){ localStorage.setItem("lm_mock", JSON.stringify(this.state)); },
+  async call(path, body){
+    const s=this.state, now=Date.now();
+    if(path==="/api/home"){
+      const pending=Object.values(s.contracts).filter(c=>c.state==="away"&&c.plannedReturnEpoch<=now).map(c=>({...c,state:"pendingReturn"}));
+      pending.forEach(c=>{ s.contracts[c.playerId+"|"+c.plannedReturnEpoch].state="pendingReturn"; });
+      this.save();
+      return { ok:true, clubName:s.clubName||"新星联队", capacityTier:s.tier, balance:s.balance, pendingReturns:pending };
+    }
+    if(path==="/api/club-name"){ s.clubName=(body.name||"").trim()||"新星联队"; this.save(); return { ok:true, clubName:s.clubName }; }
+    if(path==="/api/settle"){
+      const elapsed=now-s.lastSettle; s.lastSettle=now;
+      const capH=s.tier, cap=60*capH;
+      const hr=new Date().getHours(); const inWin=hr>=19&&hr<23;
+      const raw=Math.floor(elapsed/3600000*60*(inWin?1.5:1));
+      const gain=Math.min(raw,cap), lost=Math.max(0,raw-cap);
+      let bonus=0; if(elapsed>=1800000&&gain>0) bonus=Math.floor(gain*0.3*Math.max(0,1-elapsed/(capH*3600000)));
+      s.balance+=gain+bonus; this.save();
+      return { ok:true, elapsedMs:elapsed, fundsGain:gain, earlyBonus:bonus, totalFunds:gain+bonus, cappedFunds:lost, capacityTier:s.tier };
+    }
+    if(path==="/api/arrange"){
+      const durMs={T1:120000,T2:900000,T3:7200000,T4:28800000,T5:79200000};
+      const made=[];
+      for(const it of [...(body.jobs||[]),...(body.loans||[])]){ if(it.playerId){ const pr=now+durMs[it.tier]; s.contracts[it.playerId+"|"+pr]={playerId:it.playerId,plannedReturnEpoch:pr,state:"away",kind:it.kind}; made.push({plannedReturnEpoch:pr}); } }
+      this.save(); return { ok:true, jobs:made };
+    }
+    if(path==="/api/return/claim"){
+      const k=body.playerId+"|"+body.plannedReturnEpoch, c=s.contracts[k];
+      if(!c) return { ok:false, code:"CONTRACT_NOT_FOUND" };
+      if(c.state==="returned") return { ok:true, replayed:true, reward:0 };
+      const base=Math.floor(body.baseReward||0), bonus=Math.floor(base*20/100);
+      s.balance+=base+bonus; c.state="returned"; this.save();
+      return { ok:true, reward:base+bonus, base, promiseBonus:bonus };
+    }
+    if(path==="/api/capacity/upgrade"){ s.tier=12; this.save(); return { ok:true, capacityTier:12 }; }
+    return { ok:false, code:"NO_ROUTE" };
+  }
+};
+async function api(path, body){
+  if(inShell){
+    const r = await window.ColorboxAI.cloud.request({ path, method:"POST", data: body||{} });
+    return (r && r.data) || { ok:false, code:"EMPTY" };
+  }
+  return mock.call(path, body||{});
+}
+
+/* ---------- 渲染 ---------- */
+const awayMap = new Map();
+const OPP_POWER = {"皇家马德里":95,"巴塞罗那":93,"曼城":96,"利物浦":92,"阿森纳":91,"拜仁慕尼黑":92,"巴黎圣日耳曼":93,"国际米兰":90,"AC米兰":87,"马德里竞技":89,"切尔西":88,"曼联":86,"多特蒙德":88,"那不勒斯":87,"托特纳姆热刺":86};
+const RETURN_LINES = ["回来时鞋钉上还沾着客场的草屑。","行李都没放，先去加练了两组。","说外面的训练餐不如队里食堂。","晒黑了一圈，眼神比走时亮。","给全队带了当地的战术录像。","临走被对方教练挽留，没动心。"];
+function teamPower(){ const sorted=[...PLAYERS].map(p=>p.ability+(mock.state.growth[p.pid]||0)).sort((a,b)=>b-a); return Math.round(sorted.slice(0,11).reduce((a,b)=>a+b,0)/11); }
+function playerCard(p){
+  const away = awayMap.get(p.pid);
+  const g = mock.state.growth[p.pid]||0;
+  const el=document.createElement("div"); el.className="card";
+  el.innerHTML = `<div class="row"><div><span class="pname">${p.name}</span> ${away?'<span class="tag away">'+away+'</span>':''}<div class="pmeta">${p.pos} · ${p.club} · ${p.age}岁 · 工资${p.wage}档${p.pot!=="无(即战力)"?" · 潜力"+p.pot:""}${p.role!=="首发"?" · "+p.role:""}</div></div><span class="ab">${p.ability+g}${g?'<small style="color:var(--acc2)"> +'+g+'</small>':''}</span></div>`;
+  if(!away){
+    const t=document.createElement("div"); t.className="tiers";
+    for(const [k,v] of Object.entries(TIERS)){
+      const b=document.createElement("button"); b.className="ghost"; b.textContent=`${v.label} ${v.dur}`;
+      b.onclick=()=>arrange(p,k,v);
+      t.appendChild(b);
+    }
+    el.appendChild(t);
+    const gb=document.createElement("button"); gb.className="ghost"; gb.style.marginTop="8px"; gb.style.fontSize="12px"; gb.style.padding="6px 10px";
+    const cost=60+g*40; gb.textContent = g>=5 ? "已练满（+5）" : `特训升级 +1 · ${cost} 资金`;
+    gb.disabled = g>=5;
+    gb.onclick=()=>growPlayer(p);
+    el.appendChild(gb);
+  }
+  return el;
+}
+async function growPlayer(p){
+  const g=mock.state.growth[p.pid]||0; const cost=60+g*40;
+  if(mock.state.balance<cost){ toast("资金不够，先等结算攒一攒"); return; }
+  mock.state.balance-=cost; mock.state.growth[p.pid]=g+1; mock.state.output+=10; mock.save();
+  toast(`${p.name} 特训完成，能力 ${p.ability}→${p.ability+g+1}（训练产出 +10）`); render();
+}
+async function arrange(p, tierKey, tier){
+  const body = tier.kind==="loan" ? { loans:[{playerId:p.pid, tier:tierKey, kind:"loan"}] } : { jobs:[{playerId:p.pid, tier:tierKey, kind:"training"}] };
+  const r = await api("/api/arrange", body);
+  if(r.ok){ awayMap.set(p.pid, tier.label+"中"); toast(`${p.name} 已出发：${tier.label}（${tier.dur}后归队）`); render(); }
+  else toast("安排失败："+(r.code||""));
+}
+async function claimReturn(c){
+  const p = PLAYERS.find(x=>x.pid===c.playerId);
+  const base = 40 + Math.round((p?p.ability:70)/2);
+  const r = await api("/api/return/claim", { playerId:c.playerId, plannedReturnEpoch:c.plannedReturnEpoch, baseReward:base });
+  if(r.ok && !r.replayed){ toast(`${p?p.name:c.playerId} 归队！${RETURN_LINES[Math.floor(Math.random()*RETURN_LINES.length)]} 奖励 ${r.reward} 资金（践约加成 +${r.promiseBonus}）`); }
+  else if(r.ok){ toast("已领过啦"); }
+  awayMap.delete(c.playerId); render();
+}
+function fmtDur(ms){ const m=Math.floor(ms/60000); if(m<60) return m+" 分钟"; const h=Math.floor(m/60); return h+" 小时 "+(m%60)+" 分钟"; }
+async function doSettle(showSheet){
+  const r = await api("/api/settle", { trigger:"login" });
+  if(!r.ok){ if(showSheet) toast("结算失败："+(r.code||"")); return; }
+  if(showSheet && (r.elapsedMs>=60000 || r.totalFunds>0)){
+    const s=$("#settleSheet");
+    s.innerHTML = `<h2 style="color:var(--ink);font-size:16px;">欢迎回来，经理</h2>
+      <div class="hint">你离开了 ${fmtDur(r.elapsedMs)}，球队一直在运转。</div>
+      <div style="text-align:center;padding:14px 0;"><div class="big">+${r.totalFunds}</div><div class="hint">本次到账资金</div></div>
+      <div class="kv"><span>离线产出（60/小时）</span><b>+${r.fundsGain}</b></div>
+      ${r.earlyBonus?`<div class="kv"><span>早归加成（仓满前回来）</span><b>+${r.earlyBonus}</b></div>`:""}
+      ${r.cappedFunds?`<div class="kv"><span class="loss">仓储已满溢出损失</span><b class="loss">-${r.cappedFunds}</b></div><div class="hint">仓储 ${r.capacityTier} 小时档已满。扩到 12 小时档能少损失一些（赛季第 3 天解锁）。</div>`:""}
+      <div style="margin-top:14px;"><button style="width:100%;" onclick="document.querySelector('#settleModal').classList.add('hidden')">收下，开始安排</button></div>`;
+    $("#settleModal").classList.remove("hidden");
+  }
+  render();
+}
+async function render(){
+  const h = await api("/api/home");
+  if(h.ok){
+    $("#clubName").textContent = h.clubName;
+    $("#balance").textContent = h.balance;
+    $("#capInfo").textContent = `仓储 ${h.capacityTier} 小时档`;
+    $("#capDesc").textContent = `当前离线积累上限 ${h.capacityTier} 小时（${h.capacityTier*60} 资金）`;
+    const day = Math.max(1, Math.floor((Date.now()-(mock.state.createdAt||Date.now()))/86400000)+1);
+    $("#seasonDay").textContent = "赛季第 "+Math.min(day,14)+" 天";
+    $("#capBtn").disabled = !(day>=3 && h.capacityTier===8);
+    if(h.capacityTier===12){ $("#capBtn").textContent="已扩容"; $("#capBtn").disabled=true; }
+    const pl=$("#pendingList");
+    if(h.pendingReturns && h.pendingReturns.length){
+      pl.innerHTML="";
+      for(const c of h.pendingReturns){
+        const p=PLAYERS.find(x=>x.pid===c.playerId);
+        const d=document.createElement("div"); d.className="card";
+        d.innerHTML=`<div class="row"><div><span class="pname">${p?p.name:c.playerId}</span> <span class="tag back">已归队</span><div class="pmeta">${c.kind==="loan"?"外租":"集训"}结束，回来报到了</div></div><button>迎接归队</button></div>`;
+        d.querySelector("button").onclick=()=>claimReturn(c);
+        pl.appendChild(d);
+      }
+    }
+  }
+  const dayN = Math.min(Math.max(1, Math.floor((Date.now()-(mock.state.createdAt||Date.now()))/86400000)+1),14);
+  const opp = LEAGUES[(dayN-1)%LEAGUES.length];
+  const played = mock.state.played[dayN];
+  const lc=$("#leagueCard");
+  lc.innerHTML = `<div class="row"><div><div class="pname">第 ${dayN} 轮 vs ${opp}</div><div class="pmeta">对手强度 ${OPP_POWER[opp]} · 我方战力 ${teamPower()} · 声望 ${mock.state.rep} · 训练产出 ${mock.state.output}</div></div>${played?'<span class="tag back">'+played+'</span>':'<button id="playBtn">打这场</button>'}</div>` + (mock.state.log.length?`<div class="hint">${mock.state.log.slice(-3).join("<br>")}</div>`:"");
+  const pb=$("#playBtn");
+  if(pb) pb.onclick=()=>{
+    const mine=teamPower()+Math.round(Math.random()*8-4), theirs=OPP_POWER[opp]+Math.round(Math.random()*8-4);
+    let res, repD, fundD;
+    if(mine>theirs){ res="胜"; repD=10; fundD=80; } else if(mine===theirs){ res="平"; repD=4; fundD=30; } else { res="负"; repD=-2; fundD=0; }
+    mock.state.rep=Math.max(0,mock.state.rep+repD); mock.state.balance+=fundD;
+    mock.state.played[dayN]=`${res} ${mine}:${theirs}`;
+    mock.state.log.push(`第${dayN}轮 ${res} ${opp}（${mine}:${theirs}）声望${repD>=0?"+":""}${repD}${fundD?" · 奖金+"+fundD:""}`);
+    mock.save(); toast(`比赛结束：${res} ${opp} ${mine}:${theirs}`); render();
+  };
+  const fs=$("#finaleSlot");
+  if(dayN>=14 && !mock.state.finale){
+    fs.innerHTML=`<div class="card"><div class="pname">赛季收官日</div><div class="pmeta">老将告别赛已经排好。收官奖励二选一，选了就是这赛季的句号。</div><div class="tiers"><button id="finRep">声望 +50</button><button id="finFund" class="ghost">资金 +500</button></div></div>`;
+    $("#finRep").onclick=()=>{ mock.state.rep+=50; mock.state.finale="rep"; mock.save(); toast("收官：声望 +50，这赛季值了"); render(); };
+    $("#finFund").onclick=()=>{ mock.state.balance+=500; mock.state.finale="fund"; mock.save(); toast("收官：资金 +500，下赛季见"); render(); };
+  } else if(mock.state.finale){ fs.innerHTML=`<div class="card"><div class="pmeta">本赛季已收官（${mock.state.finale==="rep"?"声望路线":"资金路线"}）。新赛季筹备中。</div></div>`; }
+  else fs.innerHTML="";
+  const hr2=new Date().getHours(); $("#eveningBar").classList.toggle("hidden", !(hr2>=19&&hr2<23));
+  const sq=$("#squadList"); sq.innerHTML="";
+  PLAYERS.slice(0,23).forEach(p=>sq.appendChild(playerCard(p)));
+}
+$("#capBtn").onclick = async () => { const r = await api("/api/capacity/upgrade"); if(r.ok){ toast("仓储已扩到 12 小时档！"); render(); } };
+$("#renameBtn").onclick = () => { $("#nameInput").value=$("#clubName").textContent; $("#nameModal").classList.remove("hidden"); };
+$("#nameOk").onclick = async () => { const r = await api("/api/club-name", { name: $("#nameInput").value }); if(r.ok){ $("#nameModal").classList.add("hidden"); render(); } else toast("名字太长了（最多 10 字）"); };
+
+(async function boot(){
+  const h = await api("/api/home");
+  if(!inShell && !mock.state.clubName){ $("#nameModal").classList.remove("hidden"); }
+  await render();
+  await doSettle(true);
+})();
+</script>
+</body>
+</html>
