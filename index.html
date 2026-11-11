@@ -31,7 +31,7 @@
   .tiers { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
   .tiers button { padding:6px 10px; font-size:12px; }
   .eb { display:block; font-size:10px; letter-spacing:3px; color:var(--acc); font-weight:700; margin-bottom:2px; }
-  h2::after { content:attr(data-no); position:absolute; right:0; top:-20px; font-size:42px; font-family:Georgia,serif; font-weight:700; color:rgba(35,32,26,.06); pointer-events:none; }
+  h2::after { content:attr(data-no); position:absolute; right:10px; top:-10px; font-size:34px; font-family:Georgia,serif; font-weight:700; color:rgba(35,32,26,.055); pointer-events:none; }
   .tiers5 { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
   .tiers5 button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:8px 1px; min-height:48px; font-size:12.5px; line-height:1.25; }
   .tiers5 button small { font-size:10px; font-weight:400; opacity:.75; }
@@ -113,7 +113,9 @@
 .ttable tr.me{background:#fdf6e3;font-weight:700}
 
 .trio{display:flex;gap:8px;flex-wrap:wrap}
-.gstep{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px dashed #e7ddc6}
+.gstep{display:flex;gap:8px;align-items:flex-start;padding:5px 0;border-bottom:1px dashed #e7ddc6}
+.gstep .gt b{font-size:13.5px}
+.gstep .gt .pmeta{font-size:11.5px;line-height:1.45}
 .gstep:last-child{border-bottom:none}
 .gstep .gn{flex:0 0 22px;height:22px;border-radius:50%;background:#e7ddc6;color:#7a7261;text-align:center;line-height:22px;font-size:12px;font-weight:700}
 .gstep.done .gn{background:#2e6b46;color:#fff}
@@ -161,7 +163,7 @@
   <div id="fixturesSlot"></div>
 </section>
 <section>
-  <h2 data-no="01b"><span class="eb">DAILY</span>每日补给</h2>
+  <h2 data-no="02"><span class="eb">DAILY</span>每日补给</h2>
   <div class="card">
     <div class="pname">球迷幸运日</div>
     <div id="wheelBody" style="margin-top:6px"></div>
@@ -174,12 +176,12 @@
 <section id="settleSlot"></section>
 
 <section>
-  <h2 data-no="02"><span class="eb">RETURNS</span>待归队</h2>
+  <h2 data-no="03"><span class="eb">RETURNS</span>待归队</h2>
   <div id="pendingList"><div class="hint">暂无。把球员派去集训或外租，归队日他会自己回来。</div></div>
 </section>
 
 <section>
-  <h2 data-no="03"><span class="eb">RANKING</span>排行榜</h2>
+  <h2 data-no="04"><span class="eb">RANKING</span>排行榜</h2>
   <div class="card">
     <div class="row"><div class="pname" style="font-size:15px">双榜</div>
       <div><button class="mini act" id="tabRep">声望榜</button> <button class="mini" id="tabOut">训练产出榜</button></div></div>
@@ -206,11 +208,11 @@
 
 <div class="page" data-page="squad">
 <section>
-  <h2 data-no="00"><span class="eb">TACTICS</span>战术与排阵</h2>
+  <h2 data-no="01"><span class="eb">TACTICS</span>战术与排阵</h2>
   <div id="tacticsSlot"></div>
 </section>
 <section>
-  <h2 data-no="01"><span class="eb">SQUAD</span>一线队 · 安排明日计划</h2>
+  <h2 data-no="02"><span class="eb">SQUAD</span>一线队 · 安排明日计划</h2>
   <div class="card" style="padding:10px 12px">
     <div class="row" style="margin-bottom:8px">
       <div id="sportTabs"></div>
@@ -702,7 +704,7 @@ function renderFinance(){
   el.innerHTML = row("比赛日收入（联赛奖金）", b.match) + row("商业收入（离线赞助/周边＋归队与补给）", b.commercial) + row("转播分成（第 7/14 天结算）", b.broadcast)
     + `<div class="kv"><span>累计工资支出</span><b>${s.wagePaid}</b></div>`
     + `<div class="kv"><span>工资占收入比（红线 70%）</span><b class="${ratio > 70 ? "loss" : ""}">${ratio}%</b></div>`
-    + `<div style="height:8px;background:#e7ddc6;border-radius:4px;position:relative;margin:6px 0 2px"><div style="height:100%;width:${Math.min(100, ratio)}%;background:${ratio > 70 ? "#c0392b" : "#c9962e"};border-radius:4px"></div><div style="position:absolute;top:-2px;bottom:-2px;left:70%;width:2px;background:#c0392b"></div></div>`
+    + `<div style="height:8px;background:#ddd0b2;border-radius:4px;position:relative;margin:6px 0 2px"><div style="height:100%;width:${Math.min(100, ratio)}%;background:${ratio > 70 ? "#c0392b" : "#c9962e"};border-radius:4px"></div><div style="position:absolute;top:-3px;bottom:-3px;left:70%;width:3px;background:#c0392b;border-radius:2px"></div></div>`
     + `<div class="hint">全队日薪 ${dailyWageBill()}，每天结算时从资金扣除（回租中的王钰栋由对方俱乐部承担，不计）。真实俱乐部工资约占收入 65%，超 70% 就算玩脱了。${s.wageNote ? " ⚠ " + s.wageNote : ""}</div>`;
 }
 
