@@ -74,6 +74,19 @@
   .vsbadge { display:flex; align-items:center; justify-content:center; width:40px; height:40px; margin:5px auto 0; border-radius:50%; background:var(--acc); color:#fff; font-size:15px; font-weight:800; letter-spacing:1px; border:2px solid #f7efdb; box-shadow:0 2px 6px rgba(120,40,20,.35); }
   .pstrip { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-top:10px; padding-top:9px; border-top:1px dashed var(--line); font-size:12px; color:var(--dim); }
   .pstrip b { color:var(--ink); font-size:13.5px; }
+  .subgrp { font-size:12px; font-weight:800; color:var(--dim); letter-spacing:1.5px; margin:9px 0 3px; }
+  .subgrp i { font-style:normal; color:var(--acc); }
+  .chip .stam { display:block; height:3px; background:rgba(35,32,26,.18); border-radius:2px; margin-top:3px; overflow:hidden; }
+  .chip .stam u { display:block; height:100%; border-radius:2px; }
+  .mic { width:13px; height:13px; vertical-align:-2px; margin-right:3px; }
+  .report { background-image:repeating-linear-gradient(180deg, transparent 0 23px, rgba(47,93,138,.10) 23px 24px); position:relative; }
+  .stamp { position:absolute; top:8px; right:10px; width:40px; height:40px; border:2.5px solid var(--acc); color:var(--acc); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:19px; font-weight:800; font-family:Georgia,serif; transform:rotate(8deg); opacity:.88; background:rgba(255,252,244,.65); pointer-events:none; }
+  .stamp.unk { border-color:#2f5d8a; color:#2f5d8a; }
+  .sbar { height:5px; background:#e7ddc6; border-radius:3px; overflow:hidden; flex:1; }
+  .sbar u { display:block; height:100%; background:#2f5d8a; border-radius:3px; }
+  .campus { width:100%; height:auto; display:block; margin-bottom:2px; }
+  .facflash { animation:facfl 1.2s ease; border-radius:8px; }
+  @keyframes facfl { 0%,60% { background:rgba(200,150,46,.28); } 100% { background:transparent; } }
   .mcard { position:relative; overflow:hidden; }
   .mcard .band { position:absolute; top:0; left:0; right:0; height:4px; }
   .bust { flex:0 0 48px; width:48px; height:48px; border-radius:9px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(80,64,30,.15); }
@@ -513,12 +526,17 @@ const FORMATIONS = {
   football: [
     { id:"433", name:"4-3-3", slots:["GK","DF","DF","DF","DF","MF","MF","MF","WG","WG","ST"] },
     { id:"442", name:"4-4-2", slots:["GK","DF","DF","DF","DF","MF","MF","WG","WG","ST","ST"] },
-    { id:"352", name:"3-5-2", slots:["GK","DF","DF","DF","MF","MF","MF","WG","WG","ST","ST"] }
+    { id:"352", name:"3-5-2", slots:["GK","DF","DF","DF","MF","MF","MF","WG","WG","ST","ST"] },
+    { id:"451", name:"4-5-1", slots:["GK","DF","DF","DF","DF","MF","MF","MF","MF","MF","ST"] },
+    { id:"343", name:"3-4-3", slots:["GK","DF","DF","DF","MF","MF","MF","MF","WG","WG","ST"] },
+    { id:"532", name:"5-3-2", slots:["GK","DF","DF","DF","DF","DF","MF","MF","MF","ST","ST"] }
   ],
   basketball: [
     { id:"std", name:"常规阵容", slots:["控卫","分卫","小前锋","大前锋","中锋"] },
     { id:"small", name:"小球阵容", slots:["控卫","分卫","分卫","小前锋","大前锋"] },
-    { id:"twin", name:"双塔阵容", slots:["控卫","分卫","大前锋","中锋","中锋"] }
+    { id:"twin", name:"双塔阵容", slots:["控卫","分卫","大前锋","中锋","中锋"] },
+    { id:"g3", name:"三后卫", slots:["控卫","控卫","分卫","小前锋","中锋"] },
+    { id:"one4", name:"一大四小", slots:["控卫","分卫","小前锋","小前锋","中锋"] }
   ]
 };
 const ROT_N = { football: 5, basketball: 3 };
@@ -741,13 +759,14 @@ function bustSVG(p){ const J = JERSEYS[posGroupOf(p)] || JERSEYS.fw; const cid =
   else if(J.pat === "hoop") pat = '<path d="M6 38h36" stroke="rgba(255,255,255,.5)" stroke-width="3"/>';
   else if(J.pat === "sash") pat = '<path d="M10 32l28 13" stroke="rgba(255,255,255,.55)" stroke-width="3.5"/>';
   return `<svg viewBox="0 0 48 48" width="48" height="48" aria-hidden="true"><rect width="48" height="48" fill="#f1e9d6"/><clipPath id="${cid}"><path d="M8 45c1.6-9.5 7.4-14 16-14s14.4 4.5 16 14z"/></clipPath><circle cx="24" cy="16.5" r="7.6" fill="#3a352b"/><path d="M8 45c1.6-9.5 7.4-14 16-14s14.4 4.5 16 14z" fill="${J.c}"/><g clip-path="url(#${cid})">${pat}</g><path d="M20.5 31.5l3.5 3.5 3.5-3.5" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="1.6"/></svg>`; }
+function mentIcon(style){ if(style === "def") return '<svg class="mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/></svg>'; if(style === "atk") return '<svg class="mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19l1.8-5.8L16.5 3.5a2.1 2.1 0 0 1 3 3L9.8 16.2z"/><path d="M13.5 6.5l4 4"/></svg>'; return '<svg class="mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8h16M4 16h16"/><circle cx="9" cy="8" r="2.2" fill="var(--panel)"/><circle cx="15" cy="16" r="2.2" fill="var(--panel)"/></svg>'; }
 function posterStrip(sportId){ try{ const t = mock.state.table && mock.state.table[sportId]; if(!t || !t.rows || !Object.keys(t.rounds || {}).length) return ""; const rows = tableSorted(sportId); const mr = rows.find(r=>r.club === "__ME__"); if(!mr) return ""; return `<div class="pstrip"><span>联赛第 <b>${myRank(sportId)}</b> / 16 名</span><span>积分 <b>${mr.pts || 0}</b></span><span>战绩 <b>${mr.w || 0}胜${sportId === "basketball" ? "" : (mr.d || 0) + "平"}${mr.l || 0}负</b></span><span>净胜球 <b>${(mr.gf || 0) - (mr.ga || 0)}</b></span></div>`; }catch(e){ return ""; } }
 function playerCard(p){
   const away = awayMap.get(p.pid);
   const g = mock.state.growth[p.pid]||0;
   const el=document.createElement("div"); el.className="card";
   const meta = p.club ? `${p.pos} · ${p.club} · ${p.age}岁 · 工资${p.wage}档${p.pot!=="无(即战力)"?" · 潜力"+p.pot:""}${p.role!=="首发"?" · "+p.role:""}` : `${p.pos} · ${p.en||""}`;
-  el.innerHTML = `<div class="row" style="justify-content:flex-start;align-items:stretch"><div class="ovr" style="background:${tierColor(p.ability+g)}"><b>${p.ability+g}</b><small>${p.pos}</small>${g?'<i>+'+g+'</i>':''}</div><div style="flex:1;min-width:0"><span class="pname">${p.name}</span> ${away?'<span class="tag away">'+away+'</span>':''}${isArrived(p)?'':'<span class="tag away">回租中 · 赛季第 '+arriveDay()+' 天到队</span>'}${isOut(p.pid)?'<span class="tag away">租出练级中 · 赛季第 '+mock.state.loansOut[p.pid].returnDay+' 天归队</span>':''}${(mock.state.loansIn||{})[p.pid]?'<span class="tag away">租入 · 赛季末回母队</span>':''}<div class="pmeta">${meta}${ratingBadge(p)}</div>${staminaBar(p)}</div></div>`;
+  el.innerHTML = `<div class="row" style="justify-content:flex-start;align-items:stretch"><div class="ovr" style="background:${tierColor(p.ability+g)}"><b>${p.ability+g}</b><small>${p.pos}</small>${g?'<i>+'+g+'</i>':''}</div><div class="bust">${bustSVG(p)}</div><div style="flex:1;min-width:0"><span class="pname">${p.name}</span> ${away?'<span class="tag away">'+away+'</span>':''}${isArrived(p)?'':'<span class="tag away">回租中 · 赛季第 '+arriveDay()+' 天到队</span>'}${isOut(p.pid)?'<span class="tag away">租出练级中 · 赛季第 '+mock.state.loansOut[p.pid].returnDay+' 天归队</span>':''}${(mock.state.loansIn||{})[p.pid]?'<span class="tag away">租入 · 赛季末回母队</span>':''}<div class="pmeta">${meta}${ratingBadge(p)}</div>${staminaBar(p)}</div></div>`;
   if(!away && isArrived(p) && !isOut(p.pid)){
     const t=document.createElement("div"); t.className="tiers tiers5";
     for(const [k,v] of Object.entries(TIERS)){
@@ -926,11 +945,22 @@ function buyFacility(id){
   if(id === "medical"){ if(!s.fac) s.fac = {}; s.fac.medical = lv + 1; }
   mock.save(); toast(def.name + " 升到 Lv" + (lv + 1)); render();
 }
+function campusSVG(){
+  const lt = facLv("training"), lw = facLv("warehouse"), lm = facLv("medical");
+  const label = (x, t)=>`<text x="${x}" y="112" text-anchor="middle" font-size="10" fill="#7a7261">${t}</text>`;
+  const train = `<g onclick="facJump('training')" style="cursor:pointer"><rect x="10" y="58" width="112" height="36" rx="3" fill="#2e6b46"/><path d="M66 58v36M66 76m-11 0a11 8 0 1 0 22 0a11 8 0 1 0-22 0" stroke="rgba(255,255,255,.45)" fill="none" stroke-width="1.5"/>${lt >= 2 ? '<path d="M16 58V40M116 58V40" stroke="#3a352b" stroke-width="2"/><rect x="11" y="36" width="10" height="5" fill="#c9962e"/><rect x="111" y="36" width="10" height="5" fill="#c9962e"/>' : ""}${lt >= 3 ? '<rect x="30" y="46" width="72" height="9" fill="#8a8272"/><path d="M26 46h80" stroke="#3a352b" stroke-width="2"/>' : ""}${label(66, "训练场 Lv" + lt + "/3")}</g>`;
+  const ware = `<g onclick="facJump('warehouse')" style="cursor:pointer"><path d="M146 68l34-13 34 13z" fill="#8a6d1a"/><rect x="150" y="68" width="60" height="26" fill="#c9962e"/>${lw >= 2 ? '<rect x="216" y="78" width="14" height="16" fill="#b49b6a"/><rect x="219" y="70" width="11" height="9" fill="#8a6d1a"/>' : ""}<rect x="172" y="78" width="16" height="16" fill="#f7efdb"/>${label(180, "训练仓储 Lv" + lw + "/2")}</g>`;
+  const med = lm <= 0
+    ? `<g onclick="facJump('medical')" style="cursor:pointer"><path d="M282 94l20-24 20 24z" fill="#e7ddc6" stroke="#c9bc98"/><path d="M302 78v8M298 82h8" stroke="#c0392b" stroke-width="2"/>${label(302, "医疗室 Lv0/2")}</g>`
+    : `<g onclick="facJump('medical')" style="cursor:pointer"><rect x="264" y="${lm >= 2 ? 40 : 52}" width="66" height="${lm >= 2 ? 54 : 42}" fill="#f7efdb" stroke="#d8cdb2"/><path d="M260 ${lm >= 2 ? 40 : 52}h74" stroke="#a83226" stroke-width="3"/><circle cx="297" cy="${lm >= 2 ? 30 : 42}" r="8" fill="#fff" stroke="#d8cdb2"/><path d="M297 ${lm >= 2 ? 25 : 37}v10M292 ${lm >= 2 ? 30 : 42}h10" stroke="#c0392b" stroke-width="2.4"/><rect x="290" y="80" width="14" height="14" fill="#c9bc98"/>${label(297, "医疗室 Lv" + lm + "/2")}</g>`;
+  return `<svg class="campus" viewBox="0 0 360 118"><rect x="0" y="94" width="360" height="5" fill="#ddd2b2"/>${train}${ware}${med}</svg>`;
+}
+window.facJump = function(id){ const r = document.getElementById("facrow-" + id); if(!r) return; r.scrollIntoView({ behavior:"smooth", block:"center" }); r.classList.remove("facflash"); void r.offsetWidth; r.classList.add("facflash"); };
 function renderFacility(){
   const el = $("#facilityBody"); if(!el) return;
   ensureV2State();
   const s = mock.state, trainOpen = packActive("2026-11-19");
-  let h = "";
+  let h = campusSVG();
   for(const def of FACILITIES){
     const lv = facLv(def.id), maxed = lv >= def.max;
     let btn = "";
@@ -938,7 +968,7 @@ function renderFacility(){
     else if(maxed) btn = '<span class="tag back">满级</span>';
     else if(def.id === "warehouse") btn = `<button class="mini" ${seasonDayN() >= 3 ? "" : "disabled"} onclick="buyFacility('warehouse')">${seasonDayN() >= 3 ? "扩到 12 小时（免费）" : "第 3 天解锁"}</button>`;
     else { const cost = def.costs[lv]; btn = `<button class="mini" ${(s.balance || 0) >= cost ? "" : "disabled"} onclick="buyFacility('${def.id}')">${lv === 0 ? "建造" : "升级"} · ${cost}</button>`; }
-    h += `<div class="row" style="margin-top:5px"><div><div class="pname" style="font-size:13px">${def.name} Lv${lv}/${def.max}</div><div class="pmeta">${def.desc}</div></div>${btn}</div>`;
+    h += `<div class="row" id="facrow-${def.id}" style="margin-top:5px"><div><div class="pname" style="font-size:13px">${def.name} Lv${lv}/${def.max}</div><div class="pmeta">${def.desc}</div></div>${btn}</div>`;
   }
   el.innerHTML = h;
 }
@@ -1071,7 +1101,7 @@ function renderLoanMarket(ml){
   for(const p of pool){
     const fee = Math.round(signPrice(p) * 0.25); const afford = (mock.state.balance || 0) >= fee && activeLoanCount() < 6;
     const rowEl = document.createElement("div"); rowEl.className = "row"; rowEl.style.marginTop = "8px";
-    rowEl.innerHTML = `<div class="ovr sm" style="background:${tierColor(p.ability)}"><b>${p.ability}</b><small>${p.pos}</small></div><div style="flex:1;min-width:0"><span class="pname">${p.name}</span><div class="pmeta">${p.pos} · 能力 ${p.ability} · 日薪 ${wageOf(p)}</div></div><button ${afford ? "" : "disabled"}>租入 ${fee} 资金</button>`;
+    rowEl.innerHTML = `<div class="ovr" style="background:${tierColor(p.ability)}"><b>${p.ability}</b><small>${p.pos}</small></div><div class="bust">${bustSVG(p)}</div><div style="flex:1;min-width:0"><span class="pname">${p.name}</span><div class="pmeta">${p.pos} · 能力 ${p.ability} · 日薪 ${wageOf(p)}</div></div><button ${afford ? "" : "disabled"}>租入 ${fee} 资金</button>`;
     const b = rowEl.querySelector("button"); if(b) b.onclick = () => loanInPlayer(p, fee);
     head.appendChild(rowEl);
   }
@@ -1101,7 +1131,7 @@ function renderFreeAgents(ml){
   head.innerHTML = `<div class="pname">合同到期 · 免签区</div><div class="pmeta">合同到期的自由身：零签约费直接加盟，代价是工资 ×1.5（免签的钱都花在工资上）。名单每天刷新。</div>`;
   for(const p of todays){
     const rowEl = document.createElement("div"); rowEl.className = "row"; rowEl.style.marginTop = "8px";
-    rowEl.innerHTML = `<div class="ovr sm" style="background:${tierColor(p.ability)}"><b>${p.ability}</b><small>${p.pos}</small></div><div style="flex:1;min-width:0"><span class="pname">${p.name}</span><div class="pmeta">${p.pos} · 能力 ${p.ability} · 日薪 ${Math.round(wageOf(p) * 1.5)}（×1.5）</div></div><button>免签加盟</button>`;
+    rowEl.innerHTML = `<div class="ovr" style="background:${tierColor(p.ability)}"><b>${p.ability}</b><small>${p.pos}</small></div><div class="bust">${bustSVG(p)}</div><div style="flex:1;min-width:0"><span class="pname">${p.name}</span><div class="pmeta">${p.pos} · 能力 ${p.ability} · 日薪 ${Math.round(wageOf(p) * 1.5)}（×1.5）</div></div><button>免签加盟</button>`;
     rowEl.querySelector("button").onclick = () => signFreeAgent(p);
     head.appendChild(rowEl);
   }
@@ -1156,14 +1186,17 @@ function renderScout(){
   for(const [pid, sc] of entries){
     const p = findPlayer(pid); if(!p) continue;
     if(isSigned(p)) continue;
-    const card = document.createElement("div"); card.className = "card";
+    const card = document.createElement("div"); card.className = "card report";
     const stageName = ["", "初步考察", "深入考察", "联合试训"][sc.stage];
     let actions = "";
     if(sc.stage < 3){ const ready = Date.now() - sc.t >= SCOUT_CFG.waits[sc.stage]; actions = `<button class="mini" data-act="adv" ${ready ? "" : "disabled"}>${ready ? "推进考察（" + SCOUT_CFG.costs[sc.stage] + " 资金）" : "考察进行中…"}</button> `; }
     const q = mock.state.quotes[pid];
     if(sc.stage >= 3 && !q) actions += `<button class="mini" data-act="ask">向对方询价</button>`;
     if(q) actions += `<span class="pmeta">对方报价 ${q.final || q.ask} 资金 ${q.final ? "（还价成功）" : ""}</span> <button class="mini" data-act="sign">按此价签约</button>${!q.countered ? ' <button class="mini" data-act="counter">还价 -15%</button>' : ""}`;
-    card.innerHTML = `<div class="row"><div><span class="pname">${p.name}</span> <span class="tag">${stageName}</span>${sc.stage < 3 ? ' <span class="tag away">待揭晓</span>' : ""}<div class="pmeta">${p.pos} · ${scoutInfo(p, sc)}</div></div></div><div style="margin-top:8px">${actions}</div>`;
+    const grade = p.ability >= 90 ? "S" : p.ability >= 85 ? "A" : p.ability >= 80 ? "B" : "C";
+    const conf = [0, 30, 60, 90][sc.stage] || 0;
+    const bars = `<div style="margin-top:8px;display:grid;gap:5px">${sc.stage >= 3 ? `<div style="display:flex;align-items:center;gap:8px"><span class="pmeta" style="flex:0 0 66px">能力 ${p.ability}</span><span class="sbar"><u style="width:${p.ability}%"></u></span></div>` : ""}<div style="display:flex;align-items:center;gap:8px"><span class="pmeta" style="flex:0 0 66px">置信度 ${conf}%</span><span class="sbar"><u style="width:${conf}%;background:#c9962e"></u></span></div></div>`;
+    card.innerHTML = `<div class="stamp ${sc.stage >= 3 ? "" : "unk"}">${sc.stage >= 3 ? grade : "？"}</div><div class="row"><div><span class="pname">${p.name}</span> <span class="tag">${stageName}</span>${sc.stage < 3 ? ' <span class="tag away">待揭晓</span>' : ""}<div class="pmeta">${p.pos} · ${scoutInfo(p, sc)}</div></div></div>${bars}<div style="margin-top:8px">${actions}</div>`;
     card.querySelectorAll("button").forEach(b => { b.onclick = () => scoutAction(pid, b.dataset.act); });
     if(sc.stage < 3){ const rb = document.createElement("button"); rb.className = "mini ghost"; rb.style.marginTop = "6px"; rb.textContent = "看广告提前揭晓（今日 " + ((mock.state.scoutAdDay === beijingDateStr()) ? (mock.state.scoutAdCount || 0) : 0) + "/2）"; rb.onclick = () => scoutReveal(pid); card.appendChild(rb); }
     trio.appendChild(card);
@@ -3728,9 +3761,11 @@ function engStamOf(pid){
   return ep ? Math.round(ep.stam * 100) : null;
 }
 function htSubs(p){ p = p || $("#htPanel"); if(!p || !LIVE) return; const L = LIVE;
-  p.innerHTML = `<div class="hint" id="subHint" style="margin-top:8px">${HT_OUT ? `已选换下：<b>${(findPlayer(HT_OUT) || {}).name || HT_OUT}</b> —— 再点下方任意一名替补，立即完成换人` : `先点要换下的，再点替补席的（剩余换人 ${L.subsLeft} 次）`}</div>` +
-    L.onPitch.map(x=>{ const pl = findPlayer(x.pid); const ps = mock.state.pstat[x.pid]; return `<button class="mini" style="margin:2px${x.pid === HT_OUT ? ";background:#a83226;color:#fff;border-color:#a83226" : ""}" onclick="htPickOut('${x.pid}')">${pl ? pl.name : x.pid}（体${engStamOf(x.pid) != null ? engStamOf(x.pid) : (ps ? Math.round(ps.stamina - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 40 : 90))) : 100)}）</button>`; }).join("") +
-    `<div style="margin-top:4px">` + L.bench.map(pid=>{ const pl = findPlayer(pid); return `<button class="mini ghost" style="margin:2px" onclick="htPickIn('${pid}')">${pl ? pl.name : pid}（${pl ? effBase(pl) : ""}）</button>`; }).join("") + `</div>`; }
+  p.innerHTML = `<div class="hint" id="subHint" style="margin-top:8px">${HT_OUT ? `已选换下：<b>${(findPlayer(HT_OUT) || {}).name || HT_OUT}</b> —— 再点下方替补席任意一人，立即完成换人` : `先点「在场上」要换下的人，再点「替补席」要换上的人（剩余换人 ${L.subsLeft} 次）`}</div>` +
+    `<div class="subgrp"><i>●</i> 在场上 · 点选换下</div>` +
+    L.onPitch.map(x=>{ const pl = findPlayer(x.pid); const ps = mock.state.pstat[x.pid]; const st = engStamOf(x.pid) != null ? engStamOf(x.pid) : (ps ? Math.round(ps.stamina - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 40 : 90))) : 100); return `<button class="mini" style="margin:2px${x.pid === HT_OUT ? ";background:#a83226;color:#fff;border-color:#a83226" : ""}" onclick="htPickOut('${x.pid}')">${pl ? pl.name : x.pid}（${pl ? pl.pos : ""} · 体${st}）</button>`; }).join("") +
+    `<div class="subgrp"><i>●</i> 替补席 · 点选换上</div>` +
+    L.bench.map(pid=>{ const pl = findPlayer(pid); const ps = mock.state.pstat[pid]; const bst = ps ? Math.round(ps.stamina) : 100; return `<button class="mini ghost" style="margin:2px" onclick="htPickIn('${pid}')">${pl ? pl.name : pid}（${pl ? pl.pos : ""} · 能力${pl ? effBase(pl) : ""} · 体${bst}）</button>`; }).join(""); }
 let HT_OUT = null;
 function htPickOut(pid){ HT_OUT = pid; toast("已选换下：" + ((findPlayer(pid) || {}).name || pid) + "，再点一名替补");
   document.querySelectorAll("button[onclick^='htPickOut']").forEach(b=>{ const sel = b.getAttribute("onclick").includes("'" + pid + "'"); b.style.background = sel ? "#a83226" : ""; b.style.color = sel ? "#fff" : ""; b.style.borderColor = sel ? "#a83226" : ""; });
@@ -4062,11 +4097,11 @@ function renderTactics(){
   const fam = Math.min((tp.fam && tp.fam[tp.mentality]) || 0, MATCH_CFG.famMaxUse);
   let h = `<div class="card">
     <div class="pname">比赛心态（当前：${ment.name} · 熟练度 ${fam}/10）</div>
-    <div class="tiers" style="grid-template-columns:repeat(5,1fr);margin-top:6px">${MENTALITIES.map(m=>`<button class="${tp.mentality === m.id ? "" : "ghost"}" onclick="setMentality('${m.id}')">${m.name}</button>`).join("")}</div>
+    <div class="tiers" style="grid-template-columns:repeat(5,1fr);margin-top:6px">${MENTALITIES.map(m=>`<button class="${tp.mentality === m.id ? "" : "ghost"}" onclick="setMentality('${m.id}')">${mentIcon(m.style)}${m.name}</button>`).join("")}</div>
     <div class="hint">${ment.desc}。赛前情报：${opp} 近期偏「${om.name}」打法${cd > 0 ? "，你的风格正克制他（有效能力 +" + cd + "）" : cd < 0 ? "，你的风格被他克制（有效能力 " + cd + "），考虑换档" : "，风格上互不克制"}。</div>
     <div class="pname" style="margin-top:10px">附加指令（可多开，每条都写明代价）</div>
     <div class="tiers" style="grid-template-columns:1fr 1fr;margin-top:6px">${INSTRUCTIONS[sp].map(d=>`<button class="${tp.instr && tp.instr[d.id] ? "" : "ghost"}" onclick="toggleInstr('${d.id}')">${d.name}<br><span class="hint">${d.dep}${d.id === "press" || d.id === "fullpress" ? " · 体能消耗 +25%" : ""}</span></button>`).join("")}</div>
-    <div class="row" style="margin-top:10px"><div class="pname">阵型 ${form.name}</div><div>${FORMATIONS[sp].map(f=>`<button class="mini ${f.id === form.id ? "act" : ""}" onclick="setFormation('${f.id}')">${f.name}</button>`).join(" ")} <button class="mini ghost" onclick="autoLineupBtn()">一键最强阵</button></div></div>
+    <div class="row" style="margin-top:10px"><div class="pname" style="flex:0 0 auto;white-space:nowrap">阵型 ${form.name}</div><div>${FORMATIONS[sp].map(f=>`<button class="mini ${f.id === form.id ? "act" : ""}" onclick="setFormation('${f.id}')">${f.name}</button>`).join(" ")} <button class="mini ghost" onclick="autoLineupBtn()">一键最强阵</button></div></div>
     <div class="hint">点球场图上的球员可以换人；点开后再点候选即可落位。排错位置有效能力 −3，对口 +2。</div>
     <div class="pitch">`;
   const rows = PITCH_ROWS[sp];
@@ -4077,12 +4112,12 @@ function renderTactics(){
     for(const g of row){ for(const i of (slotIdxByGroup[g] || [])){
       const pid = lu.starters[i], p = pid ? findPlayer(pid) : null, ps = p && s.pstat[p.pid];
       const st = ps ? ps.stamina : 100;
-      h += `<button class="chip ${PICK && PICK.kind === "slot" && PICK.idx === i ? "picked" : ""}" onclick="openPick('slot', ${i})">${p ? `<b>${p.name}</b><span>${g} · ${Math.round(effAbility(p, g))} · 体能${st}${isInjured(p.pid) ? " · 伤" : ps && ps.restDay === seasonDayN() ? " · 休" : ""}</span>` : `<b>空缺</b><span>${g}</span>`}</button>`;
+      h += `<button class="chip ${PICK && PICK.kind === "slot" && PICK.idx === i ? "picked" : ""}" onclick="openPick('slot', ${i})">${p ? `<b>${p.name}</b><span>${g} · ${Math.round(effAbility(p, g))} · 体能${st}${isInjured(p.pid) ? " · 伤" : ps && ps.restDay === seasonDayN() ? " · 休" : ""}</span><i class="stam"><u style="width:${st}%;background:${st >= 60 ? "#2e6b46" : st >= 35 ? "#c9962e" : "#c0392b"}"></u></i>` : `<b>空缺</b><span>${g}</span>`}</button>`;
     } }
     h += `</div>`;
   }
   h += `</div><div class="pname" style="margin-top:8px">轮换席</div><div class="pitchrow">`;
-  (lu.rotation || []).forEach((pid, i)=>{ const p = findPlayer(pid); if(!p) return; const ps = s.pstat[pid]; h += `<button class="chip rot ${PICK && PICK.kind === "rot" && PICK.idx === i ? "picked" : ""}" onclick="openPick('rot', ${i})"><b>${p.name}</b><span>${p.pos} · ${effBase(p)} · 体能${ps ? ps.stamina : 100}</span></button>`; });
+  (lu.rotation || []).forEach((pid, i)=>{ const p = findPlayer(pid); if(!p) return; const ps = s.pstat[pid]; h += `<button class="chip rot ${PICK && PICK.kind === "rot" && PICK.idx === i ? "picked" : ""}" onclick="openPick('rot', ${i})"><b>${p.name}</b><span>${p.pos} · ${effBase(p)} · 体能${ps ? ps.stamina : 100}</span><i class="stam"><u style="width:${ps ? ps.stamina : 100}%;background:${(ps ? ps.stamina : 100) >= 60 ? "#2e6b46" : (ps ? ps.stamina : 100) >= 35 ? "#c9962e" : "#c0392b"}"></u></i></button>`; });
   h += `</div>`;
   if(PICK){
     const curPid = PICK.kind === "slot" ? lu.starters[PICK.idx] : lu.rotation[PICK.idx];
