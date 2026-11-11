@@ -195,6 +195,61 @@
 #matchNode .nodebox{box-shadow:0 12px 32px rgba(35,32,26,.38);animation:nodein .28s ease-out}
 @keyframes nodein{from{transform:translateY(18px);opacity:0}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion: reduce){#matchNode .nodebox{animation:none}}
+/* ===== 点球/罚球原型接入样式（pn-/ft- 前缀，与原型页同构） ===== */
+.pnScene{position:relative;margin-top:8px;height:320px;border-radius:14px;overflow:hidden;border:1px solid #ddd2b8;background:linear-gradient(#7d94a6 0 24%,#8fae7e 24% 29%,#6f9a5f 29% 100%)}
+.pnStand{position:absolute;left:0;right:0;top:0;height:24%;opacity:.5;background:repeating-linear-gradient(90deg,#5d7284 0 7px,#6d8397 7px 14px)}
+.pnGoal{position:absolute;left:7%;right:7%;top:10%;height:55%;border:5px solid #fdfdf8;border-bottom:none;border-radius:4px 4px 0 0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.20) 0 2px,transparent 2px 16px),repeating-linear-gradient(90deg,rgba(255,255,255,.20) 0 2px,transparent 2px 16px);cursor:pointer}
+.pnGoalBack{left:16%;right:16%;top:34%;height:44%;cursor:default}
+.pnFig{position:absolute;z-index:3;transform-origin:50% 92%;pointer-events:none}
+.pnKeeperS{width:56px;height:104px;left:50%;bottom:33%;margin-left:-28px;transition:transform .48s cubic-bezier(.2,.7,.3,1),left .3s ease}
+.pnKeeperK{width:96px;height:172px;left:50%;bottom:2%;margin-left:-48px;transition:transform .42s cubic-bezier(.2,.7,.3,1);z-index:5}
+.pnTakerS{width:86px;height:150px;left:50%;bottom:1%;margin-left:-86px;z-index:4;transition:transform .5s cubic-bezier(.3,.6,.4,1)}
+.pnShooterK{width:54px;height:100px;left:50%;bottom:56%;margin-left:-27px;z-index:3}
+.pnBall{position:absolute;border-radius:50%;z-index:4;background:radial-gradient(circle at 35% 32%,#ffffff 0 34%,#d9d9d9 35% 52%,#2b2620 53% 60%,#f2f2f2 61% 100%);box-shadow:0 3px 5px rgba(0,0,0,.35)}
+.pnBallS{width:26px;height:26px;left:50%;bottom:7.5%;margin-left:-30px}
+.pnBallK{width:15px;height:15px;left:50%;bottom:56.5%;margin-left:-7px}
+.pnAim{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border:2.5px solid #ffd34d;border-radius:50%;z-index:6;pointer-events:none;display:none;box-shadow:0 0 0 2px rgba(0,0,0,.25),inset 0 0 0 2px rgba(0,0,0,.15)}
+.pnAim::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;background:#ffd34d;border-radius:50%}
+.pnDivezone{position:absolute;top:30%;bottom:0;width:33.4%;z-index:7;cursor:pointer}
+.pnDivezone.sel{background:rgba(255,211,77,.13);box-shadow:inset 0 0 0 2px rgba(255,211,77,.55)}
+.pnBanner{position:absolute;left:50%;top:36%;transform:translate(-50%,-50%) scale(.8);z-index:8;font-size:32px;font-weight:800;letter-spacing:4px;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.25),0 4px 14px rgba(0,0,0,.4);opacity:0;pointer-events:none;white-space:nowrap}
+.pnBanner.show{animation:pnbin .45s cubic-bezier(.2,1.4,.4,1) forwards}
+@keyframes pnbin{to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.pnCoach{position:absolute;left:10px;right:10px;bottom:10px;z-index:9;background:rgba(35,32,26,.93);color:#f7f1de;border-radius:10px;padding:9px 12px;font-size:13px;line-height:1.6;box-shadow:0 4px 14px rgba(0,0,0,.3);text-align:left}
+.pnCoach b{color:#ffd34d}
+.pnCoach .who{display:inline-block;background:#a87b1f;color:#fff;border-radius:4px;font-size:11px;padding:0 6px;margin-right:6px}
+.pnRisk{margin-top:8px;font-size:12.5px;display:flex;justify-content:space-between}
+.pnBarWrap{margin-top:10px}
+.pnBar{position:relative;height:20px;border-radius:10px;background:linear-gradient(90deg,#c0392b 0 30%,#e6c65a 30% 44%,#2e6b46 44% 56%,#e6c65a 56% 70%,#c0392b 70% 100%);overflow:hidden}
+.pnMarker{position:absolute;top:0;bottom:0;width:5px;background:#fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.45);left:0}
+.pnBarLabels{display:flex;justify-content:space-between;font-size:10.5px;color:#8a8272;margin-top:3px}
+.pnFlavor{margin-top:8px;font-size:13.5px;line-height:1.6;min-height:22px}
+.pnFlavor .q{color:#a87b1f;font-weight:700}
+.pnCommit{margin-top:8px;font-size:12.5px;color:#6d6350}
+.pnCommit b{color:#a87b1f}
+.pnAct{letter-spacing:2px}
+.pnAct:disabled{opacity:.55}
+.pnGuideGlow{animation:pngpulse 1.1s ease-in-out infinite}
+@keyframes pngpulse{0%,100%{box-shadow:0 0 0 0 rgba(255,211,77,0)}50%{box-shadow:0 0 0 6px rgba(255,211,77,.55)}}
+.pnGuideGlowZ{animation:pnpulse 1.1s ease-in-out infinite}
+@keyframes pnpulse{0%,100%{box-shadow:inset 0 0 0 2px rgba(255,211,77,.20)}50%{box-shadow:inset 0 0 0 3px rgba(255,211,77,.8)}}
+.ftScene{position:relative;margin-top:8px;height:300px;border-radius:14px;overflow:hidden;border:1px solid #ddd2b8;background:linear-gradient(#7d94a6 0 22%,#c8a06a 22% 30%,#bb8f57 30% 100%)}
+.ftBoard{position:absolute;left:50%;top:9%;width:118px;height:74px;margin-left:-59px;background:rgba(255,253,246,.92);border:3px solid #8a8272;border-radius:4px;z-index:2}
+.ftBoard::after{content:"";position:absolute;left:50%;top:56%;width:44px;height:30px;margin-left:-22px;border:2.5px solid #b03a2e;border-radius:2px}
+.ftRim{position:absolute;left:50%;top:calc(9% + 62px);width:52px;height:12px;margin-left:-26px;z-index:3;border:3.5px solid #d3542e;border-radius:50%;background:rgba(255,255,255,.25)}
+.ftNet{position:absolute;left:50%;top:calc(9% + 72px);width:40px;height:30px;margin-left:-20px;z-index:2;opacity:.75;background:repeating-linear-gradient(90deg,rgba(255,255,255,.9) 0 2px,transparent 2px 9px);clip-path:polygon(0 0,100% 0,82% 100%,18% 100%)}
+.ftCourtline{position:absolute;left:8%;right:8%;bottom:16%;height:2px;background:rgba(255,255,255,.55)}
+.ftFig{position:absolute;z-index:4;transform-origin:50% 92%;pointer-events:none;width:92px;height:164px;left:50%;bottom:2%;margin-left:-46px;transition:transform .35s ease}
+.ftBall{position:absolute;border-radius:50%;z-index:5;width:27px;height:27px;pointer-events:none;background:radial-gradient(circle at 36% 30%,#e89a5a 0 30%,#cf7434 55%,#a85424 100%);box-shadow:inset 0 0 0 2px rgba(90,45,15,.45),0 3px 5px rgba(0,0,0,.3)}
+.ftBar{position:relative;height:20px;border-radius:10px;background:#e4d9c0;overflow:hidden}
+.ftSeg{position:absolute;top:0;bottom:0}
+.ftSegL{background:#c0392b;left:0}.ftSegG{background:#2e6b46}.ftSegR{background:#c0392b;right:0}
+.ftSegMid{position:absolute;top:0;bottom:0;background:#e6c65a}
+.ftMarker{position:absolute;top:0;bottom:0;width:5px;background:#fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.45);left:0;display:none}
+.ftGhost{position:absolute;top:-3px;bottom:-3px;width:3px;background:#274b8f;opacity:.85;display:none}
+.ftGhost::after{content:"上球";position:absolute;top:-14px;left:-9px;font-size:9px;color:#274b8f;white-space:nowrap}
+.ftHold.holding{background:#8e2f24}
+
 </style>
 </head>
 <body>
@@ -1068,7 +1123,7 @@ function drawPreviewPitch(){
   const cv = document.querySelector("#previewPitch"); if(!cv) return;
   const sp = curSport(), dayN = seasonDayN(), opp = sp.leagues()[(dayN - 1) % sp.leagues().length];
   const ctx = cv.getContext("2d"), W = cv.width, H = cv.height, isB = sp.id === "basketball";
-  if(isB){ ctx.fillStyle = "#d9a45b"; ctx.fillRect(0, 0, W, H); ctx.fillStyle = "#c98f3d"; ctx.fillRect(0, H * .42, W, H * .16); }
+  if(isB){ const sk = skinOf(); const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, sk.bc1); g.addColorStop(1, sk.bc1); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.fillStyle = sk.bc2; ctx.fillRect(0, H * .42, W, H * .16); ctx.fillStyle = "rgba(255,255,255,.05)"; const stp = sk.stripe || "v"; if(stp === "v"){ for(let i = 0; i < 6; i += 2) ctx.fillRect(W * i / 6, 0, W / 6, H); } else if(stp === "h"){ for(let i = 0; i < 6; i += 2) ctx.fillRect(0, H * i / 6, W, H / 6); } }
   else { const sk = skinOf(); const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, sk.c1); g.addColorStop(1, sk.c2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = "rgba(255,255,255,.045)"; const stp = skinOf().stripe || "v";
     if(stp === "v"){ for(let i = 0; i < 6; i += 2) ctx.fillRect(W * i / 6, 0, W / 6, H); }
@@ -3363,6 +3418,24 @@ function stepSim(S){
   const out = S._evs; S._evs = null;
   return out;
 }
+/* 罚球原型接入：逐球结算当前篮球罚球节点（UI 每出手一次调一次，引擎仍是唯一结算方）。
+   tier: swish 绿区必进 / mid 中圈 85% / outer 外圈 22% / far 不进。返回 {made, done, totalMade} 或 null。 */
+function resolveFtShot(S, tier){
+  const nd = S.deadBall; if(!nd || nd.type !== "pen" || S.sport !== "basketball") return null;
+  const attempts = nd.pts || 2;
+  if(nd.ftDone == null){ nd.ftDone = 0; nd.ftMade = 0; nd.ftShotsArr = [];
+    nd.ftTaker = nd.takerIdx >= 0 ? S.players[nd.takerIdx] : teamPlayers(S, nd.side).sort((a, b)=>b.skill.shoot - a.skill.shoot)[0]; }
+  if(nd.ftDone >= attempts) return null;
+  const inb = tier === "swish" ? true : tier === "mid" ? S.rng() < .85 : tier === "outer" ? S.rng() < .22 : false;
+  nd.ftShotsArr.push(inb); if(inb) nd.ftMade++; nd.ftDone++;
+  if(nd.ftDone < attempts) return { made: inb, done: false, totalMade: nd.ftMade };
+  const taker = nd.ftTaker, made = nd.ftMade;
+  S.score[nd.side] += made;
+  if(made) S.stats.scorers.push({ name: taker.name, side: nd.side, min: Math.floor(S.tick / S.totalTicks * 40), pts: made, ft: true });
+  emit(S, { type: "ft", side: nd.side, p: taker, made, n: attempts, shots: nd.ftShotsArr.slice() });
+  S.deadBall = null; bbDeadReset(S, 1 - nd.side);
+  return { made: inb, done: true, totalMade: made };
+}
 function resolveSimNode(S, choice){
   const nd = S.deadBall; if(!nd) return;
   choice = choice || {};
@@ -3393,23 +3466,56 @@ function resolveSimNode(S, choice){
   if(nd.type === "pen"){
     if(S.sport === "basketball"){
       const taker = nd.takerIdx >= 0 ? S.players[nd.takerIdx] : teamPlayers(S, nd.side).sort((a, b)=>b.skill.shoot - a.skill.shoot)[0];
-      let made = 0; const pFT = .52 + taker.skill.shoot / 100 * .3, attempts = nd.pts || 2;
-      for(let i = 0; i < attempts; i++) if(S.rng() < pFT) made++;
+      const attempts = nd.pts || 2;
+      let made = 0; const shots = [];
+      if(choice.ftShots && nd.side === 0){
+        /* 玩家亲手罚球（罚球原型接入）：档位由出手点决定——绿区空心必进、中圈 85% 颠进、外圈 22% 幸运、其余不进 */
+        for(let i = 0; i < attempts; i++){ const t = choice.ftShots[i]; const inb = t === "swish" ? true : t === "mid" ? S.rng() < .85 : t === "outer" ? S.rng() < .22 : false; shots.push(inb); if(inb) made++; }
+      } else {
+        const pFT = .52 + taker.skill.shoot / 100 * .3;
+        for(let i = 0; i < attempts; i++){ const inb = S.rng() < pFT; shots.push(inb); if(inb) made++; }
+      }
       S.score[nd.side] += made;
       if(made) S.stats.scorers.push({ name: taker.name, side: nd.side, min: Math.floor(S.tick / S.totalTicks * 40), pts: made, ft: true });
-      emit(S, { type: "ft", side: nd.side, p: taker, made, n: attempts });
+      emit(S, { type: "ft", side: nd.side, p: taker, made, n: attempts, shots });
       S.deadBall = null; bbDeadReset(S, 1 - nd.side); return;
     }
     const taker = nd.takerIdx >= 0 ? S.players[nd.takerIdx] : teamPlayers(S, nd.side).filter(p=>!p.isGK).sort((a, b)=>b.skill.shoot - a.skill.shoot)[0];
+    const penGoal = ()=>{ S.score[nd.side]++; S.stats.scorers.push({ name: taker.name, side: nd.side, min: Math.floor(S.tick / S.totalTicks * 90), pen: true }); };
+    const penSaveBall = ()=>{ S.ball.owner = null; S.ball.x = nd.side ? 12 : 88; S.ball.y = 32 + (S.rng() * 10 - 5); S.ball.vx = nd.side ? 1 : -1; S.ball.vy = 0; S.ball.lastTouch = nd.side; };
+    if(choice.aim){
+      /* 点球原型接入：落点＋发力＋门将/扑救输入齐备时按原型概率表结算（原型 v3.1 定版口径） */
+      const aim = choice.aim, nx = aim.nx, ny = aim.ny;
+      const third = nx < .34 ? 0 : nx > .66 ? 2 : 1, zone = third + (ny < .5 ? 0 : 3);
+      const edge = Math.min(nx, 1 - nx);
+      const corner = (nx < .18 || nx > .82) && (ny < .30 || ny > .72), dead = (nx < .13 || nx > .87) && (ny < .24 || ny > .78);
+      let missBase = .05; if(dead) missBase = .16; else if(corner) missBase = .11; else if(edge < .22) missBase = .075; else if(ny < .28) missBase = .085;
+      let saved = false, missed = false, post = false;
+      if(choice.dive){
+        /* 对方点球：CPU 罚球打偏率 11%（原型口径）；扑救按落点距离×时机力量 */
+        if(S.rng() < .11) missed = true;
+        else if(!choice.dive.committed){ saved = third === 1 && S.rng() < .30; }
+        else { const zx = (choice.dive.third + .5) / 3, zy = ny < .45 ? .22 : .78; const d = Math.hypot(nx - zx, (ny - zy) * 1.05); const base = d < .20 ? .85 : d < .36 ? .45 : d < .48 ? .12 : .02; saved = S.rng() < base * (choice.dive.power || 1); }
+      } else {
+        const execMul = aim.exec === "perfect" ? .5 : aim.exec === "poor" ? 2.1 : 1;
+        if(S.rng() < missBase * execMul) missed = true;
+        else { const kT = choice.keeper && choice.keeper.third != null ? choice.keeper.third : Math.floor(S.rng() * 3);
+          if(kT === third){ const gp = Math.min(.9, (aim.exec === "perfect" ? (corner || dead ? .78 : .62) : aim.exec === "good" ? .35 : .12) + (choice.keeper && choice.keeper.edged ? .12 : 0)); saved = S.rng() >= gp; }
+          else if(dead && S.rng() < .10) { missed = true; post = true; } }
+      }
+      if(missed){ emit(S, { type: "penMissed", side: nd.side, p: taker, zone, post }); penSaveBall(); }
+      else if(saved){ emit(S, { type: "penSaved", side: nd.side, p: taker, zone }); penSaveBall(); }
+      else { penGoal(); emit(S, { type: "goal", side: nd.side, p: taker, pen: true, zone }); kickoff(S, 1 - nd.side); S.celebrate = 40; }
+      S.deadBall = null; return;
+    }
     let guess = Math.floor(S.rng() * 6), zone = choice.zone != null ? choice.zone : Math.floor(S.rng() * 6);
     if(choice.guess != null){ zone = Math.floor(S.rng() * 6); guess = choice.guess; }
     if(zone === guess && S.rng() > .22){
-      emit(S, { type: "penSaved", side: nd.side, p: taker });
-      S.ball.owner = null; S.ball.x = nd.side ? 12 : 88; S.ball.y = 32 + (S.rng() * 10 - 5); S.ball.vx = nd.side ? 1 : -1; S.ball.vy = 0; S.ball.lastTouch = nd.side;
+      emit(S, { type: "penSaved", side: nd.side, p: taker, zone, guess });
+      penSaveBall();
     } else {
-      S.score[nd.side]++;
-      S.stats.scorers.push({ name: taker.name, side: nd.side, min: Math.floor(S.tick / S.totalTicks * 90), pen: true });
-      emit(S, { type: "goal", side: nd.side, p: taker, pen: true });
+      penGoal();
+      emit(S, { type: "goal", side: nd.side, p: taker, pen: true, zone, guess });
       kickoff(S, 1 - nd.side); S.celebrate = 40;
     }
     S.deadBall = null; return;
@@ -3461,8 +3567,8 @@ function runHeadless(cfg, seed){
   }
   return { score: S.score, events: S.events, stats: S.stats, bbStats: S.bb ? S.bb.stats : null, players: S.players, ticks: S.tick };
 }
-if(typeof module !== "undefined" && module.exports) module.exports = { createSim, stepSim, setSimTactics, simSubstitute, resolveSimNode, runHeadless, callTimeout, SIM_CFG, deriveParams };
-if(typeof window !== "undefined") window.SIMCORE = { createSim, stepSim, setSimTactics, simSubstitute, resolveSimNode, runHeadless, callTimeout, SIM_CFG, deriveParams };
+if(typeof module !== "undefined" && module.exports) module.exports = { createSim, stepSim, setSimTactics, simSubstitute, resolveSimNode, resolveFtShot, runHeadless, callTimeout, SIM_CFG, deriveParams };
+if(typeof window !== "undefined") window.SIMCORE = { createSim, stepSim, setSimTactics, simSubstitute, resolveSimNode, resolveFtShot, runHeadless, callTimeout, SIM_CFG, deriveParams };
 /*__SIM_ENGINE_END__*/
 function openLiveMatch(frTier, dayOverride){
   ensureV2State();
@@ -3795,6 +3901,343 @@ function simBookInjury(nd){
   L.playedMins[victim.pid] = (L.playedMins[victim.pid] || 0) + (L.minute - (L._inMin[victim.pid] || 0));
   mock.save();
 }
+/* ================= 点球/罚球原型接入（v3.1 点球定版 + 罚球 v1 定版，2026-11-11 主人拍板接入） =================
+   呈现与输入层移植自 penproto.html / ftproto.html；结算全部走 SIMCORE（引擎单一事实源）：
+   足球点球 resolveSimNode({aim, keeper|dive})、篮球罚球 resolveFtShot(tier) 逐球结算。 */
+const PnSfx = (()=>{ let AC = null;
+  function ac(){ if(!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if(AC.state === "suspended") AC.resume(); return AC; }
+  function tone(f, t0, d, type, g){ try{ const a = ac(), o = a.createOscillator(), v = a.createGain(); o.type = type || "sine"; o.frequency.value = f; v.gain.setValueAtTime(g || .12, a.currentTime + t0); v.gain.exponentialRampToValueAtTime(.001, a.currentTime + t0 + d); o.connect(v).connect(a.destination); o.start(a.currentTime + t0); o.stop(a.currentTime + t0 + d); }catch(e){} }
+  function noise(t0, d, g, freq){ try{ const a = ac(), len = Math.floor(a.sampleRate * d), buf = a.createBuffer(1, len, a.sampleRate), ch = buf.getChannelData(0); for(let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len); const src = a.createBufferSource(); src.buffer = buf; const v = a.createGain(); v.gain.value = g; const f = a.createBiquadFilter(); f.type = freq ? "bandpass" : "lowpass"; f.frequency.value = freq || 900; src.connect(f).connect(v).connect(a.destination); src.start(a.currentTime + t0); }catch(e){} }
+  return { kick(){ noise(0, .12, .5); tone(90, 0, .12, "sine", .25); },
+    cheer(){ noise(0, .9, .16, 700); tone(523, .05, .3, "triangle", .05); tone(659, .12, .3, "triangle", .05); tone(784, .2, .4, "triangle", .05); },
+    groan(){ tone(196, 0, .5, "sawtooth", .045); tone(165, .1, .6, "sawtooth", .04); noise(0, .5, .05); },
+    swish(){ noise(0, .28, .4, 1600); noise(.05, .22, .25, 900); },
+    clang(){ tone(175, 0, .22, "square", .10); tone(262, 0, .14, "square", .06); noise(0, .06, .2, 2400); },
+    bounce(){ noise(0, .07, .3, 300); },
+    whistle(){ tone(2350, 0, .16, "square", .028); } };
+})();
+function pnFigSVG(jersey, skin, hair, back){
+  return `<svg viewBox="0 0 64 118" width="100%" height="100%"><circle cx="32" cy="13" r="10" fill="${hair}"/><path d="M32 23v33" stroke="${jersey}" stroke-width="15" stroke-linecap="round"/><path d="M25 30 L7 47 M39 30 L57 47" stroke="${skin}" stroke-width="7" stroke-linecap="round"/><g><path d="M34 54 L44 88 L46 108" stroke="${skin}" stroke-width="8" stroke-linecap="round" fill="none"/></g><path d="M29 54 L24 88 L22 108" stroke="${skin}" stroke-width="8" stroke-linecap="round" fill="none"/><path d="M21 26h22l-2.5 30h-17z" fill="${jersey}"/>${back ? '<circle cx="32" cy="40" r="6.5" fill="rgba(255,255,255,.55)"/>' : ''}</svg>`;
+}
+function pnZoneInfo(nx, ny){
+  const edge = Math.min(nx, 1 - nx);
+  const corner = (nx < .18 || nx > .82) && (ny < .30 || ny > .72);
+  const dead = (nx < .13 || nx > .87) && (ny < .24 || ny > .78);
+  let name = "中路稳妥", miss = .05;
+  if(dead){ name = "死角！"; miss = .16; } else if(corner){ name = "刁钻角落"; miss = .11; }
+  else if(edge < .22){ name = "贴边"; miss = .075; } else if(ny < .28){ name = "上角"; miss = .085; }
+  return { name, miss, corner: corner || dead, dead };
+}
+const PN = { session: 0, timers: [], raf: 0, nodeRef: null, winUp: null };
+function pnLater(fn, ms){ PN.timers.push(setTimeout(fn, ms)); }
+function pnCleanup(){ PN.timers.forEach(id => { clearTimeout(id); clearInterval(id); }); PN.timers = []; if(PN.raf) cancelAnimationFrame(PN.raf); PN.raf = 0; if(PN.winUp){ window.removeEventListener("pointerup", PN.winUp); PN.winUp = null; } PN.nodeRef = null; }
+function pnAlive(sess, box){ return PN.session === sess && box && document.body.contains(box); }
+function pnTaker(nd){ const S = LIVE && LIVE.S; if(!S) return null; if(nd.takerIdx != null && nd.takerIdx >= 0 && S.players[nd.takerIdx]) return S.players[nd.takerIdx]; const tp = S.players.filter(p => p.side === nd.side && !p.isGK).sort((a, b) => b.skill.shoot - a.skill.shoot); return tp[0] || S.players.filter(p => p.side === nd.side)[0] || null; }
+function pnKeeper(nd){ const S = LIVE && LIVE.S; if(!S) return null; return S.players.find(p => p.side !== nd.side && p.isGK) || null; }
+function pnFinish(sess, box, txt){
+  if(!pnAlive(sess, box)) return;
+  if(txt) pushLine(LIVE.minute, txt, "pen");
+  renderMatchHead(); pnCleanup(); closeNode();
+}
+function pnBanner(box, txt, color){ const b = box.querySelector(".pnBanner"); if(b){ b.textContent = txt; b.style.color = color || "#fff"; b.className = "pnBanner show"; } }
+
+/* ---------- 我方点球：第三人称主罚 ---------- */
+function PnShootStart(box, nd){
+  if(PN.nodeRef === nd) return; PN.nodeRef = nd; const sess = ++PN.session;
+  const L = LIVE, taker = pnTaker(nd), keeper = pnKeeper(nd);
+  const guided = !(mock.state && mock.state.pnGuideShoot);
+  box.innerHTML = `<div class="nodebox"><div class="pname">⚽ 点球！（${L.minute}′，比分 ${L.my}:${L.oppScore}）</div>
+  <div class="pmeta">主罚 ${taker ? taker.name : "我方球员"}${keeper && keeper.name && !/门将|对方/.test(keeper.name) ? " · 对方门将 " + keeper.name : " · 对方门将"}。你站在主罚者身后——先点球门选落点，再助跑发力。</div>
+  <div class="pnScene" id="pnScene"><div class="pnStand"></div><div class="pnGoal"></div><div class="pnFigs"></div><div class="pnBall pnBallS"></div><div class="pnAim"></div><div class="pnBanner"></div><div class="pnCoach" style="display:none"></div></div>
+  <div class="pmeta pnHint" style="margin-top:8px"></div>
+  <div class="pnRisk"><span>落点：<b class="pnZoneName">未选择</b></span><span>打偏风险：<b class="pnRiskPct">—</b></span></div>
+  <div class="pnBarWrap" style="display:none"><div class="pmeta">助跑中——指针进<b>绿区</b>瞬间点「射门！」。助跑途中还能改落点。</div><div class="pnBar"><div class="pnMarker"></div></div><div class="pnBarLabels"><span>发力过猛</span><span>一般</span><span>完美</span><span>一般</span><span>发力过猛</span></div></div>
+  <button class="pnAct" style="width:100%;margin-top:8px" disabled>先点球门选落点</button>
+  <div class="pnFlavor"></div></div>`;
+  const q = s => box.querySelector(s);
+  const scene = q("#pnScene"), goal = q(".pnGoal"), ball = q(".pnBall"), figs = q(".pnFigs"), aimEl = q(".pnAim"), btn = q(".pnAct"), hint = q(".pnHint"), coachEl = q(".pnCoach");
+  const coach = h => { coachEl.innerHTML = '<span class="who">老陈</span>' + h; coachEl.style.display = "block"; };
+  const mkFig = (cls, html) => { const d = document.createElement("div"); d.className = "pnFig " + cls; d.innerHTML = html; figs.appendChild(d); return d; };
+  const keeperFig = mkFig("pnKeeperS", pnFigSVG("#274b8f", "#c98d64", "#2b2620", false));
+  const takerFig = mkFig("pnTakerS", pnFigSVG("#b03a2e", "#8a5a3b", "#2b2620", true));
+  let phase = "aim", aim = null, barPos = 0, barDir = 1, busy = false;
+  const keeperEdge = Math.random() < .42 ? (Math.random() < .5 ? 0 : 2) : -1;
+  if(keeperEdge >= 0){ keeperFig.style.left = `calc(50% + ${keeperEdge === 0 ? -20 : 20}px)`;
+    hint.innerHTML = `门将的重心已经在往<b>${keeperEdge === 0 ? "左" : "右"}侧压</b>——打反侧是空门，打同侧就是往他怀里送。`; }
+  else hint.innerHTML = "先<b>点球门</b>选落点，再点「助跑」——助跑途中还能改落点，指针进绿区点「射门」发力。";
+  if(guided){ goal.classList.add("pnGuideGlow"); coach("① 先<b>点球门</b>任意位置——那就是你要打的落点。"); }
+  PnSfx.whistle();
+  const hist = (mock.state && mock.state.pnHist) || [];
+  const keeperPickThird = () => { const w = [1.15, 0.7, 1.1];
+    if(hist.length){ const last = hist[hist.length - 1]; w[last] += .55; if(hist.length >= 2 && hist[hist.length - 2] === last) w[last] += .5; }
+    const t = w[0] + w[1] + w[2]; let r = Math.random() * t; for(let i = 0; i < 3; i++){ r -= w[i]; if(r <= 0) return i; } return 1; };
+  goal.addEventListener("click", ev => {
+    if(!pnAlive(sess, box) || busy || (phase !== "aim" && phase !== "power")) return;
+    const gr = goal.getBoundingClientRect(), sr = scene.getBoundingClientRect();
+    const nx = (ev.clientX - gr.left) / gr.width, ny = (ev.clientY - gr.top) / gr.height;
+    aim = { nx: Math.min(.98, Math.max(.02, nx)), ny: Math.min(.97, Math.max(.03, ny)), x: ev.clientX - sr.left, y: ev.clientY - sr.top };
+    aimEl.style.left = aim.x + "px"; aimEl.style.top = aim.y + "px"; aimEl.style.display = "block";
+    const zi = pnZoneInfo(aim.nx, aim.ny);
+    q(".pnZoneName").textContent = zi.name; q(".pnRiskPct").textContent = Math.round(zi.miss * 100) + "%";
+    if(phase === "aim"){ btn.disabled = false; btn.textContent = "助跑 →"; }
+    if(guided) coach("② 落点选好了。点<b>「助跑 →」</b>，助跑途中盯门将重心、落点还能改；③ 指针进<b>绿区</b>的瞬间点「射门」。");
+  });
+  btn.addEventListener("click", () => {
+    if(!pnAlive(sess, box) || busy) return;
+    if(phase === "aim" && aim){ phase = "power"; q(".pnBarWrap").style.display = "block"; btn.textContent = "射门！";
+      takerFig.style.transform = "translate(52px, -6px) scale(.94)";
+      const step = () => { if(!pnAlive(sess, box) || phase !== "power") return; barPos += barDir * 2.45; if(barPos >= 100){ barPos = 100; barDir = -1; } if(barPos <= 0){ barPos = 0; barDir = 1; } q(".pnMarker").style.left = `calc(${barPos}% - 2px)`; PN.raf = requestAnimationFrame(step); };
+      PN.raf = requestAnimationFrame(step);
+    } else if(phase === "power" && aim){
+      busy = true; phase = "done"; if(PN.raf) cancelAnimationFrame(PN.raf);
+      if(guided){ mock.state.pnGuideShoot = 1; mock.save(); coachEl.style.display = "none"; goal.classList.remove("pnGuideGlow"); }
+      const exec = barPos >= 44 && barPos <= 56 ? "perfect" : barPos >= 30 && barPos <= 70 ? "good" : "poor";
+      const zi = pnZoneInfo(aim.nx, aim.ny), third = aim.nx < .34 ? 0 : aim.nx > .66 ? 2 : 1;
+      hist.push(third); while(hist.length > 5) hist.shift(); mock.state.pnHist = hist; mock.save();
+      let kThird, edged = false;
+      if(keeperEdge >= 0 && third === keeperEdge){ kThird = third; edged = true; }
+      else if(keeperEdge >= 0){ kThird = keeperEdge; } else kThird = keeperPickThird();
+      /* 引擎结算（结果先行，动画照结果演） */
+      const S = LIVE.S, before = LIVE._evCursor;
+      SIMCORE.resolveSimNode(S, { aim: { nx: aim.nx, ny: aim.ny, exec }, keeper: { third: kThird, edged } });
+      const evs = S.events.slice(before); LIVE._evCursor = S.events.length; simSyncFromEngine();
+      const g = evs.find(e => e.type === "goal"), sv = evs.find(e => e.type === "penSaved"), ms = evs.find(e => e.type === "penMissed");
+      const res = g ? "goal" : sv ? "saved" : ms ? (ms.post ? "post" : "miss") : "goal";
+      PnSfx.kick();
+      takerFig.style.transform = "translate(58px, -4px) scale(.94) rotate(-4deg)";
+      const gr = goal.getBoundingClientRect(), sr = scene.getBoundingClientRect();
+      let tx = aim.x, ty = aim.y;
+      if(res === "miss") tx = aim.nx < .5 ? gr.left - sr.left - 26 : gr.right - sr.left + 26;
+      if(res === "post") tx = aim.nx < .5 ? gr.left - sr.left + 4 : gr.right - sr.left - 4;
+      ball.style.transition = "all .45s cubic-bezier(.25,.6,.35,1)";
+      ball.style.left = tx + "px"; ball.style.top = ty + "px"; ball.style.bottom = "auto"; ball.style.width = "15px"; ball.style.height = "15px"; ball.style.marginLeft = "-7px";
+      const dx = [-105, 0, 105][kThird], rot = [-30, 0, 30][kThird], dy = aim.ny < .4 ? -14 : 4;
+      keeperFig.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
+      const flavor = q(".pnFlavor");
+      pnLater(() => { if(!pnAlive(sess, box)) return;
+        if(res === "goal"){ pnBanner(box, "进球！", "#ffd34d"); PnSfx.cheer();
+          flavor.innerHTML = `<span class="q">${edged ? "他压错了——你打了反侧，空门。" : "死角入网，门将鞭长莫及。"}</span>发力：${exec === "perfect" ? "完美" : exec === "good" ? "一般" : "勉强"} · 落点「${zi.name}」`; }
+        else if(res === "saved"){ pnBanner(box, "被扑出！"); PnSfx.groan();
+          flavor.innerHTML = `<span class="q">${edged ? "往他压的那侧送——正中下怀，被没收了。" : "门将神扑！他读穿了你的落点。"}</span>${exec === "poor" ? "而且你这脚发力也飘了。" : ""}`; }
+        else if(res === "post"){ pnBanner(box, "中柱了！"); PnSfx.groan(); flavor.innerHTML = `<span class="q">砰——砸在立柱上弹出去！</span>就差一根立柱的距离。`; }
+        else { pnBanner(box, "打偏了！"); PnSfx.groan(); flavor.innerHTML = `<span class="q">擦柱而出！死角虽好，容错太低。</span>落点「${zi.name}」本身就有 ${Math.round(zi.miss * 100)}% 的打偏风险。`; }
+      }, 470);
+      pnLater(() => pnFinish(sess, box, res === "goal" ? `点球命中！${taker ? taker.name : ""} 骗过门将，比分 ${LIVE.my}:${LIVE.oppScore}。`
+        : res === "saved" ? "点球被扑出！门将猜对了方向。" : res === "post" ? "点球中柱弹出！太可惜了。" : "点球打偏了！"), 1750);
+    }
+  });
+  renderMatchTicker();
+}
+
+/* ---------- 对方点球：第三人称扑救 ---------- */
+function PnSaveStart(box, nd){
+  if(PN.nodeRef === nd) return; PN.nodeRef = nd; const sess = ++PN.session;
+  const L = LIVE, taker = pnTaker(nd), keeper = pnKeeper(nd);
+  const guided = !(mock.state && mock.state.pnGuideSave);
+  box.innerHTML = `<div class="nodebox"><div class="pname">🧤 对方点球！（${L.minute}′，比分 ${L.my}:${L.oppScore}）</div>
+  <div class="pmeta">${taker ? taker.name : "对方"} 主罚，${keeper && keeper.name && !/门将|我方/.test(keeper.name) ? "我方门将 " + keeper.name + " 守门" : "我方门将守门"}。你站在门将身后读他的助跑。</div>
+  <div class="pnScene" id="pnScene"><div class="pnStand"></div><div class="pnGoal pnGoalBack"></div><div class="pnFigs"></div><div class="pnBall pnBallK"></div><div class="pnBanner"></div><div class="pnCoach" style="display:none"></div></div>
+  <div class="pmeta pnHint" style="margin-top:8px">看对面助跑：<b>起跑侧和身体倾斜是预判线索，但小心假动作</b>（顿步、假摆腿、临射变向）。<b>早扑</b>力量满但赌方向；<b>等他摆腿</b>有半拍能读真方向（推荐）；<b>球出脚后</b>纯反应也能补扑，只是勉强。点画面左/中/右扑救。</div>
+  <div class="pnCommit" style="display:none"></div>
+  <div class="pnFlavor"></div></div>`;
+  const q = s => box.querySelector(s);
+  const scene = q("#pnScene"), goal = q(".pnGoal"), ball = q(".pnBall"), figs = q(".pnFigs"), coachEl = q(".pnCoach");
+  const coach = h => { coachEl.innerHTML = '<span class="who">老陈</span>' + h; coachEl.style.display = "block"; };
+  const mkFig = (cls, html) => { const d = document.createElement("div"); d.className = "pnFig " + cls; d.innerHTML = html; figs.appendChild(d); return d; };
+  const keeperFig = mkFig("pnKeeperK", pnFigSVG("#274b8f", "#c98d64", "#2b2620", true));
+  const takerFig = mkFig("pnShooterK", pnFigSVG("#b03a2e", "#8a5a3b", "#2b2620", false));
+  takerFig.style.transition = "transform .18s ease";
+  let SS = null;
+  const diveKeeperK = (third, high) => { const dx = [-118, 0, 118][third], rot = [-26, 0, 26][third], dy = high ? -12 : 6; keeperFig.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`; };
+  const commitDive = (third, zoneEl) => {
+    if(!SS || SS.committed || SS.arrived) return;
+    const now = performance.now(); let power, label;
+    if(SS.kickAt){ power = .55; label = "纯反应扑救"; } else if(now >= SS.revealAt){ power = .85; label = "读到摆腿再扑"; } else { power = 1; label = "提前预判"; }
+    SS.committed = { third, power, label };
+    box.querySelectorAll(".pnDivezone").forEach(z => z.classList.remove("sel")); if(zoneEl) zoneEl.classList.add("sel");
+    diveKeeperK(third, false);
+    const cl = q(".pnCommit"); cl.style.display = "block";
+    cl.innerHTML = `已扑向<b>${["左", "中", "右"][third]}</b> · ${label}${power === 1 ? "，力量拉满——赌的就是这个方向" : power === .85 ? "，方向是真的、力量略打折" : "，球已出脚才动——只剩指尖的机会"}`;
+  };
+  ["0", "33.4%", "66.7%"].forEach((lft, i) => { const z = document.createElement("div"); z.className = "pnDivezone" + (guided ? " pnGuideGlowZ" : ""); z.style.left = lft; z.addEventListener("click", () => { if(pnAlive(sess, box)) commitDive(i, z); }); scene.appendChild(z); });
+  const gateKick = (fn, earliest, deadline) => { const iv = setInterval(() => { if(!pnAlive(sess, box)){ clearInterval(iv); return; } const now = performance.now(); if(!SS){ clearInterval(iv); return; } if(SS.committed && now >= earliest){ clearInterval(iv); fn(); } else if(now >= deadline){ clearInterval(iv); fn(); } }, 120); PN.timers.push(iv); };
+  /* 射手 AI：目标与假动作（原型分布） */
+  const fav = Math.random() < .5 ? 0 : 2, rx = Math.random();
+  const nx = rx < .46 ? (fav === 0 ? .10 + Math.random() * .16 : .74 + Math.random() * .16) : rx < .76 ? (fav === 0 ? .74 + Math.random() * .16 : .10 + Math.random() * .16) : .40 + Math.random() * .20;
+  const ny = Math.random() < .58 ? .66 + Math.random() * .24 : .14 + Math.random() * .26;
+  const third = nx < .34 ? 0 : nx > .66 ? 2 : 1;
+  const fake = Math.random() < .35 ? ["stutter", "fakeSwing", "flip"][Math.floor(Math.random() * 3)] : null;
+  const trueLean = third === 1 ? 0 : third === 0 ? -1 : 1;
+  const earlyLean = fake === "flip" ? -trueLean : trueLean;
+  const startSide = Math.random() < .5 ? -1 : 1;
+  const T0 = performance.now();
+  const runStart = guided ? 1700 : 800, runDur = guided ? 1500 : 1100, kickGap = 500;
+  let swingAt = runStart + (guided ? 1250 : 950); if(fake === "stutter") swingAt += guided ? 500 : 380;
+  const realSwingAt = fake === "fakeSwing" ? swingAt + 560 : swingAt;
+  SS = { committed: null, kicked: false, arrived: false, kickAt: 0, revealAt: T0 + realSwingAt, target: { nx, ny, third }, fake, guided };
+  takerFig.style.transform = `translate(${startSide * 30}px, 6px)`;
+  PnSfx.whistle();
+  if(guided) coach("先别急——他在摆球、量步点。<b>这段时间什么都不用点</b>，就看他从哪一侧开始起跑。");
+  pnLater(() => { if(!pnAlive(sess, box)) return; takerFig.style.transition = `transform ${runDur}ms cubic-bezier(.4,.1,.4,1)`;
+    takerFig.style.transform = `translate(${earlyLean * 8}px, 0) rotate(${earlyLean * 10}deg) scale(1.06)`;
+    if(guided) coach("他动了！<b>盯他的身体往哪边斜</b>——斜向哪边，多半就往哪边打。先别急着扑，扑早了会被假动作锁死。"); }, runStart);
+  if(fake === "stutter"){
+    pnLater(() => { if(pnAlive(sess, box)){ takerFig.style.transition = "transform .12s ease"; takerFig.style.transform = `translate(${earlyLean * 8}px, -2px) rotate(${earlyLean * 10}deg) scale(1.06)`; } }, runStart + runDur * .5);
+    pnLater(() => { if(pnAlive(sess, box)) takerFig.style.transform = `translate(${earlyLean * 9}px, 0) rotate(${earlyLean * 11}deg) scale(1.08)`; }, runStart + runDur * .5 + 340);
+  }
+  const doSwingVisual = () => { if(!pnAlive(sess, box)) return; const leanNow = fake === "flip" ? trueLean : earlyLean;
+    if(guided && fake === "flip") coach("看见没——他<b>摆腿时突然变向</b>了！摆腿之前的倾斜是装的，这一下才是真的。");
+    takerFig.style.transition = "transform .15s ease"; takerFig.style.transform = `translate(${leanNow * 10}px, 0) rotate(${leanNow * 15}deg) scale(1.1)`; };
+  const doDummySwing = () => { if(!pnAlive(sess, box)) return; takerFig.style.transition = "transform .16s ease"; takerFig.style.transform = `translate(${earlyLean * 9}px, 0) rotate(${earlyLean * 13}deg) scale(1.09)`;
+    if(guided) coach("这下是<b>假摆腿</b>——球还没动！扑早了的人这会儿已经被锁在地上了。稳住，等他真摆腿。"); };
+  const doBallOut = () => {
+    if(!pnAlive(sess, box) || !SS || SS.kicked) return;
+    SS.kicked = true; SS.kickAt = performance.now();
+    /* 引擎结算 */
+    const S = LIVE.S, before = LIVE._evCursor;
+    SIMCORE.resolveSimNode(S, { aim: { nx, ny }, dive: SS.committed ? { third: SS.committed.third, power: SS.committed.power, committed: true } : { committed: false } });
+    const evs = S.events.slice(before); LIVE._evCursor = S.events.length; simSyncFromEngine();
+    const g = evs.find(e => e.type === "goal"), sv = evs.find(e => e.type === "penSaved"), ms = evs.find(e => e.type === "penMissed");
+    const res = g ? "goal" : sv ? "saved" : "missed";
+    const c = SS.committed;
+    let how = "";
+    if(res === "missed") how = "miss";
+    else if(res === "saved") how = !c ? "stood" : (c.third === third ? (Math.hypot(nx - (c.third + .5) / 3, (ny - (ny < .45 ? .22 : .78)) * 1.05) < .20 ? "read" : "reach") : "reach");
+    else how = !c ? "nocommit" : c.third === third ? "beaten" : "wrongway";
+    if(c && c.third === third && res === "goal") diveKeeperK(c.third, ny < .45);
+    PnSfx.kick();
+    const gr = goal.getBoundingClientRect(), sr = scene.getBoundingClientRect();
+    const tx = gr.left - sr.left + nx * gr.width, ty = gr.top - sr.top + ny * gr.height;
+    ball.style.transition = "all .42s cubic-bezier(.3,.5,.4,1)";
+    ball.style.left = tx + "px"; ball.style.top = ty + "px"; ball.style.bottom = "auto"; ball.style.width = "34px"; ball.style.height = "34px"; ball.style.marginLeft = "-17px";
+    const fakeName = { stutter: "顿步", fakeSwing: "假摆腿", flip: "临射变向" }[fake] || "";
+    pnLater(() => { if(!pnAlive(sess, box)) return; SS.arrived = true;
+      if(res === "saved" && c && how !== "stood"){ ball.style.transition = "all .3s ease-out"; ball.style.left = (tx + (nx < .5 ? -38 : 38)) + "px"; ball.style.top = (ty + 14) + "px"; }
+      const flavor = q(".pnFlavor");
+      if(res === "missed"){ pnBanner(box, "他打偏了！", "#ffd34d"); PnSfx.cheer(); flavor.innerHTML = `<span class="q">对方自己罚丢了。</span>${fakeName ? `这球带了「${fakeName}」，` : ""}压力之下脚法变形，偏出立柱。`; }
+      else if(res === "saved"){ pnBanner(box, "扑出去了！", "#ffd34d"); PnSfx.cheer();
+        flavor.innerHTML = `<span class="q">${how === "reach" ? "指尖蹭到——扑出去了！" : how === "stood" ? "他正打中路，你没动就对了。" : "神扑！方向、时机全读对了。"}</span>他打${["左", "中", "右"][third]}路${ny > .5 ? "低球" : "高球"}${fakeName ? `，还耍了「${fakeName}」` : ""}${c ? `；你${c.label}` : ""}。`; }
+      else { pnBanner(box, "球进了…"); PnSfx.groan();
+        flavor.innerHTML = `<span class="q">${how === "wrongway" ? "被骗了——他摆腿前的倾斜是假的。" : how === "beaten" ? "方向扑对了，但这球太刁、太快。" : "你没扑，他从容打进。"}</span>他实际打${["左", "中", "右"][third]}路${ny > .5 ? "低球" : "高球"}${fakeName ? `（假动作：${fakeName}）` : ""}。盯他<b>摆腿那一下</b>再动，看得最准。`; }
+      if(guided){ mock.state.pnGuideSave = 1; mock.save(); pnLater(() => { if(pnAlive(sess, box)) coach("记住三条就够了：①<b>摆球时不用点</b> ②<b>盯倾斜读方向</b> ③<b>摆腿那下才是真的</b>。下一次恢复正常速度，自己读。"); }, 500); }
+    }, 430);
+    pnLater(() => pnFinish(sess, box, res === "saved" ? "扑出去了！神扑！全场沸腾。"
+      : res === "missed" ? "对方点球打偏了！逃过一劫。" : `对方点球命中。比分 ${LIVE.my}:${LIVE.oppScore}。`), 1800);
+  };
+  if(fake === "fakeSwing"){ pnLater(doDummySwing, swingAt); pnLater(doSwingVisual, realSwingAt);
+    if(guided) gateKick(doBallOut, T0 + realSwingAt + 350, T0 + realSwingAt + 4200); else pnLater(doBallOut, realSwingAt + kickGap);
+  } else if(guided){
+    pnLater(() => { if(pnAlive(sess, box)) coach("盯紧他的<b>摆腿</b>——腿一摆，方向就藏不住了，球还没出脚的那半拍就是你的窗口。点左 / 中 / 右扑出去！"); }, Math.max(runStart + 500, swingAt - 380));
+    pnLater(doSwingVisual, swingAt); gateKick(doBallOut, T0 + swingAt + 350, T0 + swingAt + 4000);
+  } else { pnLater(doSwingVisual, swingAt); pnLater(doBallOut, swingAt + kickGap); }
+  renderMatchTicker();
+}
+
+/* ---------- 我方罚球（篮球）：第三人称节奏罚球 ---------- */
+function PnFtStart(box, nd){
+  if(PN.nodeRef === nd) return; PN.nodeRef = nd; const sess = ++PN.session;
+  const L = LIVE, taker = pnTaker(nd);
+  const attempts = nd.pts || 2;
+  const shoot = taker && taker.skill ? taker.skill.shoot : 75;
+  const guided = !(mock.state && mock.state.pnGuideFt);
+  box.innerHTML = `<div class="nodebox"><div class="pname">🏀 我方罚球（${L.minute}′，比分 ${L.my}:${L.oppScore}）</div>
+  <div class="pmeta">${taker ? taker.name : "我方球员"} 站上罚球线，共 ${attempts} 罚。按住举球、绿区松手；每球照着上一球的位置出手，节奏稳了窗口会变宽。</div>
+  <div class="ftScene" id="ftScene"><div class="pnStand"></div><div class="ftBoard"></div><div class="ftRim"></div><div class="ftNet"></div><div class="ftCourtline"></div><div class="ftFigs"></div><div class="ftBall"></div><div class="pnBanner"></div><div class="pnCoach" style="display:none"></div></div>
+  <div class="pnBarWrap"><div class="ftBar"><div class="ftSeg ftSegL"></div><div class="ftSegMid ftM1"></div><div class="ftSeg ftSegG"></div><div class="ftSegMid ftM2"></div><div class="ftSeg ftSegR"></div><div class="ftGhost"></div><div class="ftMarker"></div></div>
+  <div class="pnBarLabels"><span>短了</span><span>弱</span><span>完美出手</span><span>强</span><span>过了</span></div></div>
+  <button class="pnAct ftHold" style="width:100%;margin-top:8px" disabled>等他运球找节奏…</button>
+  <div class="pnFlavor"></div></div>`;
+  const q = s => box.querySelector(s);
+  const scene = q("#ftScene"), ballEl = q(".ftBall"), rimEl = q(".ftRim"), btn = q(".ftHold"), coachEl = q(".pnCoach"), figs = q(".ftFigs");
+  const coach = h => { coachEl.innerHTML = '<span class="who">老陈</span>' + h; coachEl.style.display = "block"; };
+  const fig = document.createElement("div"); fig.className = "ftFig"; fig.innerHTML = pnFigSVG("#b03a2e", "#8a5a3b", "#2b2620", false); figs.appendChild(fig);
+  const scenePt = el => { const sr = scene.getBoundingClientRect(), r = el.getBoundingClientRect(); return { x: r.left - sr.left + r.width / 2, y: r.top - sr.top + r.height / 2 }; };
+  const ballTo = (x, y) => { ballEl.style.left = (x - 13) + "px"; ballEl.style.top = (y - 13) + "px"; };
+  const handPos = () => { const sr = scene.getBoundingClientRect(); return { x: sr.width / 2 + 24, y: sr.height * .80 }; };
+  let attempt = 0, phase = "prep", holdStart = 0, pos = 0, prevPos = null;
+  let center = 52, greenHalf = 6, midHalf = 12, speedF = 1, keyBall = false;
+  const layoutBar = () => { const g0 = center - greenHalf, g1 = center + greenHalf, m0 = center - midHalf, m1 = center + midHalf;
+    q(".ftSegL").style.width = m0 + "%"; const e1 = q(".ftM1"); e1.style.left = m0 + "%"; e1.style.width = (g0 - m0) + "%";
+    const eG = q(".ftSegG"); eG.style.left = g0 + "%"; eG.style.width = (g1 - g0) + "%";
+    const e2 = q(".ftM2"); e2.style.left = g1 + "%"; e2.style.width = (m1 - g1) + "%"; q(".ftSegR").style.width = (100 - m1) + "%";
+    const gh = q(".ftGhost"); if(prevPos != null){ gh.style.left = prevPos + "%"; gh.style.display = "block"; } else gh.style.display = "none"; };
+  const flyBall = res => { const hp = handPos(), start = { x: hp.x - 6, y: hp.y - 52 }; const rp = scenePt(rimEl);
+    let end = { x: rp.x, y: rp.y }, apex = rp.y - 118, after = null;
+    if(res === "swish") after = { x: rp.x, y: rp.y + 52 };
+    else if(res === "in"){ end = { x: rp.x - 12, y: rp.y - 4 }; after = { x: rp.x, y: rp.y + 52 }; }
+    else if(res === "rim"){ end = { x: pos < center ? rp.x - 20 : rp.x + 20, y: rp.y - 2 }; after = { x: end.x + (pos < center ? -34 : 34), y: rp.y + 130 }; }
+    else if(res === "short"){ end = { x: rp.x - 24, y: rp.y + 2 }; apex = rp.y - 84; after = { x: rp.x - 30, y: rp.y + 140 }; }
+    else if(res === "long"){ end = { x: rp.x + 24, y: rp.y - 2 }; apex = rp.y - 128; after = { x: rp.x + 44, y: rp.y + 120 }; }
+    else { end = { x: rp.x + 66, y: rp.y - 30 }; apex = rp.y - 140; after = { x: rp.x + 84, y: rp.y + 150 }; }
+    ballEl.style.transition = "none"; const t0 = performance.now(), dur = 560;
+    const stepFn = () => { if(!pnAlive(sess, box)) return; const t = Math.min(1, (performance.now() - t0) / dur);
+      const x = start.x + (end.x - start.x) * t, y = (1 - t) * (1 - t) * start.y + 2 * (1 - t) * t * apex + t * t * end.y;
+      ballTo(x, y);
+      if(t < 1) PN.raf = requestAnimationFrame(stepFn);
+      else if(after){ const t1 = performance.now(); const drop = () => { if(!pnAlive(sess, box)) return; const u = Math.min(1, (performance.now() - t1) / 260); ballTo(end.x + (after.x - end.x) * u, end.y + (after.y - end.y) * u * u); if(u < 1) PN.raf = requestAnimationFrame(drop); }; drop(); } };
+    PN.raf = requestAnimationFrame(stepFn); };
+  const newAttempt = () => {
+    if(!pnAlive(sess, box)) return;
+    attempt++; phase = "prep"; pos = 0;
+    keyBall = attempt === 3;
+    center = keyBall ? 52 + (Math.random() < .5 ? -4 : 4) : 52;
+    const baseG = Math.min(8, Math.max(3.5, 4 + (shoot - 65) / 8));
+    greenHalf = keyBall ? baseG * .7 : baseG; midHalf = greenHalf + 5.5; speedF = keyBall ? 1.18 : 1;
+    layoutBar(); q(".ftMarker").style.display = "none";
+    const bn = q(".pnBanner"); bn.className = "pnBanner"; bn.textContent = ""; q(".pnFlavor").innerHTML = "";
+    btn.disabled = true; btn.textContent = keyBall ? `第 ${attempt} 罚 · 关键球（绿区更窄）…` : "等他运球找节奏…"; btn.classList.remove("holding");
+    fig.style.transform = "translateY(0)";
+    const hp = handPos(); ballTo(hp.x, hp.y - 26);
+    const dribble = (t, down) => pnLater(() => { if(!pnAlive(sess, box)) return; ballEl.style.transition = "top .16s ease-in"; ballTo(hp.x, down ? hp.y + 16 : hp.y - 26); if(down) PnSfx.bounce(); }, t);
+    dribble(150, true); dribble(330, false); dribble(520, true); dribble(700, false);
+    pnLater(() => { if(!pnAlive(sess, box)) return; phase = "ready"; btn.disabled = false; btn.textContent = "按住开始投篮（别松手）";
+      if(guided && attempt === 1) coach("先看他运两下球稳住节奏——这是准备时间，<b>什么都不用点</b>。等按钮亮了再<b>按住</b>。"); }, 950);
+  };
+  const startHold = () => { if(!pnAlive(sess, box) || phase !== "ready") return;
+    phase = "holding"; holdStart = performance.now();
+    btn.textContent = "盯着绿区…松手出手！"; btn.classList.add("holding");
+    fig.style.transform = "translateY(-5px)";
+    const hp = handPos(); ballEl.style.transition = "top .3s ease"; ballTo(hp.x - 6, hp.y - 52);
+    q(".ftMarker").style.display = "block";
+    if(guided && attempt === 1) coach("条子往上走了——<b>指针进绿区的瞬间松手</b>，那就是完美出手点。");
+    const step = () => { if(!pnAlive(sess, box) || phase !== "holding") return; pos = Math.min(100, (performance.now() - holdStart) / 9.5 * speedF); q(".ftMarker").style.left = `calc(${pos}% - 2px)`; PN.raf = requestAnimationFrame(step); };
+    PN.raf = requestAnimationFrame(step); };
+  const release = () => { if(!pnAlive(sess, box) || phase !== "holding") return;
+    phase = "flight"; if(PN.raf) cancelAnimationFrame(PN.raf);
+    btn.disabled = true; btn.classList.remove("holding"); btn.textContent = "出手了…";
+    fig.style.transform = "translateY(-9px)"; pnLater(() => { if(pnAlive(sess, box)) fig.style.transform = "translateY(0)"; }, 420);
+    const rhythm = prevPos != null && Math.abs(pos - prevPos) <= 3, w = rhythm ? 4 : 0, d = Math.abs(pos - center);
+    const tier = d <= greenHalf + w ? "swish" : d <= midHalf + w ? "mid" : d <= midHalf + 8 + w ? "outer" : "far";
+    const r = SIMCORE.resolveFtShot(LIVE.S, tier);
+    if(!r){ pnFinish(sess, box, null); return; }
+    const res = r.made ? (tier === "swish" ? "swish" : "in") : tier === "far" ? (pos < center ? "short" : d > 30 ? "air" : "long") : "rim";
+    flyBall(res);
+    const thisPos = pos; prevPos = pos;
+    pnLater(() => { if(!pnAlive(sess, box)) return;
+      const flavor = q(".pnFlavor"), posTxt = `出手点 ${Math.round(thisPos)}${rhythm ? " · 和上一球几乎同点" : ""}`;
+      if(res === "swish"){ pnBanner(box, "空心入网！", "#ffd34d"); PnSfx.swish(); PnSfx.cheer(); flavor.innerHTML = `<span class="q">${rhythm ? "节奏完美——和上一球同一个出手点，窗口都给你让宽了。" : "唰——空心！这弧线教科书。"}</span>${posTxt}。`; }
+      else if(res === "in"){ pnBanner(box, "罚进！", "#ffd34d"); PnSfx.clang(); PnSfx.swish(); PnSfx.cheer(); flavor.innerHTML = `<span class="q">颠了两下，还是进去了。</span>${posTxt}${rhythm ? "，节奏稳住了" : ""}。`; }
+      else if(res === "rim"){ pnBanner(box, "砸筐了…"); PnSfx.clang(); PnSfx.groan(); flavor.innerHTML = `<span class="q">${thisPos < center ? "稍微短了点，砸在前筐弹出。" : "稍微大了点，砸在后筐弹出。"}</span>${posTxt}——离绿区就差一口气。`; }
+      else if(res === "short"){ pnBanner(box, "短了！"); PnSfx.clang(); PnSfx.groan(); flavor.innerHTML = `<span class="q">松手太早，球没够到。</span>${posTxt}，下次多按一会儿。`; }
+      else if(res === "long"){ pnBanner(box, "过了！"); PnSfx.clang(); PnSfx.groan(); flavor.innerHTML = `<span class="q">按太久了，球砸在后筐上沿飞出去。</span>${posTxt}，劲使大了。`; }
+      else { pnBanner(box, "三不沾…"); PnSfx.groan(); flavor.innerHTML = `<span class="q">这球直接飞过了篮板。</span>${posTxt}，绿区在中间，别走到极端。`; }
+      if(guided && attempt === 1 && !r.done){ coach("记住两条：①<b>绿区松手</b> ②<b>每球照着上一球的位置松手</b>——节奏一稳，窗口自己变宽。"); }
+      if(r.done){ if(guided){ mock.state.pnGuideFt = 1; mock.save(); }
+        const evs = LIVE.S.events.slice(LIVE._evCursor); LIVE._evCursor = LIVE.S.events.length; simSyncFromEngine();
+        const ft = evs.find(e => e.type === "ft");
+        pnLater(() => pnFinish(sess, box, ft ? `罚球：${ft.p ? ft.p.name : ""} ${ft.n || attempts} 罚 ${ft.made || 0} 中。比分 ${LIVE.my}:${LIVE.oppScore}。` : null), 1300);
+      } else pnLater(newAttempt, 1500);
+    }, 700);
+  };
+  btn.addEventListener("pointerdown", e => { e.preventDefault(); startHold(); });
+  scene.addEventListener("pointerdown", () => startHold());
+  PN.winUp = () => release(); window.addEventListener("pointerup", PN.winUp);
+  btn.addEventListener("pointerleave", () => release());
+  PnSfx.whistle();
+  newAttempt();
+  renderMatchTicker();
+}
+
 function simOnDeadBall(){
   const L = LIVE; if(!L || !L.S || !L.S.deadBall) return;
   const nd = L.S.deadBall;
@@ -3841,13 +4284,15 @@ function simShowNode(nd){
   }
   else if(nd.type === "pen"){
     if(isB){
-      box.innerHTML = `<div class="nodebox"><div class="pname">${nd.side === 0 ? "🏀 我方罚球" : "🏀 对方罚球"}（${L.minute}′）</div><div class="pmeta">${nd.side === 0 ? "对方投篮犯规，送我方两次罚球。" : "我方投篮犯规，送对方两次罚球。"}罚球命中率看主罚球员的投篮能力。</div>
-      <button style="width:100%;margin-top:6px" onclick="penChoose(-1)">执行罚球</button></div>`;
-    } else {
-      const zones = ["左上","中上","右上","左下","中下","右下"];
-      box.innerHTML = `<div class="nodebox"><div class="pname">${nd.side === 0 ? "⚽ 点球！选一个射门方向" : "🧤 对方点球！选一个扑救方向"}</div><div class="pmeta">${nd.side === 0 ? "禁区内犯规，裁判直指点球点。门将猜中同一格就扑出（角度刁钻时猜中也未必扑得出）。" : "我方禁区内犯规送点。猜中方向就能扑出。"}</div>
-      <div class="tiers" style="grid-template-columns:1fr 1fr 1fr">${zones.map((z,i)=>`<button onclick="penChoose(${i})">${z}</button>`).join("")}</div></div>`;
+      if(nd.side === 0){ PnFtStart(box, nd); }
+      else {
+        box.innerHTML = `<div class="nodebox"><div class="pname">🏀 对方罚球（${L.minute}′）</div><div class="pmeta">我方投篮犯规，送对方两次罚球。罚球命中率看主罚球员的投篮能力。</div>
+        <button style="width:100%;margin-top:6px" onclick="penChoose(-1)">执行罚球</button></div>`;
+        renderMatchTicker();
+      }
     }
+    else if(nd.side === 0){ PnShootStart(box, nd); }
+    else { PnSaveStart(box, nd); }
   }
   else if(nd.type === "injury"){
     const victim = S.players[nd.victimIdx];
@@ -3981,12 +4426,12 @@ async function matchSkip(){ const L = LIVE; if(!L || L.settled || !L.S) return;
   simDrainEvents(); simFinishToSettle(); }
 /* ---------- 球场皮肤（纯外观，声望解锁；学 IdleFC 实机 Skins） ---------- */
 const SKINS = [
-  { id:"classic", name:"经典绿", need:0, c1:"#2e6b46", c2:"#256040", stripe:"v", ball:"#fffdf7" },
-  { id:"forest", name:"深林绿", need:50, c1:"#1d4d33", c2:"#173f29", stripe:"h", ball:"#f3e9c8" },
-  { id:"night", name:"夜空蓝", need:150, c1:"#274b73", c2:"#1f3c5e", stripe:"v", ball:"#ffd75e" },
-  { id:"royal", name:"皇家草", need:300, c1:"#3f7a3a", c2:"#2f612c", stripe:"none", ball:"#fffdf7" },
-  { id:"sunset", name:"落日陶", need:500, c1:"#a35a33", c2:"#8a4826", stripe:"h", ball:"#23201a" },
-  { id:"steel", name:"钢灰", need:800, c1:"#5a6068", c2:"#474c53", stripe:"v", ball:"#ffd75e" }
+  { id:"classic", name:"经典绿", need:0, c1:"#2e6b46", c2:"#256040", stripe:"v", ball:"#fffdf7", bc1:"#d9a45b", bc2:"#c98f3d" },
+  { id:"forest", name:"深林绿", need:50, c1:"#1d4d33", c2:"#173f29", stripe:"h", ball:"#f3e9c8", bc1:"#8a5a2b", bc2:"#74491f" },
+  { id:"night", name:"夜空蓝", need:150, c1:"#274b73", c2:"#1f3c5e", stripe:"v", ball:"#ffd75e", bc1:"#4a6b8a", bc2:"#3c5a76" },
+  { id:"royal", name:"皇家草", need:300, c1:"#3f7a3a", c2:"#2f612c", stripe:"none", ball:"#fffdf7", bc1:"#b06a3b", bc2:"#96552c" },
+  { id:"sunset", name:"落日陶", need:500, c1:"#a35a33", c2:"#8a4826", stripe:"h", ball:"#23201a", bc1:"#c97b4a", bc2:"#b26336" },
+  { id:"steel", name:"钢灰", need:800, c1:"#5a6068", c2:"#474c53", stripe:"v", ball:"#ffd75e", bc1:"#9a958c", bc2:"#837e74" }
 ];
 function skinOf(){ const id = (mock.state && mock.state.skin) || "classic"; return SKINS.find(x=>x.id===id) || SKINS[0]; }
 function setSkin(id){ const sk = SKINS.find(x=>x.id===id); if(!sk) return; if((mock.state.rep || 0) < sk.need){ toast("声望到 " + sk.need + " 解锁「" + sk.name + "」"); return; } mock.state.skin = id; mock.save(); render(); }
@@ -4077,10 +4522,14 @@ function pitchDraw(ctx, W, H, L){
   if(isB){ RW = W - 28; RH = RW * 50 / 94; RX = 14; RY = (H - RH) / 2; KK = RW / 94; }
   const PX = nx=>isB ? RX + nx * RW : nx * W, PY = ny=>isB ? RY + ny * RH : ny * H;
   if(isB){
-    ctx.fillStyle = "#8a5a28"; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = "#d9a45b"; ctx.fillRect(RX, RY, RW, RH);
+    const sk = skinOf();
+    ctx.fillStyle = sk.bc2; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = sk.bc1; ctx.fillRect(RX, RY, RW, RH);
     ctx.fillStyle = "rgba(122,72,20,.07)";
     for(let i = 1; i < 12; i++) ctx.fillRect(RX + RW * i / 12, RY, 2, RH);
+    ctx.fillStyle = "rgba(255,255,255,.05)"; const stp = sk.stripe || "v";
+    if(stp === "v"){ for(let i = 0; i < 6; i += 2) ctx.fillRect(RX + RW * i / 6, RY, RW / 6, RH); }
+    else if(stp === "h"){ for(let i = 0; i < 6; i += 2) ctx.fillRect(RX, RY + RH * i / 6, RW, RH / 6); }
     ctx.strokeStyle = "rgba(255,253,247,.85)"; ctx.lineWidth = 2;
     const X = fx=>RX + fx * KK, Y = fy=>RY + fy * KK;
     ctx.strokeRect(RX, RY, RW, RH);
