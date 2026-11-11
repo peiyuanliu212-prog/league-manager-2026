@@ -2574,12 +2574,12 @@ function bbInit(S){
   S.bbP = [bbParams(S.ments[0], S.instrs[0]), bbParams(S.ments[1], S.instrs[1])];
   S.bb = { off: 0, phase: "trans", clock: 60, tPhase: 0, handler: -1, lastPassBy: -1, lastPassTick: -99,
     match: {}, pf: {}, teamF: [0, 0], penNodes: 0, duelUsed: false, act: null, flight: null, reb: null, pendingPost: -1,
-    run: null, aiTO: 2, toBuff: null, lastPlay: null, lastPlayHold: -1, brk: null, clearout: null, lastIntFoul: 0, pendingShort: -1,
+    run: null, transLanes: null, aiTO: 2, toBuff: null, lastPlay: null, lastPlayHold: -1, brk: null, clearout: null, lastIntFoul: 0, pendingShort: -1,
     stats: [0, 1].map(()=>({ poss: 0, fga: 0, fgm: 0, tpa: 0, tpm: 0, to: 0, stl: 0, blk: 0, orb: 0, drb: 0, pf: 0 })) };
   bbDeadReset(S, 0);
 }
 function bbDeadReset(S, side){
-  const B = S.bb; B.off = side; B.phase = "trans"; B.tPhase = 0; B.clock = 60; B.act = null; B.flight = null; B.reb = null; B.pendingPost = -1; B.possStart = S.tick;
+  const B = S.bb; B.off = side; B.phase = "trans"; B.transLanes = null; B.tPhase = 0; B.clock = 60; B.act = null; B.flight = null; B.reb = null; B.pendingPost = -1; B.possStart = S.tick;
   B.stats[side].poss++;
   const off = teamPlayers(S, side), def = teamPlayers(S, 1 - side);
   const osp = [{ fx: 15, fy: 25 }, { fx: 23, fy: 10 }, { fx: 23, fy: 40 }, { fx: 17, fy: 33 }, { fx: 17, fy: 17 }];
@@ -2601,7 +2601,7 @@ function bbDeadReset(S, side){
   bbBuildMatchups(S);
 }
 function bbGainLive(S, side, how, trig, evs){
-  const B = S.bb; B.off = side; B.act = null; B.flight = null; B.reb = null; B.pendingPost = -1; B.tPhase = 0; B.brk = null;
+  const B = S.bb; B.off = side; B.act = null; B.flight = null; B.reb = null; B.pendingPost = -1; B.tPhase = 0; B.brk = null; B.transLanes = null;
   if(B.lastPlayHold >= 0){ const hp = S.players[B.lastPlayHold]; if(!hp || hp.side !== side) B.lastPlayHold = -1; }
   if(how === "orb"){ B.phase = "set"; B.clock = 35; }
   else { B.phase = "trans"; B.clock = 60; B.stats[side].poss++; }
@@ -2613,7 +2613,7 @@ function bbAfterNode(S){
   const B = S.bb; if(!B) return;
   B.act = null; B.flight = null; B.reb = null; B.tPhase = 0;
   if(S.ball.owner != null){ const o = S.players[S.ball.owner]; B.off = o.side; B.handler = S.ball.owner; }
-  B.phase = "trans"; B.clock = 60; bbBuildMatchups(S);
+  B.phase = "trans"; B.clock = 60; B.transLanes = null; bbBuildMatchups(S);
 }
 function bbNearestDef(S, p, exclude){ let b = null, bd = 1e18; for(const q of S.players){ if(q.side === p.side || q.out || q === exclude) continue; const d = dist2(q.x, q.y, p.x, p.y); if(d < bd){ bd = d; b = q; } } return b ? { p: b, d: Math.sqrt(bd) } : { p: null, d: 99 }; }
 function bbIsThree(side, x, y){ const H = bbHoop(side), fx = bbFrameX(side, x); const d = Math.hypot(x - H.x, y - H.y); return d > 23.75 || (fx >= 79 && (y <= 7.5 || y >= 42.5)); }
@@ -3011,6 +3011,9 @@ function bbMoveAll(S, evs){
   const B = S.bb, off = B.off, P = S.bbP[off], DP = S.bbP[1 - off], H = bbHoop(off);
   const handler = S.players[B.handler];
   const spots = (B.phase === "set" && !B.flight) ? bbSpots(S, off) : null;
+  /* transition lanes: assigned once per transition (ranked by current y), never churned mid-run */
+  if(B.phase === "trans"){ if(!B.transLanes){ const rs = teamPlayers(S, off).filter(q=>!q.out && S.players.indexOf(q) !== B.handler).sort((a, b)=>a.y - b.y); const lanes = [[76, 7], [66, 14], [66, 36], [76, 43]]; B.transLanes = new Map(); rs.forEach((q, i)=>B.transLanes.set(S.players.indexOf(q), lanes[Math.min(i, 3)])); } }
+  else if(B.transLanes) B.transLanes = null;
   /* precompute post double-team: a real second defender leaves his man and comes */
   if(B.act && B.act.kind === "post" && !B.act.dblSet && B.act.t >= 2){
     const post = S.players[B.act.p];
@@ -3069,7 +3072,7 @@ function bbMoveAll(S, evs){
       }
       else if(B.pendingRoll === idx){ tx = H.x; ty = H.y; sp = "sprint"; if(Math.hypot(p.x - H.x, p.y - H.y) < 8) S.bb.pendingRoll = -1; }
       else if(p.cutT > 0){ tx = H.x - (off === 0 ? 3 : -3); ty = 25 + (p.y - 25) * .2; sp = "sprint"; }
-      else if(B.phase === "trans"){ const lane = idx % 3; const w = bbToWorld(off, lane === 0 ? 76 : 66, p.y < 25 ? 7 + lane * 3 : 43 - lane * 3); tx = w.x; ty = w.y; sp = "sprint"; }
+      else if(B.phase === "trans"){ const ln = B.transLanes ? B.transLanes.get(idx) : null; if(ln){ const w = bbToWorld(off, ln[0], ln[1]); tx = w.x; ty = w.y; } else { tx = p.x; ty = p.y; } sp = "sprint"; }
       else if(spots && spots.has(idx)){ const w = bbToWorld(off, spots.get(idx).fx, spots.get(idx).fy); tx = w.x; ty = w.y; sp = "jog"; }
       else { tx = p.x; ty = p.y; }
       /* post player backs down */
@@ -3124,11 +3127,10 @@ function bbManPos(S, p, man, H, DP){
   const B = S.bb, isBall = S.players.indexOf(man) === B.handler && S.ball.owner === B.handler;
   if(B.phase === "trans"){
     if(DP.pressFull && bbNearestDef(S, S.players[B.handler]).p === p) return { x: S.players[B.handler].x, y: S.players[B.handler].y, sp: "sprint" };
-    const fx = bbFrameX(B.off, p.x);
-    if(fx < 62 && !isBall) return { x: H.x - (B.off === 0 ? 9 : -9), y: 25 + (man.y - 25) * .5, sp: "sprint" };
+    if(!isBall) return { x: man.x + (H.x - man.x) * .45, y: man.y + (H.y - man.y) * .45, sp: "sprint" };
   }
   const g = isBall ? (DP.pressFull ? 2.8 : 3.6) : 0;
-  if(isBall){ const dx = H.x - man.x, dy = H.y - man.y, d = Math.max(1, Math.hypot(dx, dy)); return { x: man.x + dx / d * g, y: man.y + dy / d * g, sp: "jog" }; }
+  if(isBall){ const dx = H.x - man.x, dy = H.y - man.y, d = Math.max(1, Math.hypot(dx, dy)); return { x: man.x + dx / d * g, y: man.y + dy / d * g, sp: B.phase === "trans" ? "sprint" : "jog" }; }
   /* off-ball: sit on the man-hoop line, sag toward the paint on the weak side */
   const sag = ((man.y - 25) * (S.ball.y - 25) < 0) ? DP.shrink * 3.4 : DP.shrink * 1.1;
   const dx = H.x - man.x, dy = H.y - man.y, d = Math.max(1, Math.hypot(dx, dy));
@@ -3521,7 +3523,7 @@ function simDriveStart(){
     if(L.paused || L.nodesPending) return;
     if(S.deadBall){ simOnDeadBall(); return; }
     if(!S.forceNode && L.forceQueue.length && S.tick > 40) S.forceNode = L.forceQueue.shift();
-    const per = (L.sportId === "basketball" ? 0.68 : 1) * (L.speed || 1);
+    const per = (L.sportId === "basketball" ? 0.55 : 1) * (L.speed || 1);
     L._acc = (L._acc || 0) + per;
     let n = Math.floor(L._acc); L._acc -= n;
     while(n-- > 0){ SIMCORE.stepSim(S); if(S.deadBall || S.over) break; }
@@ -3802,7 +3804,7 @@ function pitchTick(){
     if(S){
       if(L.my !== PD.lastMy || L.oppScore !== PD.lastOpp){
         const mine = L.my > PD.lastMy;
-        PD.flash = { x: mine ? (L.sportId === "basketball" ? .944 : .985) : (L.sportId === "basketball" ? .056 : .015), y: .5, until: PD.t + 1.1 };
+        PD.flash = { x: mine ? (L.sportId === "basketball" ? .944 : .985) : (L.sportId === "basketball" ? .056 : .015), y: .5, until: PD.t + 1.1, pts: mine ? L.my - PD.lastMy : L.oppScore - PD.lastOpp, mine };
         PD.lastMy = L.my; PD.lastOpp = L.oppScore;
       }
       const mine = S.players.filter(p=>p.side === 0 && !p.out), away = S.players.filter(p=>p.side === 1 && !p.out);
@@ -3816,6 +3818,7 @@ function pitchTick(){
       PD.flow = { side: PD.poss, x: S.ball.x / (PD.cw || 100), y: S.ball.y / (PD.ch || 64), pid: bo && bo.side === 0 ? bo.pid : null, ai: bo && bo.side === 1 ? away.indexOf(bo) : null };
       PD.ballAir = S.ball.air || 0;
       PD.carrier = bo ? { side: bo.side, idx: bo.side === 0 ? mine.indexOf(bo) : away.indexOf(bo) } : null;
+      PD.carrierName = bo ? bo.name : null; PD.atkHalf = S.bb ? (S.bb.off === 0 ? 1 : -1) : 0;
       { const btx = S.ball.x / (PD.cw || 100), bty = S.ball.y / (PD.ch || 64);
         if(Math.abs(btx - PD.ball.x) + Math.abs(bty - PD.ball.y) > .38){ mine.forEach((p, i)=>{ const d = PD.dots[i]; if(d){ d.x = p.x / (PD.cw || 100); d.y = p.y / (PD.ch || 64); } }); away.forEach((p, i)=>{ const d = PD.away[i]; if(d){ d.x = p.x / (PD.cw || 100); d.y = p.y / (PD.ch || 64); } }); PD.ball.x = btx; PD.ball.y = bty; } }
       if(PD.flash && PD.t < PD.flash.until){ PD.ball.x += (PD.flash.x - PD.ball.x) * .16; PD.ball.y += (PD.flash.y - PD.ball.y) * .16; }
@@ -3841,6 +3844,7 @@ function pitchDraw(ctx, W, H, L){
     ctx.strokeRect(RX, RY, RW, RH);
     ctx.beginPath(); ctx.moveTo(X(47), RY); ctx.lineTo(X(47), RY + RH); ctx.stroke();
     ctx.beginPath(); ctx.arc(X(47), Y(25), 6 * KK, 0, Math.PI * 2); ctx.stroke();
+    if(PD.atkHalf){ ctx.fillStyle = "rgba(255,205,92,.13)"; ctx.fillRect(PD.atkHalf > 0 ? X(47) : X(0), RY, 47 * KK, RH); }
     for(const mir of [0, 1]){
       const fx = v=>mir ? 94 - v : v;
       /* paint + free-throw circle */
@@ -3884,7 +3888,10 @@ function pitchDraw(ctx, W, H, L){
   if(isB && PD.carrier && PD.carrier.idx >= 0){ const cd = PD.carrier.side === 0 ? PD.dots[PD.carrier.idx] : PD.away[PD.carrier.idx];
     if(cd){ const cx = PX(cd.x), cy = PY(cd.y), rr = 11.5 + Math.sin(PD.t * 5) * 1.6;
       ctx.beginPath(); ctx.arc(cx, cy, rr + 2.5, 0, Math.PI * 2); ctx.lineWidth = 1.2; ctx.strokeStyle = "rgba(255,253,247,.9)"; ctx.stroke();
-      ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.lineWidth = 2.5; ctx.strokeStyle = PD.carrier.side === 0 ? "#a83226" : "#2f5d8a"; ctx.stroke(); } }
+      ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.lineWidth = 2.5; ctx.strokeStyle = PD.carrier.side === 0 ? "#a83226" : "#2f5d8a"; ctx.stroke();
+      if(PD.carrierName){ ctx.font = "600 10px sans-serif"; ctx.textAlign = "center"; const nw = ctx.measureText(PD.carrierName).width + 10;
+        ctx.fillStyle = "rgba(20,18,12,.78)"; ctx.beginPath(); ctx.roundRect(cx - nw / 2, cy + 13, nw, 15, 7); ctx.fill();
+        ctx.fillStyle = "#fffdf7"; ctx.fillText(PD.carrierName, cx, cy + 24); } } }
   { const bx = PX(PD.ball.x), by = PY(PD.ball.y);
     if(isB){ const air = PD.ballAir || 0;
       if(air > .03){ ctx.beginPath(); ctx.ellipse(bx + 3, by + 4, 5.5, 2.6, 0, 0, Math.PI * 2); ctx.fillStyle = "rgba(60,30,0,.30)"; ctx.fill(); }
@@ -3895,6 +3902,9 @@ function pitchDraw(ctx, W, H, L){
     else { ctx.beginPath(); ctx.arc(bx, by, 6.4, 0, Math.PI * 2); ctx.fillStyle = "#fffdf7"; ctx.fill(); ctx.lineWidth = 1.4; ctx.strokeStyle = "#23201a"; ctx.stroke();
       ctx.fillStyle = "#23201a"; ctx.beginPath(); ctx.arc(bx, by, 2.1, 0, Math.PI * 2); ctx.fill();
       for(let k = 0; k < 5; k++){ const a = k / 5 * Math.PI * 2 + .5; ctx.beginPath(); ctx.arc(bx + Math.cos(a) * 4.7, by + Math.sin(a) * 4.7, 1.35, 0, Math.PI * 2); ctx.fill(); } } }
+  if(PD.flash && PD.t < PD.flash.until && PD.flash.pts){ const pr = 1.1 - (PD.flash.until - PD.t), fx2 = PX(PD.flash.x), fy2 = PY(PD.flash.y) - 16 - pr * 18;
+    ctx.font = "800 22px sans-serif"; ctx.textAlign = "center"; ctx.lineWidth = 4; ctx.strokeStyle = "rgba(255,253,247,.92)";
+    ctx.strokeText("+" + PD.flash.pts, fx2, fy2); ctx.fillStyle = PD.flash.mine ? "#a83226" : "#2f5d8a"; ctx.fillText("+" + PD.flash.pts, fx2, fy2); }
   ctx.fillStyle = "rgba(255,253,247,.85)"; ctx.font = "600 15px sans-serif"; ctx.textAlign = "left";
   ctx.fillText(L.sportId === "basketball" ? "🏀" : "⚽", 22, 34);
   ctx.font = "700 12px sans-serif";
