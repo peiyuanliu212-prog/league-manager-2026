@@ -195,6 +195,21 @@
 #matchNode .nodebox{box-shadow:0 12px 32px rgba(35,32,26,.38);animation:nodein .28s ease-out}
 @keyframes nodein{from{transform:translateY(18px);opacity:0}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion: reduce){#matchNode .nodebox{animation:none}}
+
+/* ===== v39 集团驾驶舱（UI 聚合五条） ===== */
+.ckCard{padding:12px 14px}
+.ckHead{display:flex;justify-content:space-between;align-items:baseline}
+.ckDots{display:flex;gap:3px;margin:8px 0 4px}
+.ckDots i{flex:1;height:5px;border-radius:3px;background:#e3d9c2}
+.ckDots i.on{background:#2e6b46}
+.ckRow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 2px;border-top:1px solid var(--line);cursor:pointer;font-size:13.5px}
+.ckRow b{color:var(--acc);white-space:nowrap;font-size:12.5px}
+.ckOk{cursor:default}.ckOk b{color:#2e6b46}
+.ckTodo{border-top:1px solid var(--line)}
+.ckTodo summary{padding:8px 2px;font-size:13.5px;font-weight:700;cursor:pointer;color:#a83226}
+.ckPins{display:flex;gap:8px;margin-top:10px}
+.ckPins button{flex:1}
+
 /* ===== 点球/罚球原型接入样式（pn-/ft- 前缀，与原型页同构） ===== */
 .pnScene{position:relative;margin-top:8px;height:320px;border-radius:14px;overflow:hidden;border:1px solid #ddd2b8;background:linear-gradient(#7d94a6 0 24%,#8fae7e 24% 29%,#6f9a5f 29% 100%)}
 .pnStand{position:absolute;left:0;right:0;top:0;height:24%;opacity:.5;background:repeating-linear-gradient(90deg,#5d7284 0 7px,#6d8397 7px 14px)}
@@ -256,7 +271,7 @@
 <header><h1>我在联赛当经理</h1><span style="display:flex;gap:8px;align-items:center"><span class="day" id="seasonDay">赛季第 1 天</span><button id="sndBtn" class="mini ghost" onclick="toggleSound()" title="声音开关">🔊</button></span></header>
 <div class="clubbar">
   <div><div class="clubname" id="clubName">新星联队</div><div class="pmeta" id="capInfo">仓储 8 小时档</div></div>
-  <div class="funds"><span id="balance">0</span><small>俱乐部资金</small></div>
+  <div class="funds"><span id="balance">0</span><small>俱乐部资金</small></div><div class="funds"><span id="repTop">0</span><small>集团声望</small></div>
 </div>
 <div id="heroBand"></div>
 
@@ -273,6 +288,7 @@
 </div>
 <div id="eveningBar" class="hidden" style="background:#f7e8c9;color:#8a6d1a;border-bottom:1px solid var(--line);padding:8px 16px;font-size:13px;">晚市窗开启中（19:00–23:00）：离线产出 ×1.5</div>
 <div class="page on" data-page="league">
+<div id="cockpitSlot"></div>
 <div id="todaySlot"></div>
 <section>
   <h2 data-no="01"><span class="eb">STAR LEAGUE</span>明星联赛 · 跨联赛对决</h2>
@@ -1201,7 +1217,7 @@ function renderLoanPending(){
   for(const pid of due){
     const p = findPlayer(pid);
     const d = document.createElement("div"); d.className = "card";
-    d.innerHTML = `<div class="row"><div><span class="pname">${p ? p.name : pid}</span> <span class="tag back">租借归队</span><div class="pmeta">练级结束回队，能力 +1 待领取</div></div><button>迎接归队</button></div>`;
+    d.innerHTML = `<div class="row">${p ? `<div class="ovr" style="background:${tierColor(p.ability)}"><b>${p.ability}</b><small>${p.pos}</small></div><div class="bust">${bustSVG(p)}</div>` : ""}<div style="flex:1;min-width:0"><span class="pname">${p ? p.name : pid}</span> <span class="tag back">租借归队</span><div class="pmeta">练级结束回队，能力 +1 待领取</div></div><button>迎接归队</button></div>`;
     d.querySelector("button").onclick = () => claimLoanReturn(pid);
     pl.appendChild(d);
   }
@@ -3901,6 +3917,39 @@ function simBookInjury(nd){
   L.playedMins[victim.pid] = (L.playedMins[victim.pid] || 0) + (L.minute - (L._inMin[victim.pid] || 0));
   mock.save();
 }
+/* ================= v39 集团驾驶舱 + 待办单口（UI 聚合五条） ================= */
+function cockpitTodos(dayN){
+  const s = mock.state, list = [];
+  const pend = (window.__lastPending || []).length;
+  if(pend) list.push({ u: 1, label: pend + " 名球员归队待迎接", act: "returns" });
+  if(s.wageNote) list.push({ u: 1, label: "工资欠薪待处理（见俱乐部页）", act: "club" });
+  for(const sid of ["football", "basketball"]){
+    if(!(s.played || {})[sid + ":" + dayN]) list.push({ u: 2, label: (sid === "football" ? "⚽ 足球" : "🏀 篮球") + "今日比赛还没打", act: "match:" + sid });
+  }
+  if(typeof packActive === "function" && packActive("2026-11-22")){ const left = 2 - (s.commCount || 0); if(left > 0) list.push({ u: 3, label: "拉练委托今日还可派 " + left + " 人", act: "squad" }); }
+  return list.sort((a, b) => a.u - b.u);
+}
+function cockpitGo(act){
+  if(act === "returns"){ switchTab("league"); const el = $("#pendingList"); if(el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 60); return; }
+  if(act === "club"){ switchTab("club"); return; }
+  if(act === "squad"){ switchTab("squad"); return; }
+  if(act === "market"){ switchTab("market"); return; }
+  if(act.indexOf("match:") === 0){ const sid = act.split(":")[1];
+    if(mock.state.sport !== sid){ mock.state.sport = sid; mock.save(); }
+    switchTab("league"); render().then(() => { const el = $("#leagueCard"); if(el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }); }
+}
+window.cockpitGo = cockpitGo;
+function renderCockpit(dayN){
+  const slot = $("#cockpitSlot"); if(!slot) return;
+  const s = mock.state, todos = cockpitTodos(dayN); window.__cockpitTodos = todos;
+  const pend = (window.__lastPending || []).length;
+  const rowFor = sid => { const sp = SPORT_PACKS[sid]; const opp = sp.leagues()[(dayN - 1) % sp.leagues().length]; const pl = (s.played || {})[sid + ":" + dayN];
+    return `<div class="ckRow" onclick="cockpitGo('match:${sid}')"><span>${sid === "football" ? "⚽ 足球" : "🏀 篮球"} · 第 ${dayN} 轮 vs ${opp}</span><b>${pl ? pl : "未赛 · 去打这场 ›"}</b></div>`; };
+  const todoHtml = todos.length ? `<details class="ckTodo"><summary>待办 ${todos.length} 件 · 点开处理</summary>${todos.map(t => `<div class="ckRow" onclick="cockpitGo('${t.act}')"><span>${t.label}</span><b>去处理 ›</b></div>`).join("")}</details>`
+    : `<div class="ckRow ckOk"><span>今日待办</span><b>全部处理完 ✓</b></div>`;
+  slot.innerHTML = `<div class="card ckCard"><div class="ckHead"><span class="pname" style="font-size:15px">集团驾驶舱</span><span class="hint">一屏看完今天的集团</span></div>${rowFor("football")}${rowFor("basketball")}${todoHtml}<div class="ckPins"><button class="mini" onclick="cockpitGo('squad')">阵容</button><button class="mini" onclick="cockpitGo('market')">签约市场</button><button class="mini" onclick="cockpitGo('returns')">归队领奖${pend ? "（" + pend + "）" : ""}</button></div></div>`;
+}
+
 /* ================= 点球/罚球原型接入（v3.1 点球定版 + 罚球 v1 定版，2026-11-11 主人拍板接入） =================
    呈现与输入层移植自 penproto.html / ftproto.html；结算全部走 SIMCORE（引擎单一事实源）：
    足球点球 resolveSimNode({aim, keeper|dive})、篮球罚球 resolveFtShot(tier) 逐球结算。 */
@@ -5022,6 +5071,7 @@ async function render(){
   if(h.ok){
     $("#clubName").textContent = h.clubName;
     $("#balance").textContent = h.balance;
+    const rtEl = $("#repTop"); if(rtEl) rtEl.textContent = mock.state.rep || 0;
     $("#capInfo").textContent = `仓储 ${h.capacityTier} 小时档`;
     window.__capTier = h.capacityTier;
     const cdEl = $("#capDesc"); if(cdEl) cdEl.textContent = `当前离线积累上限 ${h.capacityTier} 小时（${h.capacityTier*60} 资金）`;
@@ -5037,7 +5087,7 @@ async function render(){
       for(const c of h.pendingReturns){
         const p=findPlayer(c.playerId);
         const d=document.createElement("div"); d.className="card";
-        d.innerHTML=`<div class="row"><div><span class="pname">${p?p.name:c.playerId}</span> <span class="tag back">已归队</span><div class="pmeta">${c.kind==="loan"?"外租":"集训"}结束，回来报到了</div></div><button>迎接归队</button></div>`;
+        d.innerHTML=`<div class="row">${p?`<div class="ovr" style="background:${tierColor(p.ability+(mock.state.growth[p.pid]||0))}"><b>${p.ability+(mock.state.growth[p.pid]||0)}</b><small>${p.pos}</small></div><div class="bust">${bustSVG(p)}</div>`:""}<div style="flex:1;min-width:0"><span class="pname">${p?p.name:c.playerId}</span> <span class="tag back">已归队</span><div class="pmeta">${c.kind==="loan"?"外租":"集训"}结束，回来报到了</div></div><button>迎接归队</button></div>`;
         d.querySelector("button").onclick=()=>claimReturn(c);
         pl.appendChild(d);
       }
@@ -5056,6 +5106,7 @@ async function render(){
     + (mock.state.log.length ? `<div class="hint">${mock.state.log.slice(-3).join("<br>")}</div>` : "");
   const pb=$("#playBtn");
   if(pb) pb.onclick=()=>openLiveMatch();
+  renderCockpit(dayN);
   const fs=$("#finaleSlot");
   if(dayN>=14 && !mock.state.finale){
     fs.innerHTML=`<div class="card"><div class="pname">赛季收官日</div><div class="pmeta">老将告别赛已经排好。${tableRankText(spL.id)}收官奖励二选一，选了就是这赛季的句号。</div><div class="tiers"><button id="finRep">声望 +${(((mock.state.coach || {}).staff || {}).mentor) ? "75（名宿导师加成）" : "50"}</button><button id="finFund" class="ghost">资金 +500</button></div></div>`;
@@ -5072,8 +5123,8 @@ async function render(){
   const hb=$("#heroBand");
   if(hb){ let dots=""; for(let d=1;d<=14;d++) dots+='<i class="'+(d<=dayN?"on":"")+'"></i>';
     hb.innerHTML = '<div><div class="hlab">'+(spL.id==="basketball"?"篮球一队":"足球一队")+' · 本队战力</div><div class="hbig">'+teamPower()+'</div><div class="hdots">'+dots+'</div></div><div class="hstats"><div class="hstat"><b>'+mock.state.rep+'</b><span>声望</span></div><div class="hstat"><b>'+dayN+'/14</b><span>赛季天</span></div><div class="hstat"><b>'+($("#capInfo").textContent||"").replace("仓储 ","")+'</b><span>仓储档</span></div></div>'; }
-  const bdL=$("#bdLeague"); if(bdL){ const n=(window.__lastPending||[]).length; bdL.textContent=n; bdL.style.display=n>0?"":"none"; }
-  const bdC=$("#bdClub"); if(bdC){ const n=$("#eventList").querySelectorAll(".card").length; bdC.textContent=n; bdC.style.display=n>0?"":"none"; }
+  const bdL=$("#bdLeague"); if(bdL){ const n=(window.__cockpitTodos||[]).length; bdL.textContent=n; bdL.style.display=n>0?"":"none"; }
+  const bdC=$("#bdClub"); if(bdC){ bdC.textContent=""; bdC.style.display="none"; }
 }
 let CUR_TAB="league";
 function switchTab(name){ if(name==="market") guideFlag("market"); CUR_TAB=name; try{ renderGuide(); }catch(e){} if(name==="club"){ try{ refreshSlots(); }catch(e){} } document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.dataset.page===name)); document.querySelectorAll("#tabbar .tabbtn").forEach(b=>b.classList.toggle("on",b.dataset.tab===name)); window.scrollTo(0,0); }
