@@ -993,7 +993,7 @@ function renderTickerCard(){
   const el = document.querySelector("#tickerSlot"); if(!el) return;
   const t = mock.state.lastTicker;
   if(!t){ el.innerHTML = ""; return; }
-  el.innerHTML = `<div class="card"><div class="row"><div><span class="pname">战报</span><div class="pmeta">${t.friendly ? "友谊赛" : "第 " + t.dayN + " 轮"} · 对 ${t.opp} —— ${t.res} ${t.score}</div></div></div>
+  el.innerHTML = `<div class="card"><div class="row"><div><span class="pname">战报</span><div class="pmeta">${t.friendly ? "热身赛" : "第 " + t.dayN + " 轮"} · 对 ${t.opp} —— ${t.res} ${t.score}</div></div></div>
   ${t.fundD ? `<div style="background:#f7e8c9;border-radius:8px;padding:6px 10px;margin:8px 0" class="pmeta">比赛奖金 <b>+${t.fundD} 资金</b> 已到账</div>` : ""}
   <div>${t.lines.map(l=>`<div class="tk ${l.kind || ""}"><b>${l.min}′</b> ${l.text}</div>`).join("")}</div></div>`;
 }
@@ -1731,7 +1731,8 @@ const dist2 = (ax, ay, bx, by)=>{ const dx = ax - bx, dy = ay - by; return dx * 
 const SIM_CFG = {
   football: {
     totalTicks: 4200, friction: 0.90, ctrlR: 1.7, tackleR: 1.9, goalHalfW: 5, boxX: 16, boxHalfH: 15,
-    shotPow: 3.15, passN: [8, 42], decCool: [22, 42], tackleCool: 34, foulP: 0.10, cardP: 0.25, injP: 0.06, blockP: 0.5
+    shotPow: 3.15, passN: [8, 42], decCool: [22, 42], tackleCool: 34, foulP: 0.11, cardP: 0.25, injP: 0.06, blockP: 0.5,
+    penWhistle: 0.65, handballP: 0.06, advP: 0.55, spSetup: 66, contestPenP: 0.10
   },
   basketball: {
     totalTicks: 6000, friction: 0.93, ctrlR: 1.9, tackleR: 1.7, hoopY: 32, decCool: [4, 8], stealP: 0.13, foulP: 0.05, injP: 0.02
@@ -1795,11 +1796,11 @@ function createSim(cfg){
   const sport = cfg.sport, C = SIM_CFG[sport];
   const S = {
     sport, C, tick: 0, totalTicks: C.totalTicks, score: [0, 0], rng: mulberry32(cfg.seed || 12345),
-    ball: { x: 50, y: 32, vx: 0, vy: 0, owner: null, lastTouch: 0, passTarget: null, noSteal: 0, shotBy: -1 },
+    ball: { x: 50, y: 32, vx: 0, vy: 0, owner: null, lastTouch: 0, lastTouchPlayer: null, passTarget: null, noSteal: 0, shotBy: -1, cross: null },
     players: [], params: [deriveParams(sport, cfg.myMent, cfg.myInstr), deriveParams(sport, cfg.oppMent, cfg.oppInstr)],
     ments: [cfg.myMent || "bal", cfg.oppMent || "bal"], instrs: [cfg.myInstr || {}, cfg.oppInstr || {}],
-    events: [], deadBall: null, hold: false, over: false, htDone: false,
-    stats: { shots: [0, 0], onTarget: [0, 0], poss: [0, 0], scorers: [], duels: 0 },
+    events: [], deadBall: null, hold: false, over: false, htDone: false, sp: null,
+    stats: { shots: [0, 0], onTarget: [0, 0], poss: [0, 0], scorers: [], duels: 0, corners: [0, 0], crosses: [0, 0], posts: [0, 0] },
     bench: cfg.bench || [[], []], forceNode: null, kickoffSide: 0, noDuel: !!cfg.noDuel
   };
   const mk = (tp, side)=>{
@@ -1807,12 +1808,17 @@ function createSim(cfg){
     tp.players.forEach((pl, i)=>{
       S.players.push({ side, pid: pl.pid, name: pl.name, group: pl.group, skill: pl.skill, isGK: pl.group === "GK",
         x: anchors[i].x, y: anchors[i].y, vx: 0, vy: 0, home: anchors[i], tx: anchors[i].x, ty: anchors[i].y,
-        state: "hold", cool: 0, tackCool: 0, dist: 0, stam: 1, mark: -1, supportSpot: null, out: false,
+        state: "hold", cool: 0, tackCool: 0, dist: 0, stam: 1, mark: -1, supportSpot: null, out: false, yellows: 0, freshT: 0, driveT: 0, offFlag: 0,
         speedMul: sport === "basketball" ? 2.4 : 1 });
     });
   };
+  if(sport === "football"){
+    S.refStrict = 0.8 + S.rng() * 0.45;
+    S.stoppageTicks = 60 + Math.floor(S.rng() * 150);
+    if(cfg.homeSide != null){ S.homeSide = cfg.homeSide; S.params[cfg.homeSide].shootThr *= .97; }
+  }
   mk(cfg.myTeam, 0); mk(cfg.oppTeam, 1);
-  if(sport === "basketball") bbInit(S); else kickoff(S, 0);
+  if(sport === "basketball") bbInit(S); else { kickoff(S, 0); if(S.homeSide != null) emit(S, { type: "home", side: S.homeSide }); }
   return S;
 }
 function teamPlayers(S, side){ return S.players.filter(p=>p.side === side && !p.out); }
@@ -1835,7 +1841,7 @@ function simSubstitute(S, side, outPid, inn){
   if(idx < 0) return false;
   const o = S.players[idx];
   const np = { side, pid: inn.pid, name: inn.name, group: o.group, skill: inn.skill, isGK: o.isGK,
-    x: o.x, y: o.y, vx: 0, vy: 0, home: o.home, tx: o.x, ty: o.y, state: "hold", cool: 0, tackCool: 0, dist: 0, stam: 1, mark: -1, supportSpot: null, out: false, speedMul: o.speedMul || 1 };
+    x: o.x, y: o.y, vx: 0, vy: 0, home: o.home, tx: o.x, ty: o.y, state: "hold", cool: 0, tackCool: 0, dist: 0, stam: 1, mark: -1, supportSpot: null, out: false, speedMul: o.speedMul || 1, yellows: 0, freshT: S.sport === "football" ? 240 : 0, driveT: 0, offFlag: 0 };
   S.players[idx] = np;
   if(S.ball.owner === idx) S.ball.owner = idx;
   return true;
@@ -1844,7 +1850,7 @@ function simSubstitute(S, side, outPid, inn){
 function emit(S, ev){ ev.tick = S.tick; ev.min = Math.floor(S.tick / S.totalTicks * (S.sport === "basketball" ? 40 : 90)); S.events.push(ev); return ev; }
 function nearestOppTo(S, p){ let b = null, bd = 1e18; for(const q of S.players){ if(q.side === p.side || q.out) continue; const d = dist2(q.x, q.y, p.x, p.y); if(d < bd){ bd = d; b = q; } } return b; }
 function nearestMate(S, p, pred){ let b = null, bd = 1e18; for(const q of S.players){ if(q.side !== p.side || q === p || q.out) continue; if(pred && !pred(q)) continue; const d = dist2(q.x, q.y, p.x, p.y); if(d < bd){ bd = d; b = q; } } return b; }
-function maxSpeed(p){ return (0.26 + p.skill.pace / 100 * 0.38) * (0.72 + 0.28 * p.stam) * (p.speedMul || 1); }
+function maxSpeed(p){ return (0.26 + p.skill.pace / 100 * 0.38) * (0.72 + 0.28 * p.stam) * (p.speedMul || 1) * (p.freshT > 0 ? 1.06 : 1); }
 function steer(p, tx, ty, mul){
   const dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy);
   const sp = maxSpeed(p) * (mul || 1) * (d < 3 ? Math.max(.25, d / 3) : 1);
@@ -1860,12 +1866,12 @@ function integrate(S){
     for(let j = i + 1; j < ps.length; j++){ const b = ps[j]; if(b.out) continue;
       const dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy;
       if(d2 < 1.2 && d2 > .0001){ const d = Math.sqrt(d2), push = (1.1 - d) * .3, ux = dx / d, uy = dy / d; a.x -= ux * push; a.y -= uy * push; b.x += ux * push; b.y += uy * push; } } }
-  for(const p of S.players){ if(p.out) continue; const drain = 2400 * (0.75 + (100 - p.skill.stam) / 100 * 0.5); p.stam = clamp(1 - p.dist / drain, .35, 1); }
+  for(const p of S.players){ if(p.out) continue; const drain = 2400 * (0.75 + (100 - p.skill.stam) / 100 * 0.5) * (S.homeSide === p.side ? 1.03 : 1); p.stam = clamp(1 - p.dist / drain, .35, 1); }
 }
 function kickBall(S, p, tx, ty, power, noiseRad){
   const ang = Math.atan2(ty - S.ball.y, tx - S.ball.x) + (S.rng() * 2 - 1) * (noiseRad || 0);
   S.ball.vx = Math.cos(ang) * power; S.ball.vy = Math.sin(ang) * power;
-  S.ball.owner = null; S.ball.lastTouch = p.side; S.ball.kickSide = p.side; S.ball.noSteal = 7; S.ball.bounced = -99;
+  S.ball.owner = null; S.ball.lastTouch = p.side; S.ball.lastTouchPlayer = p; S.ball.kickSide = p.side; S.ball.noSteal = 7; S.ball.bounced = -99;
 }
 function passPower(S, d){
   const f = S.C.friction, n = clamp(Math.round(d / .55), 8, 42);
@@ -1876,6 +1882,7 @@ function doPass(S, p, t, lead){
   const d = Math.hypot(tx - p.x, ty - p.y);
   kickBall(S, p, tx, ty, passPower(S, d), (1 - p.skill.pass / 100) * (S.sport === "basketball" ? .15 : .16));
   S.ball.passTarget = S.players.indexOf(t);
+  if(S.sport === "football") t.offFlag = isOffsidePos(S, p.side, t.x) ? S.tick : 0;
   p.cool = Math.round((10 + S.rng() * 10) * (S.sport === "basketball" ? .38 : 1));
   return emit(S, { type: "pass", side: p.side, from: p, to: t });
 }
@@ -1903,12 +1910,33 @@ function anchorTarget(S, p){
   if(S.sport === "football" && !p.isGK){
     const depth = (p.group === "DF") ? 12.5 : 6;
     tx = p.side ? Math.min(tx, 100 - depth) : Math.max(tx, depth);
+    if(p.group === "FW" || p.group === "WG" || p.group === "ST"){
+      const line = offLineX(S, p.side);
+      if(p.side === 0 && tx > line + 2.5) tx = line + 1.5;
+      if(p.side === 1 && tx < line - 2.5) tx = line - 1.5;
+    }
+    const own = S.ball.owner != null ? S.players[S.ball.owner] : null;
+    if(own && own.side !== p.side && S.instrs[p.side] && S.instrs[p.side].zonal && (p.group === "DF" || p.group === "MF")) tx += dir * 3;
   }
   return { x: clamp(tx, 2, 98), y: clamp(ty, 3, 61) };
 }
+function dynParams(S, side){
+  const base = S.params[side];
+  if(S.sport !== "football" || S.tick < S.totalTicks * .75) return base;
+  const d = S.score[side] - S.score[1 - side];
+  if(!d) return base;
+  if(!S._dyn || S.tick - S._dyn.tick > 150) S._dyn = { tick: S.tick, ps: [null, null] };
+  if(!S._dyn.ps[side]){
+    const P = Object.assign({}, base);
+    if(d < 0){ P.press = Math.min(3, P.press + 1); P.shootThr *= .9; P.tempo *= .95; }
+    else { P.tempo *= 1.12; P.passRisk = Math.max(0, P.passRisk - .08); }
+    S._dyn.ps[side] = P;
+  }
+  return S._dyn.ps[side];
+}
 /* ---------------- football ---------------- */
 function decideCarrierFootball(S, p, evs){
-  const C = S.C, P = S.params[p.side], dir = p.side ? -1 : 1;
+  const C = S.C, P = dynParams(S, p.side), dir = p.side ? -1 : 1;
   const goalX = p.side ? 0 : 100;
   const dGoal = Math.hypot(goalX - p.x, 32 - p.y);
   const nOpp = nearestOppTo(S, p);
@@ -1923,6 +1951,33 @@ function decideCarrierFootball(S, p, evs){
       evs.push(emit(S, { type: "shot", side: p.side, p }));
       p.cool = 30; return;
     }
+  }
+  const prog = dir > 0 ? p.x : 100 - p.x;
+  if(p.driveT > 0 && prog < 87 && Math.abs(p.y - 32) > 12){
+    const nOppD = nearestOppTo(S, p);
+    if(nOppD && Math.hypot(nOppD.x - p.x, nOppD.y - p.y) < 1.7){ p.driveT = 0; }
+    else {
+      p.driveT -= 8;
+      p.tx = clamp(p.x + dir * 14, 2, 98); p.ty = clamp(p.y + (p.y < 32 ? -3 : 3), 3, 61); p.state = "dribble";
+      p.cool = 8; return;
+    }
+  }
+  let crossP = .34 + p.skill.decide / 100 * .28 + (P.wide ? .12 : 0);
+  if(prog <= 85) crossP *= .55;
+  if(prog > 70 && Math.abs(p.y - 32) > 14.5 && S.rng() < crossP){
+    let land, kind;
+    if(prog > 85){ const r = S.rng();
+      if(r < .34){ kind = "cutback"; land = { x: goalX - dir * 11.5, y: 29 + S.rng() * 6 }; }
+      else if(r < .67){ kind = "lowcross"; land = { x: goalX - dir * 5.5, y: 27.5 + S.rng() * 9 }; }
+      else { kind = "farcross"; land = { x: goalX - dir * 6.5, y: p.y < 32 ? 37 + S.rng() * 3 : 24 + S.rng() * 3 }; }
+    } else { kind = "cross"; land = { x: goalX - dir * (8 + S.rng() * 5), y: 27 + S.rng() * 10 }; }
+    strikeCross(S, p, land, p.side, kind);
+    p.cool = 26; return;
+  }
+  if(prog > 58 && prog <= 86 && Math.abs(p.y - 32) > 14 && S.rng() < .45){
+    p.driveT = 34;
+    p.tx = clamp(p.x + dir * 14, 2, 98); p.ty = clamp(p.y + (p.y < 32 ? -3 : 3), 3, 61); p.state = "dribble";
+    p.cool = 8; return;
   }
   let best = null, bestScore = 6; const candF = [];
   for(const t of teamPlayers(S, p.side)){
@@ -1953,6 +2008,18 @@ function distToSeg(px, py, ax, ay, bx, by){
   let t = L2 ? ((px - ax) * dx + (py - ay) * dy) / L2 : 0; t = clamp(t, 0, 1);
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 }
+function addCard(S, p, evs){
+  p.yellows = (p.yellows || 0) + 1;
+  const push = (e)=>{ if(evs) evs.push(e); };
+  if(p.yellows >= 2 && !p.out){
+    push(emit(S, { type: "card", side: p.side, p, yellow2: true }));
+    p.out = true;
+    if(S.ball.owner === S.players.indexOf(p)){ const mate = nearestMate(S, p, null); if(mate) S.ball.owner = S.players.indexOf(mate); }
+    push(emit(S, { type: "redcard", side: p.side, p }));
+    return;
+  }
+  push(emit(S, { type: "card", side: p.side, p }));
+}
 function foulRestart(S, fouledSide, x, y){
   S.ball.x = clamp(x, 3, 97); S.ball.y = clamp(y, 4, 60); S.ball.vx = 0; S.ball.vy = 0;
   const near = nearestMate(S, { side: fouledSide, x: S.ball.x, y: S.ball.y }, null) || teamPlayers(S, fouledSide)[0];
@@ -1967,28 +2034,38 @@ function doFoul(S, fouler, victim, evs){
     S.deadBall = { type: "injury", pid: victim.pid, side: victim.side, victimIdx: S.players.indexOf(victim),
       then: inBox(S, fouler.side, victim) ? { type: "pen", side: victim.side } : { type: "fk", side: victim.side, x: victim.x, y: victim.y } };
     return; }
-  if(S.rng() < C.cardP) evs.push(emit(S, { type: "card", side: fouler.side, p: fouler }));
+  if(S.rng() < C.cardP * (S.refStrict || 1)) addCard(S, fouler, evs);
   evs.push(emit(S, { type: "foul", side: fouler.side, p: fouler, victim }));
-  if(inBox(S, fouler.side, victim)){ S.deadBall = { type: "pen", side: victim.side, takerIdx: S.players.indexOf(victim) }; return; }
+  if(inBox(S, fouler.side, victim)){
+    /* box fouls: referees whistle only clear ones (real-world pen rate 0.22-0.28/match) */
+    if(S.rng() < C.penWhistle){ S.deadBall = { type: "pen", side: victim.side, takerIdx: S.players.indexOf(victim) }; evs.push(emit(S, { type: "penwon", side: victim.side, p: victim })); }
+    else { victim.cool = 5; evs.push(emit(S, { type: "nocall", side: victim.side, p: victim })); }
+    return; }
+  const goalX = fouler.side ? 100 : 0;
+  const dGoal = Math.hypot(goalX - victim.x, 32 - victim.y);
+  if(dGoal > 46 && S.rng() < C.advP){ victim.cool = 4; evs.push(emit(S, { type: "advantage", side: victim.side })); return; }
+  if(dGoal <= 30){ startFK(S, victim.side, victim.x, victim.y, "A", evs); return; }
+  if(dGoal <= 44){ startFK(S, victim.side, victim.x, victim.y, "B", evs); return; }
   foulRestart(S, victim.side, victim.x, victim.y);
 }
 function inBox(defSide, atkCarrier){
   const C = SIM_CFG.football;
-  return defSide === 0 ? atkCarrier.x > 100 - C.boxX && Math.abs(atkCarrier.y - 32) < C.boxHalfH
-                       : atkCarrier.x < C.boxX && Math.abs(atkCarrier.y - 32) < C.boxHalfH;
+  return defSide === 0 ? atkCarrier.x < C.boxX && Math.abs(atkCarrier.y - 32) < C.boxHalfH
+                       : atkCarrier.x > 100 - C.boxX && Math.abs(atkCarrier.y - 32) < C.boxHalfH;
 }
-function goalScored(S, atkSide, evs, scorer){
+function goalScored(S, atkSide, evs, scorer, og){
   S.score[atkSide]++;
-  S.stats.scorers.push({ name: scorer ? scorer.name : "—", side: atkSide, min: Math.floor(S.tick / S.totalTicks * 90), pen: false });
-  evs.push(emit(S, { type: "goal", side: atkSide, p: scorer }));
+  S.stats.scorers.push({ name: scorer ? scorer.name + (og ? "（乌龙）" : "") : "—", side: atkSide, min: Math.floor(S.tick / S.totalTicks * 90), pen: false, og: !!og });
+  evs.push(emit(S, { type: "goal", side: atkSide, p: scorer, og: !!og }));
   kickoff(S, 1 - atkSide); S.celebrate = 45;
 }
 function stepFootball(S, evs){
   const C = S.C, owner = ballOwner(S);
   if(owner) S.stats.poss[owner.side]++;
   if(S.ball.noSteal > 0) S.ball.noSteal--;
-  for(const p of S.players){ if(p.cool > 0) p.cool--; if(p.tackCool > 0) p.tackCool--; }
+  for(const p of S.players){ if(p.cool > 0) p.cool--; if(p.tackCool > 0) p.tackCool--; if(p.freshT > 0) p.freshT--; }
   if(S.celebrate > 0){ S.celebrate--; for(const p of S.players){ const a = anchorTarget(S, p); steer(p, a.x, a.y, .4); } integrate(S); return; }
+  if(S.sp){ spStep(S, evs); ballStepFootball(S, evs); return; }
   /* ---- targeting ---- */
   const carrier = owner;
   // support designation
@@ -2005,7 +2082,7 @@ function stepFootball(S, evs){
       if(p === supporter && spot){ p.tx = spot.x; p.ty = spot.y; p.state = "support"; }
       else { const a = anchorTarget(S, p); p.tx = a.x; p.ty = a.y; p.state = "hold"; }
     } else if(carrier){
-      const P = S.params[p.side];
+      const P = dynParams(S, p.side);
       const defs = teamPlayers(S, p.side).filter(q=>!q.isGK).sort((a, b)=>dist2(a.x, a.y, carrier.x, carrier.y) - dist2(b.x, b.y, carrier.x, carrier.y));
       const pressers = defs.slice(0, 1 + P.press);
       if(pressers.includes(p) && Math.hypot(carrier.x - p.home.x, carrier.y - p.home.y) < 46){
@@ -2018,6 +2095,11 @@ function stepFootball(S, evs){
         if(man && !P.zonal){ const gx = p.side ? 100 : 0; p.tx = man.x + (gx - man.x) * .16; p.ty = man.y + (32 - man.y) * .1; p.state = "mark"; }
         else { const a = anchorTarget(S, p); p.tx = a.x; p.ty = a.y; p.state = "hold"; }
       }
+    } else if(S.ball.cross && !S.ball.cross.resolved){
+      const cr = S.ball.cross;
+      const chasers = teamPlayers(S, p.side).filter(q=>!q.isGK).sort((a, b)=>dist2(a.x, a.y, cr.landX, cr.landY) - dist2(b.x, b.y, cr.landX, cr.landY)).slice(0, 3);
+      if(chasers.includes(p)){ p.tx = cr.landX + (p.x < cr.landX ? -.8 : .8); p.ty = cr.landY + (p.y < cr.landY ? -.8 : .8); p.state = "chase"; }
+      else { const a = anchorTarget(S, p); p.tx = a.x; p.ty = a.y; p.state = "hold"; }
     } else {
       // loose ball: nearest per side chases
       const mine = teamPlayers(S, p.side).filter(q=>!q.isGK).sort((a, b)=>dist2(a.x, a.y, S.ball.x, S.ball.y) - dist2(b.x, b.y, S.ball.x, S.ball.y))[0];
@@ -2040,7 +2122,7 @@ function stepFootball(S, evs){
         if(r < pWin){
           if(S.rng() < .3){ S.ball.owner = S.players.indexOf(d); d.cool = 12; evs.push(emit(S, { type: "tackle", side: d.side, p: d, victim: cur })); }
           else { kickBall(S, cur, cur.x + (S.rng() * 8 - 4), cur.y + (S.rng() * 8 - 4), 1.1, .4); S.ball.passTarget = null; evs.push(emit(S, { type: "tackle", side: d.side, p: d, victim: cur })); }
-        } else if(S.rng() < C.foulP * 2.2){ doFoul(S, d, cur, evs); if(S.deadBall) return; }
+        } else if(S.rng() < C.foulP * 2.2 * (S.refStrict || 1)){ doFoul(S, d, cur, evs); if(S.deadBall || S.sp) return; }
         break;
       }
     }
@@ -2062,37 +2144,84 @@ function stepFootball(S, evs){
   ballStepFootball(S, evs);
 }
 function gkTarget(S, p, carrier){
-  const gx = p.side ? 97 : 3;
+  const gx = p.side ? 97 : 3, dir = p.side ? -1 : 1, myGoalX = p.side ? 100 : 0;
   if(carrier === p){ p.tx = gx; p.ty = 32; return; }
-  p.tx = gx; p.ty = clamp(32 + (S.ball.y - 32) * .55, 24.5, 39.5);
-  if(!carrier && Math.hypot(S.ball.x - p.x, S.ball.y - p.y) < 13 && Math.abs(S.ball.x - gx) < 16){ p.tx = S.ball.x; p.ty = S.ball.y; p.state = "chase"; }
+  /* claim position for an incoming cross landing in the six-yard area */
+  if(!carrier && S.ball.cross && S.ball.cross.side !== p.side){
+    const lx = S.ball.cross.landX;
+    if(Math.abs(lx - myGoalX) < 7.5 && Math.abs(S.ball.cross.landY - 32) < 9){ p.tx = lx; p.ty = S.ball.cross.landY; p.state = "chase"; return; }
+  }
+  const ballDepth = p.side ? 100 - S.ball.x : S.ball.x;
+  let out = ballDepth > 55 ? 5.5 : 0;
+  let tyF = .55;
+  if(carrier && carrier.side !== p.side){
+    const between = teamPlayers(S, p.side).filter(q=>!q.isGK && (p.side ? q.x > carrier.x : q.x < carrier.x)).length;
+    const dGoalC = Math.abs(carrier.x - myGoalX);
+    if(between === 0 && dGoalC < 25){ out = 6.5; p.tx = gx + dir * out; p.ty = clamp(carrier.y, 26, 38); return; }
+  }
+  p.tx = gx + dir * out; p.ty = clamp(32 + (S.ball.y - 32) * tyF, 24.5, 39.5);
+  /* sweep: loose ball in/near my box and I am my team's closest -> come and take it */
+  if(!carrier && Math.abs(S.ball.x - myGoalX) < 17 && Math.abs(S.ball.y - 32) < 17){
+    const myD = Math.hypot(S.ball.x - p.x, S.ball.y - p.y);
+    if(teamPlayers(S, p.side).filter(q=>!q.isGK).every(q=>Math.hypot(S.ball.x - q.x, S.ball.y - q.y) > myD)){ p.tx = S.ball.x; p.ty = S.ball.y; p.state = "chase"; }
+  }
 }
 function gkDistribute(S, gk, evs){
   if(gk.holdT == null) gk.holdT = 22;
   if(--gk.holdT > 0) return;
   gk.holdT = null;
-  let best = null, bs = -1;
-  for(const t of teamPlayers(S, gk.side)){ if(t === gk) continue; const n = nearestOppTo(S, t); const open = n ? Math.hypot(n.x - t.x, n.y - t.y) : 20; const sc = open - Math.abs(t.x - gk.x) * .1; if(sc > bs){ bs = sc; best = t; } }
-  if(best) evs.push(doPass(S, gk, best, 4));
+  const ins = S.instrs[gk.side] || {};
+  let wShort = .45, wLong = .3;
+  if(ins.control){ wShort = .6; wLong = .15; }
+  if(ins.counter){ wLong = .6; wShort = .2; }
+  const r = S.rng(), mates = teamPlayers(S, gk.side).filter(t=>t !== gk);
+  if(r < wShort){
+    let best = null, bs = -1;
+    for(const t of mates){ const n = nearestOppTo(S, t); const open = n ? Math.hypot(n.x - t.x, n.y - t.y) : 20; const sc = open - Math.abs(t.x - gk.x) * .1; if(sc > bs){ bs = sc; best = t; } }
+    if(best) evs.push(doPass(S, gk, best, 4));
+  } else if(r < wShort + wLong){
+    const cf = mates.filter(t=>t.group === "FW").sort((a, b)=>b.skill.shoot - a.skill.shoot)[0] || mates[0];
+    if(cf){ kickBall(S, gk, clamp(cf.x + (gk.side ? -16 : 16), 8, 92), clamp(cf.y + (S.rng() * 10 - 5), 8, 56), 4.3, .06); S.ball.passTarget = null; evs.push(emit(S, { type: "longball", side: gk.side, p: gk })); }
+  } else {
+    const wide = mates.slice().sort((a, b)=>Math.abs(b.y - 32) - Math.abs(a.y - 32))[0];
+    if(wide) evs.push(doPass(S, gk, wide, 9));
+  }
 }
 function ballStepFootball(S, evs){
   const C = S.C, B = S.ball, owner = ballOwner(S);
+  if(S.sp) return; /* set-piece setup: ball is placed, play is frozen */
   if(owner){ B.x = owner.x + (owner.side ? -0.9 : 0.9); B.y = owner.y; B.vx = 0; B.vy = 0; return; }
   B.x += B.vx; B.y += B.vy; B.vx *= C.friction; B.vy *= C.friction;
   const speed = Math.hypot(B.vx, B.vy);
+  /* post collision while a shot is in flight */
+  if(B.shotBy >= 0 && speed > 1){
+    const pgx = B.shotBy ? 0 : 100;
+    for(const py of [27, 39]){
+      if(Math.hypot(B.x - pgx, B.y - py) < .85){
+        B.vx *= -.42; B.vy += (py < 32 ? -.9 : .9); B.shotBy = -1; S.stats.posts[B.lastTouch]++;
+        evs.push(emit(S, { type: "post", side: B.lastTouch, p: B.lastShooter })); return;
+      }
+    }
+  }
   /* goal / out */
   if(B.x > 100.6 || B.x < -0.6){
-    const atkSide = B.x > 100.6 ? 0 : 1;
-    if(Math.abs(B.y - 32) <= C.goalHalfW){ goalScored(S, atkSide, evs, B.lastShooter); return; }
+    const atkSide = B.x > 100.6 ? 0 : 1, ay = Math.abs(B.y - 32);
+    if(ay <= C.goalHalfW){
+      let scorer = B.lastShooter, og = false;
+      if(scorer && scorer.side === atkSide && B.lastTouchPlayer && B.lastTouchPlayer.side === 1 - atkSide && B.lastTouchPlayer !== scorer){ scorer = B.lastTouchPlayer; og = true; }
+      goalScored(S, atkSide, evs, scorer, og); return;
+    }
+    if(ay <= C.goalHalfW + 0.9 && B.shotBy === atkSide){ // off the post
+      B.x = atkSide ? 99.4 : 0.6; B.vx = (atkSide ? -1 : 1) * (1.1 + S.rng() * .9); B.vy = (S.rng() * 2 - 1) * 1.1;
+      B.shotBy = -1; S.stats.posts[atkSide]++;
+      evs.push(emit(S, { type: "post", side: atkSide, p: B.lastShooter })); return;
+    }
     if(B.lastTouch === atkSide){ // goal kick
       const gk = teamPlayers(S, 1 - atkSide).find(p=>p.isGK);
       if(gk){ B.owner = S.players.indexOf(gk); B.x = gk.x; B.y = gk.y; gk.holdT = 16; evs.push(emit(S, { type: "goalkick", side: 1 - atkSide })); }
-    } else { // corner
-      B.x = atkSide ? 1.5 : 98.5; B.y = B.y < 32 ? 2.5 : 61.5;
-      let b = null, bd = 1e18; for(const q of teamPlayers(S, atkSide)){ if(q.isGK) continue; const d = dist2(q.x, q.y, B.x, B.y); if(d < bd){ bd = d; b = q; } }
-      if(b){ B.owner = S.players.indexOf(b); b.cool = 16; evs.push(emit(S, { type: "corner", side: atkSide })); }
+      B.vx = 0; B.vy = 0; return;
     }
-    B.vx = 0; B.vy = 0; return;
+    startCorner(S, atkSide, B.y, evs); return; // corner: choreographed set piece
   }
   if(B.y < 0.4 || B.y > 63.6){
     B.y = clamp(B.y, .6, 63.4); B.vx = 0; B.vy = 0;
@@ -2108,12 +2237,29 @@ function ballStepFootball(S, evs){
     if(gk && Math.hypot(gk.x - B.x, gk.y - B.y) < 2.7){
       const pSave = clamp(.33 + gk.skill.save / 100 * .65 - speed * .05, .1, .92);
       if(S.rng() < pSave){
-        if(S.rng() < .45){ B.owner = S.players.indexOf(gk); gk.holdT = 20; B.vx = 0; B.vy = 0; evs.push(emit(S, { type: "save", side: defSide, p: gk })); }
-        else { B.vx = -B.vx * .35; B.vy = (S.rng() * 2 - 1) * 1.2; evs.push(emit(S, { type: "save", side: defSide, p: gk })); }
+        B.lastTouch = defSide; B.lastTouchPlayer = gk;
+        if(S.rng() < .40){ B.owner = S.players.indexOf(gk); gk.holdT = 20; B.vx = 0; B.vy = 0; evs.push(emit(S, { type: "save", side: defSide, p: gk })); }
+        else if(Math.abs(B.y - 32) > 1.6 && S.rng() < .9){ B.vx *= .3; B.vy = Math.sign(B.y - 32) * (1.3 + S.rng() * .6); evs.push(emit(S, { type: "save", side: defSide, p: gk, parry: "out" })); }
+        else if(Math.abs(B.y - 32) <= 1.6 && S.rng() < .2){ B.vx *= .3; B.vy = Math.sign(S.rng() * 2 - 1) * (1.3 + S.rng() * .6); evs.push(emit(S, { type: "save", side: defSide, p: gk, parry: "out" })); }
+        else { B.vx = -B.vx * .35; B.vy = (S.rng() * 2 - 1) * 1.2; evs.push(emit(S, { type: "save", side: defSide, p: gk, parry: "flank" })); }
         S.stats.onTarget[B.shotBy]++; B.shotBy = -1; return;
       }
     }
-    for(const d of teamPlayers(S, defSide)){ if(d.isGK) continue; if(Math.hypot(d.x - B.x, d.y - B.y) < 1.3 && S.rng() < C.blockP){ B.vx *= -.25; B.vy = (S.rng() * 2 - 1) * 1.4; evs.push(emit(S, { type: "block", side: defSide, p: d })); B.shotBy = -1; return; } }
+    for(const d of teamPlayers(S, defSide)){ if(d.isGK) continue; if(Math.hypot(d.x - B.x, d.y - B.y) < 1.3 && S.rng() < C.blockP){
+      if(inBoxXY(defSide, B.x, B.y) && S.rng() < C.handballP){ const atk = B.shotBy; S.deadBall = { type: "pen", side: atk, takerIdx: -1 }; evs.push(emit(S, { type: "handball", side: defSide, p: d })); evs.push(emit(S, { type: "penwon", side: atk })); B.shotBy = -1; return; }
+      const defGoalX = defSide ? 100 : 0;
+      if(Math.abs(B.x - defGoalX) < 22 && S.rng() < .45){ B.vx = Math.sign(defGoalX - B.x) * 1.6; B.vy = Math.sign(B.y - 32 || 1) * (1.2 + S.rng() * .8); }
+      else { B.vx *= -.25; B.vy = (S.rng() * 2 - 1) * 1.4; }
+      B.lastTouch = defSide; B.lastTouchPlayer = d; evs.push(emit(S, { type: "block", side: defSide, p: d })); B.shotBy = -1; return; } }
+  }
+  /* cross contest: resolve at the landing zone before anyone can just pick it up */
+  if(B.cross && !B.cross.resolved){
+    const gx2 = B.cross.side ? 0 : 100;
+    const dLand = Math.hypot(B.x - B.cross.landX, B.y - B.cross.landY);
+    const inBoxArea = Math.abs(B.x - gx2) < 18 && Math.abs(B.y - 32) < 17;
+    if(dLand < 2.6 || (inBoxArea && speed < .55)) resolveCross(S, evs);
+    else if(!inBoxArea && dLand > 30) B.cross.resolved = true;
+    if(B.cross && !B.cross.resolved && inBoxArea) return;
   }
   /* control / intercept */
   const sorted = S.players.filter(p=>!p.out).sort((a, b)=>dist2(a.x, a.y, B.x, B.y) - dist2(b.x, b.y, B.x, B.y));
@@ -2123,16 +2269,192 @@ function ballStepFootball(S, evs){
     if(B.noSteal > 0 && p.side !== B.kickSide && speed > 1.5) continue;
     const thr = 0.95 + p.skill.ctrl / 100 * 1.5;
     if(speed < thr){
+      if(S.sport === "football" && p.offFlag){ p.offFlag = 0; evs.push(emit(S, { type: "offside", side: p.side, p })); foulRestart(S, 1 - p.side, p.x, p.y); return; }
+      if(S.sport === "football") for(const q of S.players) if(q.offFlag && q.side !== p.side) q.offFlag = 0;
       const wasPass = B.passTarget != null && B.passTarget !== S.players.indexOf(p);
-      B.owner = S.players.indexOf(p); B.passTarget = null; B.shotBy = -1;
+      B.owner = S.players.indexOf(p); B.passTarget = null; B.shotBy = -1; B.lastTouch = p.side; B.lastTouchPlayer = p;
+      if(p.freshT > 0 && !p.freshTouched && S.sport === "football"){ p.freshTouched = true; evs.push(emit(S, { type: "freshimpact", side: p.side, p })); }
+      if(p.group === "WG" && S.sport === "football"){ const prg = p.side ? 100 - p.x : p.x; const no = nearestOppTo(S, p);
+        if(prg > 55 && prg < 76 && Math.abs(p.y - 32) > 14 && no && Math.hypot(no.x - p.x, no.y - p.y) > 5) p.driveT = 30; }
       p.cool = Math.round(8 + S.rng() * 10);
       if(wasPass && p.side !== B.kickSide) evs.push(emit(S, { type: "intercept", side: p.side, p }));
       return;
     }
-    if(d < 1.25 && S.tick - (B.bounced || -99) > 5){ B.vx *= .35; B.vy *= .35; B.vy += (S.rng() * 2 - 1) * .5; B.bounced = S.tick; }
+    if(d < 1.25 && S.tick - (B.bounced || -99) > 5){ B.vx *= .35; B.vy *= .35; B.vy += (S.rng() * 2 - 1) * .5; B.bounced = S.tick; B.lastTouch = p.side; B.lastTouchPlayer = p; }
     break;
   }
   if(speed < .06){ B.vx = 0; B.vy = 0; }
+}
+/* ---------------- football set pieces (v25) ---------------- */
+function inBoxXY(defSide, x, y){ const C = SIM_CFG.football; return defSide === 0 ? (x < C.boxX && Math.abs(y - 32) < C.boxHalfH) : (x > 100 - C.boxX && Math.abs(y - 32) < C.boxHalfH); }
+function offLineX(S, atkSide){
+  const gx = atkSide ? 0 : 100;
+  const xs = teamPlayers(S, 1 - atkSide).map(p=>p.x).sort((a, b)=> atkSide ? a - b : b - a);
+  let line = xs.length > 1 ? xs[1] : gx;
+  if(atkSide === 0) line = Math.max(line, S.ball.x); else line = Math.min(line, S.ball.x);
+  return line;
+}
+function isOffsidePos(S, atkSide, x){
+  if(atkSide === 0) return x > 50 && x > offLineX(S, 0);
+  return x < 50 && x < offLineX(S, 1);
+}
+function spBoxSpots(S, atkSide){
+  const gx = atkSide ? 0 : 100, dir = atkSide ? 1 : -1, X = d => gx + dir * d;
+  return {
+    att: [
+      { x: X(10), y: 26.5, run: { x: X(4.5), y: 29 } },
+      { x: X(13.5), y: 33.5 },
+      { x: X(9), y: 31, run: { x: X(5), y: 31.5 } },
+      { x: X(15), y: 39, run: { x: X(6.5), y: 36.5 } },
+      { x: X(20.5), y: 32 },
+      { x: X(42), y: 18 },
+      { x: X(42), y: 46 },
+      { x: X(30), y: 32 }
+    ],
+    def: [
+      { x: X(3), y: 28.5 },
+      { x: X(5.5), y: 29 }, { x: X(5.5), y: 32 }, { x: X(5.5), y: 35 },
+      { x: X(18), y: 32 },
+      { x: X(45), y: 32 }
+    ]
+  };
+}
+function assignSpSpots(S, atkSide, takerIdx, takerPos){
+  const gx = atkSide ? 0 : 100, dir = atkSide ? 1 : -1, X = d => gx + dir * d;
+  const spots = spBoxSpots(S, atkSide);
+  for(const p of S.players){ p.spT = null; p.spRun = null; }
+  const att = teamPlayers(S, atkSide), def = teamPlayers(S, 1 - atkSide);
+  const aGK = att.find(p=>p.isGK), dGK = def.find(p=>p.isGK);
+  if(aGK) aGK.spT = { x: atkSide ? 97 : 3, y: 32 };
+  if(dGK) dGK.spT = { x: X(2), y: 30.5 };
+  const taker = S.players[takerIdx];
+  const aOut = att.filter(p=>!p.isGK && p !== taker).sort((a, b)=>b.skill.shoot - a.skill.shoot);
+  const order = [2, 1, 0, 3, 4, 7, 5, 6];
+  aOut.forEach((p, i)=>{ const sp = spots.att[order[i]]; if(sp){ p.spT = { x: sp.x, y: sp.y }; p.spRun = sp.run || null; } else p.spT = anchorTarget(S, p); });
+  const dOut = def.filter(p=>!p.isGK).sort((a, b)=>((b.group === "DF" ? 20 : 0) + b.skill.tackle) - ((a.group === "DF" ? 20 : 0) + a.skill.tackle));
+  dOut.forEach((p, i)=>{
+    if(i < 4){ const sp = spots.def[i]; p.spT = { x: sp.x, y: sp.y }; }
+    else if(i < 7){ const m = aOut[i - 4]; if(m && m.spT) p.spT = { x: m.spT.x + dir * 1.1, y: m.spT.y }; else p.spT = anchorTarget(S, p); }
+    else if(i === 7) p.spT = { x: spots.def[4].x, y: spots.def[4].y };
+    else if(i === 8) p.spT = { x: spots.def[5].x, y: spots.def[5].y };
+    else p.spT = anchorTarget(S, p);
+  });
+  if(taker) taker.spT = takerPos;
+  return { aOut, dOut };
+}
+function endSp(S){ S.sp = null; for(const p of S.players){ p.spT = null; p.spRun = null; } }
+function strikeCross(S, taker, land, side, kind){
+  const pow = Math.min(passPower(S, Math.hypot(land.x - taker.x, land.y - taker.y)) * 1.12, 4.6);
+  kickBall(S, taker, land.x, land.y, pow, (1 - taker.skill.pass / 100) * .05);
+  S.ball.cross = { side, landX: land.x, landY: land.y, resolved: false };
+  S.stats.crosses[side]++;
+  emit(S, { type: "cross", side, p: taker, kind: kind || "setpiece" });
+}
+function startCorner(S, atkSide, cornerY, evs){
+  const gx = atkSide ? 0 : 100, dir = atkSide ? 1 : -1, X = d => gx + dir * d;
+  const top = cornerY < 32;
+  S.ball.x = gx + dir * 1.2; S.ball.y = top ? 2.2 : 61.8; S.ball.vx = 0; S.ball.vy = 0; S.ball.owner = null; S.ball.shotBy = -1;
+  const taker = teamPlayers(S, atkSide).filter(p=>!p.isGK).sort((a, b)=>b.skill.pass - a.skill.pass)[0];
+  const r = S.rng(); let land;
+  if(r < .42) land = { x: X(3 + S.rng() * 3), y: 26 + S.rng() * 12 };
+  else if(r < .69) land = { x: X(8 + S.rng() * 4), y: 27 + S.rng() * 10 };
+  else if(r < .88) land = { x: X(5 + S.rng() * 3), y: top ? 36 + S.rng() * 6 : 22 + S.rng() * 6 };
+  else land = { x: X(18 + S.rng() * 3), y: 28 + S.rng() * 8 };
+  const short = S.rng() < .18;
+  S.sp = { kind: "corner", side: atkSide, t: 0, phase: "setup", takerIdx: S.players.indexOf(taker), land, short, recvIdx: -1 };
+  const assigned = assignSpSpots(S, atkSide, S.sp.takerIdx, { x: S.ball.x - dir * .9, y: S.ball.y + (top ? 1.4 : -1.4) });
+  if(short && assigned.aOut.length){
+    const rcv = assigned.aOut[assigned.aOut.length - 1];
+    rcv.spT = { x: X(5), y: top ? 6.5 : 57.5 }; rcv.spRun = null;
+    S.sp.recvIdx = S.players.indexOf(rcv);
+  }
+  S.stats.corners[atkSide]++;
+  evs.push(emit(S, { type: "corner", side: atkSide, p: taker }));
+}
+function startFK(S, side, x, y, tier, evs){
+  const gx = side ? 0 : 100, dir = side ? 1 : -1, X = d => gx + dir * d;
+  S.ball.x = clamp(x, 3, 97); S.ball.y = clamp(y, 4, 60); S.ball.vx = 0; S.ball.vy = 0; S.ball.owner = null; S.ball.shotBy = -1;
+  const taker = teamPlayers(S, side).filter(p=>!p.isGK).sort((a, b)=>(b.skill.shoot + b.skill.pass) - (a.skill.shoot + a.skill.pass))[0];
+  S.sp = { kind: tier === "A" ? "fkA" : "fkB", side, t: 0, phase: "setup", takerIdx: S.players.indexOf(taker), land: { x: X(8 + S.rng() * 4), y: 27 + S.rng() * 10 } };
+  if(tier === "B"){ assignSpSpots(S, side, S.sp.takerIdx, { x: S.ball.x, y: S.ball.y }); }
+  else {
+    for(const p of S.players){ p.spT = null; p.spRun = null; }
+    const def = teamPlayers(S, 1 - side), dGoal = Math.hypot(gx - x, 32 - y);
+    let wallN = dGoal <= 21 ? 4 : dGoal <= 26 ? 3 : 2;
+    if(Math.abs(y - 32) > 12) wallN = Math.max(2, wallN - 1);
+    const wx = x + (gx - x) / dGoal * 8.7, wy = y + (32 - y) / dGoal * 8.7;
+    const px = -(32 - y) / dGoal, py = (gx - x) / dGoal;
+    const wall = def.filter(p=>!p.isGK).sort((a, b)=>dist2(a.x, a.y, wx, wy) - dist2(b.x, b.y, wx, wy)).slice(0, wallN);
+    wall.forEach((p, i)=>{ const off = (i - (wallN - 1) / 2) * 1.15; p.spT = { x: wx + px * off, y: wy + py * off }; });
+    const dGK = def.find(p=>p.isGK); if(dGK) dGK.spT = { x: gx + dir * 1.6, y: clamp(32 + (y < 32 ? 3.5 : -3.5), 26, 38) };
+    for(const p of S.players){ if(!p.spT) p.spT = anchorTarget(S, p); }
+    taker.spT = { x: S.ball.x, y: S.ball.y };
+    S.sp.wall = wall.map(p=>S.players.indexOf(p));
+  }
+  evs.push(emit(S, { type: "fk", side, tier, p: taker }));
+}
+function spStep(S, evs){
+  const sp = S.sp, C = S.C;
+  sp.t++;
+  if(sp.t === C.spSetup - 18) for(const p of S.players) if(p.spRun) p.spT = p.spRun;
+  for(const p of S.players){ if(p.out) continue; const t = p.spT || anchorTarget(S, p); steer(p, t.x, t.y, .92); }
+  integrate(S);
+  if(sp.t < C.spSetup) return;
+  const taker = S.players[sp.takerIdx];
+  taker.x = S.ball.x + (taker.side ? .9 : -.9); taker.y = clamp(S.ball.y + (S.ball.y < 32 ? 1.2 : -1.2), 2, 62);
+  if(sp.kind === "corner"){
+    if(sp.short && sp.recvIdx >= 0){ const rcv = S.players[sp.recvIdx]; kickBall(S, taker, rcv.x, rcv.y, passPower(S, Math.hypot(rcv.x - taker.x, rcv.y - taker.y)), .02); S.ball.passTarget = sp.recvIdx; evs.push(emit(S, { type: "shortcorner", side: sp.side, p: taker })); }
+    else strikeCross(S, taker, sp.land, sp.side, "corner");
+  } else if(sp.kind === "fkA"){
+    const gx = sp.side ? 0 : 100, tr = S.rng(); let aimY, pow;
+    if(tr < .45){ aimY = 32 + (S.ball.y < 32 ? 4.4 : -4.4); pow = C.shotPow * (0.92 + taker.skill.shoot / 100 * .25); }
+    else if(tr < .72){ aimY = 32 + (S.rng() * 2 - 1) * 1.2; pow = C.shotPow * .95; }
+    else { aimY = 32 + (S.ball.y < 32 ? -4.4 : 4.4); pow = C.shotPow * (0.9 + taker.skill.shoot / 100 * .25); }
+    kickBall(S, taker, gx + (sp.side ? -2 : 2), aimY, pow * .96, (1 - taker.skill.shoot / 100) * .055);
+    S.ball.shotBy = sp.side; S.ball.lastShooter = taker; S.stats.shots[sp.side]++;
+    evs.push(emit(S, { type: "fkshot", side: sp.side, p: taker }));
+  } else if(sp.kind === "fkB"){
+    strikeCross(S, taker, sp.land, sp.side, "fk");
+  }
+  endSp(S);
+}
+function resolveCross(S, evs){
+  const B = S.ball, cr = B.cross; cr.resolved = true; B.cross = null;
+  const atkSide = cr.side, defSide = 1 - atkSide, gx = atkSide ? 0 : 100;
+  const cand = [];
+  for(const p of S.players){ if(p.out || p.isGK) continue; const d = Math.hypot(p.x - B.x, p.y - B.y); if(d > 4.6) continue;
+    cand.push({ p, d, attr: p.side === atkSide ? p.skill.shoot * .6 + p.skill.decide * .4 : p.skill.tackle * .6 + p.skill.decide * .4 }); }
+  const gk = teamPlayers(S, defSide).find(p=>p.isGK);
+  let bv = -1, best = null, gkWin = false;
+  if(gk){ const gd = Math.hypot(gk.x - B.x, gk.y - B.y);
+    if(Math.abs(B.x - gx) < 6.5 && Math.abs(B.y - 32) < 9 && gd < 4.6){ bv = gk.skill.save * 1.12 * clamp(1 - gd / 7, .25, 1) * (0.88 + S.rng() * .24); gkWin = true; } }
+  for(const c of cand){ let v = c.attr * clamp(1 - c.d / 7, .25, 1);
+    if(c.p.side === atkSide) for(const q of cand){ if(q.p.side === defSide && Math.hypot(q.p.x - c.p.x, q.p.y - c.p.y) < 1.2){ v *= .85; break; } }
+    v *= (0.88 + S.rng() * .24);
+    if(v > bv){ bv = v; best = c; gkWin = false; } }
+  if(gkWin && bv > 0){ B.owner = S.players.indexOf(gk); gk.holdT = 20; B.vx = 0; B.vy = 0; B.shotBy = -1; evs.push(emit(S, { type: "claim", side: defSide, p: gk })); return; }
+  if(!best) return;
+  const w = best.p;
+  if(w.side === atkSide && w.offFlag){ w.offFlag = 0; evs.push(emit(S, { type: "offside", side: atkSide, p: w })); foulRestart(S, defSide, w.x, w.y); return; }
+  if(w.side === atkSide){
+    kickBall(S, w, gx + (atkSide ? -2 : 2), 32 + (S.rng() * 2 - 1) * 3.4, 2.35 + w.skill.shoot / 100 * .5, .03);
+    B.shotBy = atkSide; B.lastShooter = w; S.stats.shots[atkSide]++;
+    evs.push(emit(S, { type: "header", side: atkSide, p: w }));
+  } else {
+    /* shirt-pull in the box while contesting a cross: rare penalty (spec source 3) */
+    const markedNear = cand.some(c=>c.p.side === atkSide && Math.hypot(c.p.x - w.x, c.p.y - w.y) < 1.2);
+    if(markedNear && inBoxXY(defSide, B.x, B.y) && S.rng() < S.C.contestPenP){
+      S.deadBall = { type: "pen", side: atkSide, takerIdx: -1 }; B.vx = 0; B.vy = 0;
+      evs.push(emit(S, { type: "penwon", side: atkSide })); return;
+    }
+    if(Math.abs(B.x - gx) < 14 && S.rng() < .35){ /* deep clearance turned behind -> corner */
+      kickBall(S, w, gx, B.y + (B.y < 32 ? -7 : 7), 2.6, .1);
+      B.shotBy = -1; evs.push(emit(S, { type: "clear", side: defSide, p: w, behind: true })); return;
+    }
+    kickBall(S, w, B.x + (atkSide ? -22 : 22), B.y + (B.y < 32 ? -10 : 10), 3.1, .12);
+    B.shotBy = -1;
+    evs.push(emit(S, { type: "clear", side: defSide, p: w }));
+  }
 }
 function triggerForce(S, evs){
   const f = S.forceNode; S.forceNode = null;
@@ -2148,7 +2470,7 @@ function triggerForce(S, evs){
 }
 /* ---------------- basketball ---------------- */
 function decideCarrierBasketball(S, p, evs){
-  const C = S.C, P = S.params[p.side], dir = p.side ? -1 : 1;
+  const C = S.C, P = dynParams(S, p.side), dir = p.side ? -1 : 1;
   const hoop = { x: p.side ? 1.5 : 98.5, y: 32 };
   const dHoop = Math.hypot(hoop.x - p.x, hoop.y - p.y);
   const nOpp = nearestOppTo(S, p);
@@ -2679,7 +3001,9 @@ function stepSim(S){
   S.tick++;
   if(!S.htDone && S.tick === Math.floor(S.totalTicks / 2)){ S.deadBall = { type: "ht" }; return []; }
   const bbBusy = S.sport === "basketball" && S.bb && (S.bb.flight || S.bb.phase === "reb");
-  if(S.tick >= S.totalTicks && !(bbBusy && S.tick < S.totalTicks + 120)){ S.over = true; S.deadBall = { type: "ft" }; emit(S, { type: "ft" }); return S.events.slice(n0); }
+  if(S.sport === "football" && S.htDone && !S._stopShown && S.tick === S.totalTicks && S.stoppageTicks){ S._stopShown = true; emit(S, { type: "stoppage", mins: Math.max(1, Math.round(S.stoppageTicks / S.totalTicks * 90)) }); }
+  const endTick = S.totalTicks + (S.sport === "football" ? (S.stoppageTicks || 0) : 0);
+  if(S.tick >= endTick && !(bbBusy && S.tick < S.totalTicks + 120)){ S.over = true; S.deadBall = { type: "ft" }; emit(S, { type: "ft" }); return S.events.slice(n0); }
   if(S.sport === "basketball") stepBasketball(S, S._evs = []);
   else stepFootball(S, S._evs = []);
   const out = S._evs; S._evs = null;
@@ -2696,13 +3020,13 @@ function resolveSimNode(S, choice){
     const winP = clamp(.42 + (D.skill.tackle - C.skill.ctrl) * .008, .15, .75);
     const act = choice.action || "contain";
     let goalP;
-    if(act === "contain"){ goalP = clamp(.16 + (C.skill.shoot - 65) * .006, .08, .45); resolveDuelShot(S, C, goalP); }
+    if(act === "contain"){ goalP = clamp(.16 + (C.skill.shoot - 65) * .006, .08, .45); resolveDuelShot(S, C, isB ? goalP : Math.max(.05, goalP - .10)); }
     else {
       const w = act === "slide" ? Math.min(.85, winP + .12) : winP, fP = act === "slide" ? .38 : .26;
       const r = S.rng();
       if(r < w){ S.ball.owner = nd.defenderIdx; S.ball.x = D.x; S.ball.y = D.y; D.cool = 12; emit(S, { type: "duelWon", side: 0, p: D }); }
-      else if(r < w + fP){ if(S.rng() < .4) emit(S, { type: "card", side: 0, p: D }); emit(S, { type: "foul", side: 0, p: D, victim: C }); if(isB){ S.ball.owner = nd.defenderIdx; S.ball.x = D.x; S.ball.y = D.y; } else foulRestart(S, 1, C.x, C.y); }
-      else { goalP = clamp(.34 + (C.skill.shoot - 65) * .006, .15, .6); resolveDuelShot(S, C, goalP); }
+      else if(r < w + fP){ if(S.rng() < .4){ if(isB) emit(S, { type: "card", side: 0, p: D }); else addCard(S, D, null); } emit(S, { type: "foul", side: 0, p: D, victim: C }); if(isB){ S.ball.owner = nd.defenderIdx; S.ball.x = D.x; S.ball.y = D.y; } else foulRestart(S, 1, C.x, C.y); }
+      else { goalP = clamp(.34 + (C.skill.shoot - 65) * .006, .15, .6); resolveDuelShot(S, C, isB ? goalP : Math.max(.05, goalP - .10)); }
     }
     S.deadBall = null; if(isB) bbAfterNode(S); return;
   }
@@ -2801,7 +3125,7 @@ function openLiveMatch(frTier, dayOverride){
   const seed = (dayN * 7919 + (frTier ? 131 : 0) + Math.floor(Math.random() * 1e9)) >>> 0;
   LIVE.S = SIMCORE.createSim({ sport: sportId, seed, myTeam: simMyTeam(sportId, clean.starters), oppTeam: simOppTeam(sportId, opp, LIVE.oppForm),
     myMent: mock.state.tprof[sportId].mentality, myInstr: Object.assign({}, mock.state.tprof[sportId].instr || {}),
-    oppMent: (LIVE.oppMent && LIVE.oppMent.id) || "bal", oppInstr: {} });
+    oppMent: (LIVE.oppMent && LIVE.oppMent.id) || "bal", oppInstr: {}, homeSide: sportId === "football" ? (dayN % 2 === 1 ? 0 : 1) : null });
   if(F.duel) LIVE.forceQueue.push({ type: "duel" });
   if(F.duel2) LIVE.forceQueue.push({ type: "duel" });
   if(F.penFor) LIVE.forceQueue.push({ type: "penFor" });
@@ -2820,10 +3144,10 @@ function segBounds(L){ return L.sportId === "basketball" ? [0, 10, 20, 30, 40] :
 function renderMatchHead(){
   const L = LIVE; if(!L) return;
   const el = $("#matchHead"); if(!el) return;
-  const avgSt = L.onPitch.length ? Math.round(L.onPitch.reduce((t,x)=>{ const ps = mock.state.pstat[x.pid]; return t + (ps ? ps.stamina : 100) - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 40 : 90)); }, 0) / L.onPitch.length) : 100;
+  const avgSt = L.onPitch.length ? Math.round(L.onPitch.reduce((t,x)=>{ const es = engStamOf(x.pid); if(es != null) return t + es; const ps = mock.state.pstat[x.pid]; return t + (ps ? ps.stamina : 100) - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 40 : 90)); }, 0) / L.onPitch.length) : 100;
   el.innerHTML = `<div class="vs" style="margin:0"><div class="side"><div class="vnum">${L.sportId === "basketball" ? L.my : L.my}</div><div class="vlab">${mock.state.clubName || "我方"}</div></div><div class="vmid">${L.minute}′<br>${mentalityOf(L.sportId).name}打法</div><div class="side"><div class="vnum" style="color:var(--bad)">${L.oppScore}</div><div class="vlab">${L.opp} · ${L.oppMent.name}</div></div></div>
-  <div class="hint" style="margin-top:2px">黄牌 ${L.yc || 0} · 红牌 0</div>
-  <div style="margin-top:8px"><div class="hint">全队体能（估算） ${Math.max(5, avgSt)}%</div><div style="height:7px;background:#e7ddc6;border-radius:4px"><div style="height:100%;width:${Math.max(5, avgSt)}%;background:${avgSt < 40 ? "#c0392b" : "#2e6b46"};border-radius:4px;transition:width .4s"></div></div></div>`;
+  <div class="hint" style="margin-top:2px">黄牌 ${L.yc || 0} · 红牌 ${L.rc || 0}</div>
+  <div style="margin-top:8px"><div class="hint">全队体能${L.sportId === "football" ? "" : "（估算）"} ${Math.max(5, avgSt)}%</div><div style="height:7px;background:#e7ddc6;border-radius:4px"><div style="height:100%;width:${Math.max(5, avgSt)}%;background:${avgSt < 40 ? "#c0392b" : "#2e6b46"};border-radius:4px;transition:width .4s"></div></div></div>`;
 }
 function renderMatchTicker(){
   const box = $("#matchTicker"); if(!box || !LIVE) return;
@@ -2970,7 +3294,8 @@ function simLineFor(ev){
   const min = ev.min, score = `${L.my}:${L.oppScore}`;
   const throttled = (gap)=>{ if(S.tick - L._lastBuildTick < gap) return true; L._lastBuildTick = S.tick; return false; };
   switch(ev.type){
-    case "goal": if(ev.pen) return { min, kind: "pen", text: mine ? `点球命中！${ev.p ? ev.p.name : ""} 骗过门将，比分 ${score}。` : `对方点球命中，扑错了方向。比分 ${score}。` };
+    case "goal": if(ev.og) return { min, kind: mine ? "goal" : "oppgoal", text: mine ? `乌龙！对方后卫把球碰进自家球门！比分 ${score}。` : `乌龙——我方球员不慎自摆乌龙。比分 ${score}。` };
+      if(ev.pen) return { min, kind: "pen", text: mine ? `点球命中！${ev.p ? ev.p.name : ""} 骗过门将，比分 ${score}。` : `对方点球命中，扑错了方向。比分 ${score}。` };
       return { min, kind: mine ? "goal" : "oppgoal", text: isB ? `${ev.p ? ev.p.name : (mine ? "我方" : "对方")} ${ev.pts === 3 ? "外线三分命中" : ev.zone === "rim" ? "杀入篮下得手" : ev.zone === "close" ? "篮下强打命中" : ev.zone === "mid" ? "中距离跳投命中" : "打进两分"}！比分 ${score}。` : (mine ? `进球！${ev.p ? ev.p.name : "我方"} 破门得分！比分 ${score}。` : `丢球——${ev.p ? ev.p.name : "对方"} 打进。比分 ${score}。`) };
     case "save": if(isB) return null; return { min, kind: "chance", text: mine ? `神扑！我方门将把对方的射门拒之门外。` : `对方门将扑出了我方一记射门。` };
     case "penSaved": return { min, kind: "pen", text: mine ? "点球被扑出！门将猜对了方向。" : "扑出去了！神扑！全场沸腾。" };
@@ -2986,10 +3311,28 @@ function simLineFor(ev){
     case "steal": return throttled(150) ? null : { min, kind: "", text: `${ev.p ? ev.p.name : "队员"} 直接抢断！` };
     case "tackle": return throttled(170) ? null : { min, kind: "", text: `${ev.p ? ev.p.name : "后卫"} 干净利落地把球断下。` };
     case "pass": return throttled(200) ? null : { min, kind: "", text: mine ? `${ev.from ? ev.from.name : ""} 把球分给 ${ev.to ? ev.to.name : ""}，${mock.state.clubName || "我方"}继续组织进攻。` : `对方连续传递组织进攻。` };
-    case "card": if(mine) LIVE.yc = (LIVE.yc || 0) + 1; return { min, kind: "card", text: `黄牌——${ev.p ? ev.p.name : "球员"} 战术犯规，裁判出示黄牌。` };
+    case "card": if(mine) LIVE.yc = (LIVE.yc || 0) + 1; return { min, kind: "card", text: ev.yellow2 ? `第二张黄牌！${ev.p ? ev.p.name : "球员"}累积两黄——` : `黄牌——${ev.p ? ev.p.name : "球员"} 战术犯规，裁判出示黄牌。` };
     case "foul": return throttled(200) ? null : { min, kind: "", text: `犯规——${ev.p ? ev.p.name : "球员"} 动作过大，裁判吹停比赛。` };
     case "corner": return throttled(300) ? null : { min, kind: "", text: mine ? "我方获得角球机会。" : "对方获得角球。" };
     case "ft": return { min, kind: "pen", text: `罚球：${ev.p ? ev.p.name : ""} ${ev.n || 2} 罚 ${ev.made || 0} 中。比分 ${score}。` };
+    case "shortcorner": return { min, kind: "", text: mine ? "短角球——开到角旗旁接应脚下，重新组织。" : "对方短角球配合。" };
+    case "fk": return ev.tier === "A" ? { min, kind: "chance", text: mine ? `危险位置任意球！${ev.p ? ev.p.name : "主罚者"}站在球前，人墙排好——这是个能直接打门的位置。` : `对方在危险位置获得任意球，人墙排起，门将大声指挥站位。` } : { min, kind: "", text: mine ? "任意球开到禁区方向，看看这波争顶。" : "对方任意球吊向禁区。" };
+    case "fkshot": return { min, kind: "chance", text: `${ev.p ? ev.p.name : "主罚者"} 直接射门！皮球绕过人墙——` };
+    case "cross": return throttled(90) ? null : { min, kind: "chance", text: ev.kind === "cutback" ? `${ev.p ? ev.p.name : "边锋"}下底倒三角回做！点球点附近包抄到位——` : ev.kind === "lowcross" ? `${ev.p ? ev.p.name : "边锋"}低平球横扫门前！` : ev.kind === "farcross" ? `${ev.p ? ev.p.name : "边锋"}高吊远柱！` : ev.kind === "corner" ? "角球开出，落点找向禁区中央——" : ev.kind === "fk" ? "任意球吊入禁区——" : `${ev.p ? ev.p.name : "边路球员"}起球传中——` };
+    case "header": return { min, kind: "chance", text: `${ev.p ? ev.p.name : "前锋"}抢点甩头攻门！` };
+    case "claim": return { min, kind: "chance", text: mine ? "我方门将果断出击，高高跃起把传中摘下！" : "对方门将出击把球摘走，这次进攻化解。" };
+    case "clear": return throttled(150) ? null : { min, kind: "", text: ev.behind ? `${ev.p ? ev.p.name : "后卫"}在门前把球捅出底线——角球。` : `${ev.p ? ev.p.name : "后卫"}头球解围，球飞出禁区。` };
+    case "post": return { min, kind: "chance", text: `击中门框！${ev.p ? ev.p.name : "射手"}的射门砸在立柱上弹出，就差一点！` };
+    case "penwon": return { min, kind: "pen", text: mine ? "裁判指向点球点——点球！禁区内的犯规，全场沸腾！" : "糟了——裁判判罚点球，对方获得点球机会。" };
+    case "handball": return { min, kind: "pen", text: "禁区内的封挡碰到了手臂——裁判回看之后判罚手球！" };
+    case "nocall": return throttled(300) ? null : { min, kind: "", text: "禁区内身体接触，球员倒地——裁判双手下压：没有犯规，比赛继续！" };
+    case "advantage": return throttled(300) ? null : { min, kind: "", text: "裁判双臂前伸示意有利——进攻继续！" };
+    case "longball": return throttled(300) ? null : { min, kind: "", text: mine ? "我方门将大脚开向前场，找锋线支点。" : "对方门将大脚发动长传。" };
+    case "offside": return { min, kind: "", text: mine ? `越位——${ev.p ? ev.p.name : "前锋"}启动早了半步，边裁举旗，进球机会作废。` : `对方越位！边裁举旗，险情解除。` };
+    case "redcard": if(mine) LIVE.rc = (LIVE.rc || 0) + 1; return { min, kind: "card", text: `红牌！${ev.p ? ev.p.name : "球员"}两黄变一红被罚下——${mine ? "我方" : "对方"}要少打一人了！` };
+    case "stoppage": return { min, kind: "", text: `第四官员举牌：下半场补时 ${ev.mins || 3} 分钟！` };
+    case "home": return { min, kind: "", text: mine ? "主场球迷的声浪从第一分钟就没停过——这是我们的地盘。" : "客场远征，看台上嘘声四起，顶住压力。" };
+    case "freshimpact": return { min, kind: "chance", text: `${ev.p ? ev.p.name : "替补"}刚上场就拿到球——生力军的腿脚明显更利索！` };
     default: return null;
   }
 }
@@ -3170,9 +3513,14 @@ function htSteady(){ const s = mock.state, tp = s.tprof[LIVE.sportId]; tp.mental
 function htTactics(){ const p = $("#htPanel"); if(!p) return; const cur = mock.state.tprof[LIVE.sportId];
   p.innerHTML = `<div class="tiers" style="grid-template-columns:repeat(5,1fr);margin-top:8px">${MENTALITIES.map(m=>`<button class="${cur.mentality === m.id ? "" : "ghost"}" onclick="htSetMent('${m.id}')">${m.name}</button>`).join("")}</div><div class="hint">${MENTALITIES.map(m=>m.name + "：" + m.desc).join("；")}</div>`; }
 function htSetMent(id){ mock.state.tprof[LIVE.sportId].mentality = id; mock.save(); if(LIVE && LIVE.S) SIMCORE.setSimTactics(LIVE.S, 0, id, Object.assign({}, mock.state.tprof[LIVE.sportId].instr || {})); pushLine(LIVE.minute, `中场变阵：改打「${(MENTALITIES.find(m=>m.id===id) || {}).name}」。`, "chance"); htDone(); }
+function engStamOf(pid){
+  const L = LIVE; if(!L || !L.S || L.sportId !== "football") return null;
+  const ep = L.S.players.find(q=>q.side === 0 && q.pid === pid);
+  return ep ? Math.round(ep.stam * 100) : null;
+}
 function htSubs(p){ p = p || $("#htPanel"); if(!p || !LIVE) return; const L = LIVE;
   p.innerHTML = `<div class="hint" id="subHint" style="margin-top:8px">${HT_OUT ? `已选换下：<b>${(findPlayer(HT_OUT) || {}).name || HT_OUT}</b> —— 再点下方任意一名替补，立即完成换人` : `先点要换下的，再点替补席的（剩余换人 ${L.subsLeft} 次）`}</div>` +
-    L.onPitch.map(x=>{ const pl = findPlayer(x.pid); const ps = mock.state.pstat[x.pid]; return `<button class="mini" style="margin:2px${x.pid === HT_OUT ? ";background:#a83226;color:#fff;border-color:#a83226" : ""}" onclick="htPickOut('${x.pid}')">${pl ? pl.name : x.pid}（体${ps ? Math.round(ps.stamina - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 40 : 90))) : 100}）</button>`; }).join("") +
+    L.onPitch.map(x=>{ const pl = findPlayer(x.pid); const ps = mock.state.pstat[x.pid]; return `<button class="mini" style="margin:2px${x.pid === HT_OUT ? ";background:#a83226;color:#fff;border-color:#a83226" : ""}" onclick="htPickOut('${x.pid}')">${pl ? pl.name : x.pid}（体${engStamOf(x.pid) != null ? engStamOf(x.pid) : (ps ? Math.round(ps.stamina - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 40 : 90))) : 100)}）</button>`; }).join("") +
     `<div style="margin-top:4px">` + L.bench.map(pid=>{ const pl = findPlayer(pid); return `<button class="mini ghost" style="margin:2px" onclick="htPickIn('${pid}')">${pl ? pl.name : pid}（${pl ? effBase(pl) : ""}）</button>`; }).join("") + `</div>`; }
 let HT_OUT = null;
 function htPickOut(pid){ HT_OUT = pid; toast("已选换下：" + ((findPlayer(pid) || {}).name || pid) + "，再点一名替补");
@@ -3397,7 +3745,11 @@ function settleMatch(){
   const maxMin = isB ? 40 : 90;
   const minsMap = Object.assign({}, L.playedMins || {});
   for(const x of L.onPitch) minsMap[x.pid] = (minsMap[x.pid] || 0) + (maxMin - (x.inMin || 0));
-  for(const pid of Object.keys(minsMap)){ const ps = pstatOf(pid); ps.stamina = Math.max(5, Math.round(ps.stamina - MATCH_CFG.staminaStartCost * (minsMap[pid] / maxMin) * stamMulAll)); }
+  const engStamMap = {};
+  if(L.sportId === "football" && L.S) for(const ep of L.S.players) if(ep.side === 0) engStamMap[ep.pid] = ep.stam;
+  for(const pid of Object.keys(minsMap)){ const ps = pstatOf(pid);
+    if(engStamMap[pid] != null){ const drainFrac = Math.max(0, Math.min(1, (1 - engStamMap[pid]) / 0.65)); ps.stamina = Math.max(5, Math.round(ps.stamina - MATCH_CFG.staminaStartCost * drainFrac * stamMulAll)); }
+    else ps.stamina = Math.max(5, Math.round(ps.stamina - MATCH_CFG.staminaStartCost * (minsMap[pid] / maxMin) * stamMulAll)); }
   const inSquad = new Set([...L.onPitch.map(x=>x.pid), ...L.bench]);
   const recSkill = 1 + 0.2 * (((s.coach || {}).skills || {}).recovery || 0), fitLv = ((s.coach || {}).staff || {}).fitness || 0;
   const sp = SPORT_PACKS[L.sportId];
@@ -3425,8 +3777,8 @@ function settleMatch(){
   mock.save();
   const box = $("#matchNode");
   if(box) box.innerHTML = isFr
-    ? `<div class="nodebox"><div class="pname">热身赛结束：${res} ${L.opp}（${scoreTxt}）</div><div class="pmeta">${fundD ? "比赛奖金 +" + fundD + " · " : ""}教练经验 +${xpD}<br>进球：${L.scorers.length ? L.scorers.join("、") : "—"} · 战术「${ment.name}」熟练度 +1<br>友谊赛不计积分榜与声望，体能只扣了一半。今日还可打 ${friendlyLeft()} 场。</div><button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`
-    : `<div class="nodebox"><div class="pname">全场结束：${res} ${L.opp}（${scoreTxt}）</div><div class="pmeta">声望 ${repD >= 0 ? "+" : ""}${repD}${fundD ? " · 比赛奖金 +" + fundD : ""} · 教练经验 +${xpD}<br>进球：${L.scorers.length ? L.scorers.join("、") : "—"} · 战术「${ment.name}」熟练度 +1<br>首发体能已按出场时间扣除，未出场球员恢复 +${MATCH_CFG.staminaRestGain}。${friendlyLeft() > 0 ? "<br>老陈：正赛完了别散场，约场友谊赛热热身——体能只算一半，输赢不记账。" : ""}</div><button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`;
+    ? `<div class="nodebox"><div class="pname">热身赛结束：${res} ${L.opp}（${scoreTxt}）</div><div class="pmeta">${fundD ? "比赛奖金 +" + fundD + " · " : ""}教练经验 +${xpD}<br>进球：${L.scorers.length ? L.scorers.join("、") : "—"} · 战术「${ment.name}」熟练度 +1<br>热身赛不计积分榜，体能只扣了一半（声望按胜负入账，每日上限 +4）。今日还可打 ${friendlyLeft()} 场。</div><button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`
+    : `<div class="nodebox"><div class="pname">全场结束：${res} ${L.opp}（${scoreTxt}）</div><div class="pmeta">声望 ${repD >= 0 ? "+" : ""}${repD}${fundD ? " · 比赛奖金 +" + fundD : ""} · 教练经验 +${xpD}<br>进球：${L.scorers.length ? L.scorers.join("、") : "—"} · 战术「${ment.name}」熟练度 +1<br>首发体能已按出场时间扣除，未出场球员恢复 +${MATCH_CFG.staminaRestGain}。${friendlyLeft() > 0 ? "<br>老陈：正赛完了别散场，约场热身赛热热身——体能只算一半，输赢不记账。" : ""}</div><button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`;
   renderMatchHead(); renderMatchTicker();
 }
 function closeMatch(){ const m = $("#matchModal"); if(m) m.classList.add("hidden"); LIVE = null; render(); if(typeof submitBoards === "function") submitBoards(); }
@@ -3744,7 +4096,7 @@ async function render(){
   const omL = oppMentalityFor(spL.id, dayN, opp), mentL = mentalityOf(spL.id), cdL = counterDelta(mentL.style, omL.style);
   const insNames = INSTRUCTIONS[spL.id].filter(d=>mock.state.tprof[spL.id].instr && mock.state.tprof[spL.id].instr[d.id]).map(d=>d.name).join("、") || "无";
   const metaL = mock.state.matchMeta && mock.state.matchMeta[spL.id + ":" + dayN];
-  lc.innerHTML = `<div class="vs"><div class="side"><div class="vnum">${teamPower()}</div><div class="vlab">${$("#clubName").textContent||"我方"} · 我方战力</div></div><div class="vmid">第 ${dayN} 轮<br>VS</div><div class="side"><div class="vnum" style="color:var(--bad)">${spL.opp()[opp]}</div><div class="vlab">${opp} · 对手强度</div></div></div>` + previewHTML(spL, opp, dayN) +
+  lc.innerHTML = `<div class="vs"><div class="side"><div class="vnum">${teamPower()}</div><div class="vlab">${$("#clubName").textContent||"我方"} · 我方战力</div></div><div class="vmid">第 ${dayN} 轮 · ${dayN % 2 === 1 ? "🏠 主场" : "✈ 客场"}<br>VS</div><div class="side"><div class="vnum" style="color:var(--bad)">${spL.opp()[opp]}</div><div class="vlab">${opp} · 对手强度</div></div></div>` + previewHTML(spL, opp, dayN) +
     (played ? `<div style="margin-top:10px"><span class="tag back">${played}</span> <span class="hint">本轮已赛，明天再战</span>${metaL ? `<div class="hint" style="margin-top:6px">复盘：进球 ${metaL.scorers && metaL.scorers.length ? metaL.scorers.join("、") : "—"} · 本方「${metaL.mentality}」对对手「${metaL.oppMentality}」</div>` : ""}</div>`
     : `<div class="hint" style="margin-top:8px">赛前情报：${opp} 偏「${omL.name}」打法（${omL.desc}）。我方「${mentL.name}」＋指令【${insNames}】${cdL > 0 ? "，风格克制对方（+" + cdL + "）" : cdL < 0 ? "，风格被对方克制（" + cdL + "），去阵容页换档还来得及" : ""}。</div><div style="margin-top:10px"><button id="playBtn" style="width:100%;padding:12px;font-size:15px">进入直播间 · 打这场</button></div>`)
     + (mock.state.log.length ? `<div class="hint">${mock.state.log.slice(-3).join("<br>")}</div>` : "");
