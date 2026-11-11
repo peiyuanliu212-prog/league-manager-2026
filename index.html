@@ -151,6 +151,7 @@
 <section>
   <h2 data-no="01"><span class="eb">STAR LEAGUE</span>明星联赛 · 跨联赛对决</h2>
   <div class="card" id="leagueCard"></div>
+  <div id="friendlySlot"></div>
   <div id="finaleSlot"></div>
   <div id="dailySlot"></div>
   <div id="tableSlot"></div>
@@ -927,6 +928,29 @@ function claimLoanReturn(pid){
   delete mock.state.loansOut[pid]; mock.save();
   toast(`${p.name} 租借归队！练级有成，能力 +1`); render();
 }
+function renderFriendly(){
+  const el = document.querySelector("#friendlySlot"); if(!el) return;
+  ensureV2State();
+  const f = friendlyState(), left = friendlyLeft();
+  const tiers = ["弱","平","强"].map(t=>`<button class="ghost" onclick="openLiveMatch('${t}')"${left<=0?" disabled":""}>约${t}队</button>`).join("");
+  const adBtn = (!f.ad && f.used >= 3) ? `<div style="margin-top:8px"><button style="width:100%" onclick="friendlyAdUnlock()">看广告 +2 场（今日）</button></div>` : "";
+  el.innerHTML = `<div class="card"><div class="row"><div><span class="pname">友谊赛</span><div class="pmeta">正赛之外练兵热身：体能消耗减半，奖励减半，不计积分榜与声望。今日还可打 <b>${left}</b> 场（免费 3 场${f.ad ? "＋广告 2 场已解锁" : ""}）。</div></div></div><div class="tiers" style="margin-top:8px">${tiers}</div>${adBtn}${left<=0 && f.ad ? '<div class="hint" style="margin-top:6px">今天打满了，明天再来。</div>' : ""}</div>`;
+}
+async function friendlyAdUnlock(){
+  const f = friendlyState(); if(f.ad) return;
+  if(inShell){
+    try{
+      if(window.ColorboxAI && window.ColorboxAI.vatask && window.ColorboxAI.vatask.completeRewardVideo){
+        const res = await window.ColorboxAI.vatask.completeRewardVideo();
+        if(!(res && res.code === 200 && res.data && res.data.rewarded === true)){ toast("广告没看完，这次不算"); return; }
+      } else { toast("广告位还没接通，稍后再试"); return; }
+    }catch(e){ toast("广告没看完，这次不算"); return; }
+  } else {
+    await new Promise(r=>setTimeout(r, 900));
+  }
+  f.ad = true; mock.save(); toast("友谊赛 +2 场，今天还能打 " + friendlyLeft() + " 场"); render();
+}
+window.friendlyAdUnlock = friendlyAdUnlock;
 function renderLoanPending(){
   ensureV2State();
   const dayN = seasonDayN();
@@ -1461,11 +1485,23 @@ function instrFactor(L, which){
 const FILLER_F = ["{p} 观察着对方防线，把节奏缓了下来。","{p} 套边插上，传中被后卫顶出。","{p} 中场一脚转移，球权还在我们脚下。","{p} 尝试直塞，稍稍大了一点。","{p} 回追把球铲出边线，稳住防线。","{p} 和队友撞墙配合，推进到前场。"];
 const FILLER_B = ["{p} 弧顶持球，示意队友拉开。","{p} 借掩护突破，分球到底角。","{p} 低位要球，背身单打转身上篮偏出。","{p} 快攻推进，前场形成多打少。","{p} 防守端换防到位，逼出一次勉强出手。","{p} 抢下进攻篮板，二次进攻未果。"];
 let LIVE = null;
-function openLiveMatch(){
+function friendlyState(){ const s = mock.state; if(!s.friendly || s.friendly.day !== seasonDayN()) s.friendly = { day: seasonDayN(), used: 0, ad: false }; return s.friendly; }
+function friendlyLeft(){ const f = friendlyState(); return Math.max(0, 3 + (f.ad ? 2 : 0) - f.used); }
+function openLiveMatch(frTier){
   ensureV2State();
   const sportId = mock.state.sport || "football", dayN = seasonDayN();
-  if(mock.state.played[sportId + ":" + dayN]){ toast("本轮已赛，明天再战"); return; }
-  const sp = SPORT_PACKS[sportId], opp = sp.leagues()[(dayN - 1) % sp.leagues().length];
+  const sp = SPORT_PACKS[sportId];
+  let opp;
+  if(frTier){
+    if(friendlyLeft() <= 0){ toast("今天的友谊赛打满了，明天再来"); return; }
+    const sorted = sp.leagues().slice().sort((a,b)=> sp.opp()[a] - sp.opp()[b]);
+    const third = Math.max(1, Math.floor(sorted.length / 3));
+    const band = frTier === "弱" ? sorted.slice(0, third) : frTier === "强" ? sorted.slice(-third) : sorted.slice(third, sorted.length - third);
+    opp = band[Math.floor(Math.random() * band.length)];
+  } else {
+    if(mock.state.played[sportId + ":" + dayN]){ toast("本轮已赛，明天再战"); return; }
+    opp = sp.leagues()[(dayN - 1) % sp.leagues().length];
+  }
   const clean = sanitizeLineup(sportId);
   if(clean.starters.length < Math.min(sp.powerN, 5)){ toast("可用球员不足，先去市场补强阵容"); return; }
   const F = window.__LM_FORCE || {}; window.__LM_FORCE = {};
@@ -1480,7 +1516,8 @@ function openLiveMatch(){
   const injP = (lowSt ? MATCH_CFG.injuryLowStaminaP : MATCH_CFG.injuryBaseP) * (1 - 0.25 * fitLv) * (1 - 0.2 * facLv("medical"));
   if(F.injury || Math.random() < injP) nodes.push({ type:"injury", at: 25 + Math.floor(Math.random() * (maxMin - 35)) });
   nodes.sort((a,b)=>a.at-b.at);
-  LIVE = { sportId, dayN, opp, oppMent: oppMentalityFor(sportId, dayN, opp), seg: 0, minute: 0, my: 0, oppScore: 0,
+  if(frTier){ friendlyState().used += 1; mock.save(); }
+  LIVE = { sportId, dayN, opp, friendly: frTier || null, oppMent: oppMentalityFor(sportId, dayN, opp), seg: 0, minute: 0, my: 0, oppScore: 0,
     lines: [], onPitch: clean.starters.map(x=>({ pid: x.pid, slot: x.slot, inMin: 0 })), bench: clean.rotation.slice(),
     subsLeft: 3, nodes, nodeIdx: 0, settled: false, timer: null, speed: 1, scorers: [], myGoals: 0,
     startMentality: mock.state.tprof[sportId].mentality, paused: false, playedMins: {} };
@@ -1771,12 +1808,13 @@ function settleMatch(){
   if(!isB && L.my === L.oppScore){ /* 平局直接成立 */ }
   if(isB && L.my === L.oppScore){ L.my += 2; pushLine(48, "加时赛一波小高潮，我方 +2 分险胜！", "goal"); }
   const res = L.my > L.oppScore ? "胜" : L.my === L.oppScore ? "平" : "负";
-  const repD = res === "胜" ? 10 : res === "平" ? 4 : -2, fundD = res === "胜" ? 80 : res === "平" ? 30 : 0;
+  const isFr = !!L.friendly;
+  const repD = isFr ? 0 : (res === "胜" ? 10 : res === "平" ? 4 : -2), fundD = isFr ? (res === "胜" ? 30 : res === "平" ? 10 : 0) : (res === "胜" ? 80 : res === "平" ? 30 : 0);
   s.rep = Math.max(0, s.rep + repD); s.balance += fundD;
   if(fundD){ ensureV2State(); s.buckets.match += fundD; }
   const ment = mentalityOf(L.sportId), tprof = s.tprof[L.sportId];
   if(!tprof.fam) tprof.fam = {}; tprof.fam[L.startMentality] = (tprof.fam[L.startMentality] || 0) + 1;
-  const stamMulAll = MATCH_CFG.staminaStartCost * 0 + (ment.stam || 1) * instrFactor(L, "stam");
+  const stamMulAll = (ment.stam || 1) * instrFactor(L, "stam") * (isFr ? 0.5 : 1);
   const maxMin = isB ? 48 : 90;
   const minsMap = Object.assign({}, L.playedMins || {});
   for(const x of L.onPitch) minsMap[x.pid] = (minsMap[x.pid] || 0) + (maxMin - (x.inMin || 0));
@@ -1789,19 +1827,25 @@ function settleMatch(){
     const ps = pstatOf(p.pid); const rest = ps.restDay === L.dayN;
     ps.stamina = Math.min(100, Math.round(ps.stamina + MATCH_CFG.staminaRestGain * (rest ? 2 : 1) * recSkill * (1 + 0.15 * fitLv)));
   }
-  const xpD = res === "胜" ? 100 : res === "平" ? 60 : 30;
+  const xpD = isFr ? (res === "胜" ? 50 : res === "平" ? 30 : 15) : (res === "胜" ? 100 : res === "平" ? 60 : 30);
   s.coach.xp = (s.coach.xp || 0) + xpD;
   const scoreTxt = L.my + ":" + L.oppScore;
-  s.played[L.sportId + ":" + L.dayN] = `${res} ${scoreTxt}`;
-  s.log.push(`第${L.dayN}轮 ${res} ${L.opp}（${scoreTxt}）声望${repD >= 0 ? "+" : ""}${repD}${fundD ? " · 奖金+" + fundD : ""} · 教练经验+${xpD}`);
-  s.matchMeta[L.sportId + ":" + L.dayN] = { res, score: scoreTxt, opp: L.opp, scorers: L.scorers.slice(), mentality: ment.name, oppMentality: L.oppMent.name };
-  if(!s.matchFunds || s.matchFunds.day !== L.dayN) s.matchFunds = { day: L.dayN, total: 0 };
-  s.matchFunds.total += fundD;
-  if(typeof applyTableResult === "function") applyTableResult(L.sportId, L.opp, L.my, L.oppScore);
+  if(isFr){
+    s.log.push(`友谊赛 ${res} ${L.opp}（${scoreTxt}）${fundD ? " · 奖金+" + fundD : ""} · 教练经验+${xpD}`);
+  } else {
+    s.played[L.sportId + ":" + L.dayN] = `${res} ${scoreTxt}`;
+    s.log.push(`第${L.dayN}轮 ${res} ${L.opp}（${scoreTxt}）声望${repD >= 0 ? "+" : ""}${repD}${fundD ? " · 奖金+" + fundD : ""} · 教练经验+${xpD}`);
+    s.matchMeta[L.sportId + ":" + L.dayN] = { res, score: scoreTxt, opp: L.opp, scorers: L.scorers.slice(), mentality: ment.name, oppMentality: L.oppMent.name };
+    if(!s.matchFunds || s.matchFunds.day !== L.dayN) s.matchFunds = { day: L.dayN, total: 0 };
+    s.matchFunds.total += fundD;
+    if(typeof applyTableResult === "function") applyTableResult(L.sportId, L.opp, L.my, L.oppScore);
+  }
   if(typeof bumpDaily === "function"){ bumpDaily("goals", L.myGoals); if(res === "胜") bumpDaily("win", 1); }
   mock.save();
   const box = $("#matchNode");
-  if(box) box.innerHTML = `<div class="nodebox"><div class="pname">全场结束：${res} ${L.opp}（${scoreTxt}）</div><div class="pmeta">声望 ${repD >= 0 ? "+" : ""}${repD}${fundD ? " · 比赛奖金 +" + fundD : ""} · 教练经验 +${xpD}<br>进球：${L.scorers.length ? L.scorers.join("、") : "—"} · 战术「${ment.name}」熟练度 +1<br>首发体能已按出场时间扣除，未出场球员恢复 +${MATCH_CFG.staminaRestGain}。</div><button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`;
+  if(box) box.innerHTML = isFr
+    ? `<div class="nodebox"><div class="pname">友谊赛结束：${res} ${L.opp}（${scoreTxt}）</div><div class="pmeta">${fundD ? "比赛奖金 +" + fundD + " · " : ""}教练经验 +${xpD}<br>进球：${L.scorers.length ? L.scorers.join("、") : "—"} · 战术「${ment.name}」熟练度 +1<br>友谊赛不计积分榜与声望，体能只扣了一半。今日还可打 ${friendlyLeft()} 场。</div><button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`
+    : `<div class="nodebox"><div class="pname">全场结束：${res} ${L.opp}（${scoreTxt}）</div><div class="pmeta">声望 ${repD >= 0 ? "+" : ""}${repD}${fundD ? " · 比赛奖金 +" + fundD : ""} · 教练经验 +${xpD}<br>进球：${L.scorers.length ? L.scorers.join("、") : "—"} · 战术「${ment.name}」熟练度 +1<br>首发体能已按出场时间扣除，未出场球员恢复 +${MATCH_CFG.staminaRestGain}。${friendlyLeft() > 0 ? "<br>老陈：正赛完了别散场，约场友谊赛热热身——体能只算一半，输赢不记账。" : ""}</div><button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`;
   renderMatchHead(); renderMatchTicker();
 }
 function closeMatch(){ const m = $("#matchModal"); if(m) m.classList.add("hidden"); LIVE = null; render(); if(typeof submitBoards === "function") submitBoards(); }
@@ -2136,7 +2180,7 @@ async function render(){
   const sq=$("#squadList"); sq.innerHTML="";
   healCheck(); renderSquad(); renderTactics(); renderTable(); renderCoach(); renderDaily(); renderWheel();
   renderFinance(); renderFacility(); renderGuide(); renderOffline(h);
-  renderEvents(); renderScout(); renderLoanPending();
+  renderEvents(); renderScout(); renderLoanPending(); renderFriendly();
   if(!inShell) renderBoard();
   const hb=$("#heroBand");
   if(hb){ let dots=""; for(let d=1;d<=14;d++) dots+='<i class="'+(d<=dayN?"on":"")+'"></i>';
