@@ -157,6 +157,7 @@
   <div id="finaleSlot"></div>
   <div id="dailySlot"></div>
   <div id="tableSlot"></div>
+  <div id="fixturesSlot"></div>
 </section>
 <section>
   <h2 data-no="01b"><span class="eb">DAILY</span>每日补给</h2>
@@ -292,6 +293,8 @@
       <button class="mini ghost" onclick="matchSkip()">跳过并结算</button>
     </div>
     <canvas id="matchPitch" width="680" height="400" style="width:100%;display:block;border-radius:12px;margin:4px 0"></canvas>
+    <div id="liveBar"></div>
+    <div id="livePanel"></div>
     <div id="matchNode"></div>
     <div id="matchTicker" class="ticker"></div>
   </div>
@@ -944,7 +947,7 @@ function previewHTML(sp, opp, dayN){
   <div class="kv"><span>预计阵型</span><b>我方 ${myForm} · 对手 ${oForm}</b></div>
   <div class="kv"><span>实力对比</span><b>${edge}</b></div>
   <div class="kv"><span>本场奖金</span><b>胜 80 · 平 30</b></div>
-  <div class="row" style="margin-top:6px;flex-wrap:wrap;gap:6px"><span class="hint" style="white-space:nowrap">球场皮肤</span><span style="display:flex;flex-wrap:wrap;gap:4px">${skinBtns}</span></div>`;
+  <div class="row" style="margin-top:6px;flex-wrap:wrap;gap:6px"><span class="hint" style="white-space:nowrap">球场皮肤</span><span style="display:flex;flex-wrap:wrap;gap:4px">${skinBtns}</span><button class="mini ghost" onclick="switchTab('squad')">改阵型 ✎</button></div>`;
 }
 function drawPreviewPitch(){
   const cv = document.querySelector("#previewPitch"); if(!cv) return;
@@ -952,7 +955,9 @@ function drawPreviewPitch(){
   const ctx = cv.getContext("2d"), W = cv.width, H = cv.height, isB = sp.id === "basketball";
   if(isB){ ctx.fillStyle = "#d9a45b"; ctx.fillRect(0, 0, W, H); ctx.fillStyle = "#c98f3d"; ctx.fillRect(0, H * .42, W, H * .16); }
   else { const sk = skinOf(); const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, sk.c1); g.addColorStop(1, sk.c2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = "rgba(255,255,255,.045)"; for(let i = 0; i < 6; i += 2) ctx.fillRect(W * i / 6, 0, W / 6, H); }
+    ctx.fillStyle = "rgba(255,255,255,.045)"; const stp = skinOf().stripe || "v";
+    if(stp === "v"){ for(let i = 0; i < 6; i += 2) ctx.fillRect(W * i / 6, 0, W / 6, H); }
+    else if(stp === "h"){ for(let i = 0; i < 6; i += 2) ctx.fillRect(0, H * i / 6, W, H / 6); } }
   ctx.strokeStyle = "rgba(255,253,247,.75)"; ctx.lineWidth = 2;
   ctx.strokeRect(14, 14, W - 28, H - 28);
   ctx.beginPath(); ctx.moveTo(W / 2, 14); ctx.lineTo(W / 2, H - 14); ctx.stroke();
@@ -967,6 +972,18 @@ function drawPreviewPitch(){
   ctx.fillStyle = "#fffdf7"; ctx.font = "700 18px sans-serif"; ctx.textAlign = "center"; ctx.fillText("VS", W / 2, 39);
   ctx.font = "600 13px sans-serif"; ctx.textAlign = "left"; ctx.fillStyle = "rgba(255,253,247,.92)";
   ctx.fillText("我方 " + myForm.name, 20, H - 16); ctx.textAlign = "right"; ctx.fillText(opp + " " + oForm.name, W - 20, H - 16);
+}
+function renderFixtures(){
+  const el = document.querySelector("#fixturesSlot"); if(!el) return;
+  const sp = curSport(), dayN = seasonDayN();
+  const rows = [];
+  for(let d = 1; d <= 14; d++){
+    const opp = sp.leagues()[(d - 1) % sp.leagues().length];
+    const meta = mock.state.matchMeta && mock.state.matchMeta[sp.id + ":" + d];
+    const played = mock.state.played[sp.id + ":" + d];
+    rows.push(`<div class="kv"><span>第 ${d} 轮 · ${d % 2 === 1 ? "主场" : "客场"} 对 ${opp}</span><b>${meta ? meta.res + " " + meta.score : (played ? played : (d === dayN ? "今天" : "待赛"))}</b></div>`);
+  }
+  el.innerHTML = `<div class="card"><div class="pname">赛程</div><div class="pmeta" style="margin-bottom:4px">${sp.name} · 14 轮全赛程（学 IdleFC 的 Table 页赛程表）</div>${rows.join("")}</div>`;
 }
 function renderTickerCard(){
   const el = document.querySelector("#tickerSlot"); if(!el) return;
@@ -1565,7 +1582,7 @@ function openLiveMatch(frTier){
   if(F.injury || Math.random() < injP) nodes.push({ type:"injury", at: 25 + Math.floor(Math.random() * (maxMin - 35)) });
   nodes.sort((a,b)=>a.at-b.at);
   if(frTier){ friendlyState().used += 1; mock.save(); }
-  LIVE = { sportId, dayN, opp, friendly: frTier || null, oppMent: oppMentalityFor(sportId, dayN, opp), oppForm: oppFormOf(sportId, opp, dayN), seg: 0, minute: 0, my: 0, oppScore: 0,
+  LIVE = { sportId, dayN, opp, friendly: frTier || null, oppMent: oppMentalityFor(sportId, dayN, opp), oppForm: oppFormOf(sportId, opp, dayN), seg: 0, minute: 0, my: 0, oppScore: 0, yc: 0,
     lines: [], onPitch: clean.starters.map(x=>({ pid: x.pid, slot: x.slot, inMin: 0 })), bench: clean.rotation.slice(),
     subsLeft: 3, nodes, nodeIdx: 0, settled: false, timer: null, speed: 1, scorers: [], myGoals: 0,
     startMentality: mock.state.tprof[sportId].mentality, paused: false, playedMins: {} };
@@ -1580,6 +1597,7 @@ function renderMatchHead(){
   const el = $("#matchHead"); if(!el) return;
   const avgSt = L.onPitch.length ? Math.round(L.onPitch.reduce((t,x)=>{ const ps = mock.state.pstat[x.pid]; return t + (ps ? ps.stamina : 100) - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 48 : 90)); }, 0) / L.onPitch.length) : 100;
   el.innerHTML = `<div class="vs" style="margin:0"><div class="side"><div class="vnum">${L.sportId === "basketball" ? L.my : L.my}</div><div class="vlab">${mock.state.clubName || "我方"}</div></div><div class="vmid">${L.minute}′<br>${L.oppMent.name}打法</div><div class="side"><div class="vnum" style="color:var(--bad)">${L.oppScore}</div><div class="vlab">${L.opp}</div></div></div>
+  <div class="hint" style="margin-top:2px">黄牌 ${L.yc || 0} · 红牌 0</div>
   <div style="margin-top:8px"><div class="hint">全队体能（估算） ${Math.max(5, avgSt)}%</div><div style="height:7px;background:#e7ddc6;border-radius:4px"><div style="height:100%;width:${Math.max(5, avgSt)}%;background:${avgSt < 40 ? "#c0392b" : "#2e6b46"};border-radius:4px;transition:width .4s"></div></div></div>`;
 }
 function renderMatchTicker(){
@@ -1618,30 +1636,81 @@ function sampleSegment(L, from, to){
   for(let i = 0; i < nf; i++){ const p = pickScorer(L, true); evs.push({ side:"fill", min: from + Math.random() * (to - from), text: (isB ? FILLER_B : FILLER_F)[Math.floor(Math.random() * 6)].replace("{p}", p ? p.name : "队员") }); }
   if(Math.random() < 0.5) evs.push({ side:"card", min: from + Math.random() * (to - from) });
   evs.sort((a,b)=>a.min-b.min);
-  return evs;
+  return { evs, lamMy, lamOpp };
 }
 function applyEvent(L, ev){
   const isB = L.sportId === "basketball";
   if(ev.side === "fill"){ pushLine(Math.floor(ev.min), ev.text, ""); return; }
-  if(ev.side === "card"){ const p = pickScorer(L, true); pushLine(Math.floor(ev.min), `黄牌——${Math.random() < 0.55 && p ? p.name : "对方球员"} 战术犯规，裁判出示黄牌。`, "card"); return; }
+  if(ev.side === "card"){ L.yc = (L.yc || 0) + 1; const p = pickScorer(L, true); pushLine(Math.floor(ev.min), `黄牌——${Math.random() < 0.55 && p ? p.name : "对方球员"} 战术犯规，裁判出示黄牌。`, "card"); return; }
   if(ev.side === "my"){ L.my += ev.pts; const p = pickScorer(L, true); const a = pickScorer(L, true);
     if(isB){ L.myGoals++; pushLine(Math.floor(ev.min), `${p ? p.name : "我方"} ${ev.pts === 3 ? "外线三分命中" : "突破上篮得手"}！${a && p && a.pid !== p.pid ? "（" + a.name + " 助攻）" : ""} 比分 ${L.my}:${L.oppScore}。`, "goal"); }
     else { L.myGoals++; if(p) L.scorers.push(p.name); pushLine(Math.floor(ev.min), `进球！${p ? p.name : "我方"} 破门得分${a && p && a.pid !== p.pid ? "，" + a.name + " 送出助攻" : ""}！比分 ${L.my}:${L.oppScore}。`, "goal"); } return; }
   if(ev.side === "opp"){ L.oppScore += ev.pts; pushLine(Math.floor(ev.min), isB ? `对方打成一波进攻，+${ev.pts} 分。比分 ${L.my}:${L.oppScore}。` : `丢球——对方前锋抓住防线身后空当打进。比分 ${L.my}:${L.oppScore}。`, "oppgoal"); return; }
+}
+function pickByGroup(L, groups){
+  const cand = L.onPitch.map(x=>({ p: findPlayer(x.pid), slot: x.slot })).filter(x=>x.p && groups.includes(slotGroupOf(x.p, L.sportId)));
+  const src = cand.length ? cand : L.onPitch.map(x=>({ p: findPlayer(x.pid) })).filter(x=>x.p);
+  return src.length ? src[Math.floor(Math.random() * src.length)].p : null;
+}
+/* v20 组织进攻链：推进 → 机会 → 射门，比分只在射门结果落地时变（学 IdleFC Matchday 实机） */
+function buildSegmentScript(L, from, to){
+  const { evs, lamMy, lamOpp } = sampleSegment(L, from, to);
+  const isB = L.sportId === "basketball", span = to - from, items = [];
+  const nm = g => { const p = pickByGroup(L, g); return p ? p.name : "队员"; };
+  const buildMyF = [()=>`${nm(["GK","DF"])} 后场稳住球权，慢慢组织推进。`, ()=>`${nm(["MF"])} 中场连续传递，把球送到前场。`, ()=>`${nm(["WG","ST","FW"])} 压到禁区前沿，进攻成型。`];
+  const buildOpF = ["对方后场倒脚，组织推进。", "对方中场连续传递，压过半场。", "对方攻到禁区前沿，防线告急。"];
+  const buildMyB = ()=>`${nm(["控卫","分卫"])} 后场推进，组织半场进攻。`;
+  const buildOpB = "对方后场推进，组织半场进攻。";
+  for(const ev of evs){
+    if(ev.side === "my" || ev.side === "opp"){
+      const mine = ev.side === "my", steps = isB ? 1 : 2;
+      for(let k = 0; k < steps; k++){
+        const mm = Math.max(from + 0.5, ev.min - (steps - k) * (span / 7));
+        items.push({ min: mm, kind: "build", delay: isB ? 480 : 760, flow: { side: ev.side, x: mine ? (k === 0 ? .3 : .55) : (k === 0 ? .7 : .45) },
+          text: isB ? (mine ? buildMyB() : buildOpB) : (mine ? buildMyF[k]() : buildOpF[k]) });
+      }
+      items.push({ ev, min: ev.min, delay: isB ? 820 : 1250, flow: { side: ev.side, x: mine ? .93 : .07 } });
+    } else if(ev.side === "fill"){
+      items.push({ ev, min: ev.min, delay: 850, flow: { side: Math.random() < .5 ? "my" : "opp", x: .5 } });
+    } else {
+      items.push({ ev, min: ev.min, delay: 900, flow: { side: "opp", x: .4 } });
+    }
+  }
+  const chMy = pois(lamMy * 0.9), chOpp = pois(lamOpp * 0.9);
+  const chanceMyF = [()=>`${nm(["WG","ST","FW"])} 禁区弧顶一脚远射，被门将稳稳抱住。`, ()=>`${nm(["WG","ST","FW"])} 头球攻门，稍稍偏出立柱。`, ()=>`${nm(["MF"])} 直塞打穿防线，临门一脚被后卫封堵。`];
+  const chanceOpF = ["对方禁区外远射，被门将飞身扑出。", "对方头球攻门，擦着立柱偏出。", "对方小禁区前抢点，球被后卫抢先解围。"];
+  const addChance = (mine, txt) => {
+    const mm = from + Math.random() * span;
+    items.push({ min: Math.max(from + 0.5, mm - span / 7), kind: "build", delay: isB ? 480 : 760, flow: { side: mine ? "my" : "opp", x: mine ? .55 : .45 }, text: isB ? (mine ? buildMyB() : buildOpB) : (mine ? buildMyF[1]() : buildOpF[1]) });
+    items.push({ min: mm, kind: "chance", delay: isB ? 750 : 1050, flow: { side: mine ? "my" : "opp", x: mine ? .85 : .15 }, text: txt });
+  };
+  for(let i = 0; i < chMy; i++) addChance(true, isB ? `${nm(["分卫","小前锋","大前锋"])} 迎着防守出手，弹框而出。` : chanceMyF[i % 3]());
+  for(let i = 0; i < chOpp; i++) addChance(false, isB ? "对方外线出手，打铁偏出。" : chanceOpF[i % 3]);
+  items.sort((a,b)=>a.min - b.min);
+  return items;
+}
+function applyItem(L, it){
+  if(it.ev){ const before = L.my + L.oppScore; applyEvent(L, it.ev); if(L.my + L.oppScore !== before) PD.kickoff = 0.9; }
+  else pushLine(Math.floor(it.min), it.text, it.kind === "build" ? "" : it.kind);
+  if(it.flow) PD.flow = it.flow;
+  L.minute = Math.max(L.minute || 0, Math.floor(it.min));
+  renderMatchHead();
 }
 function matchAdvance(instant){
   const L = LIVE; if(!L || L.settled) return;
   const B = segBounds(L);
   if(L.seg >= B.length - 1){ settleMatch(); return; }
   const from = B[L.seg], to = B[L.seg + 1];
-  const evs = sampleSegment(L, from, to);
-  L.minute = to;
-  if(instant){ for(const ev of evs) applyEvent(L, ev); finishSegment(true); return; }
+  const script = buildSegmentScript(L, from, to);
+  L.minute = from;
+  renderLiveBar();
+  if(instant){ for(const it of script) applyItem(L, it); finishSegment(true); return; }
   let i = 0;
   const step = ()=>{ if(!LIVE || LIVE.settled) return;
     if(LIVE.paused){ return; }
-    if(i < evs.length){ applyEvent(L, evs[i]); i++; LIVE.timer = setTimeout(step, Math.max(60, 240 / LIVE.speed)); }
+    if(i < script.length){ const it = script[i++]; applyItem(L, it); LIVE.timer = setTimeout(step, Math.max(50, (it.delay || 900) / LIVE.speed)); }
     else { finishSegment(false); } };
+  L.kick = step;
   step();
 }
 function finishSegment(instant){
@@ -1655,7 +1724,7 @@ function finishSegment(instant){
   L.seg++;
   if(L.seg >= B.length - 1){ settleMatch(); return; }
   const isHT = (L.sportId === "basketball" && B[L.seg] === 24) || (L.sportId !== "basketball" && B[L.seg] === 45);
-  if(isHT && !instant){ L.atHT = true; showHalftime(); return; }
+  if(isHT && !instant){ L.atHT = true; L.minute = Math.max(L.minute || 0, B[L.seg]); renderMatchHead(); showHalftime(); return; }
   matchAdvance(instant);
 }
 function showNode(nd){
@@ -1745,7 +1814,7 @@ function htSteady(){ const s = mock.state, tp = s.tprof[LIVE.sportId]; tp.mental
 function htTactics(){ const p = $("#htPanel"); if(!p) return; const cur = mock.state.tprof[LIVE.sportId];
   p.innerHTML = `<div class="tiers" style="grid-template-columns:repeat(5,1fr);margin-top:8px">${MENTALITIES.map(m=>`<button class="${cur.mentality === m.id ? "" : "ghost"}" onclick="htSetMent('${m.id}')">${m.name}</button>`).join("")}</div><div class="hint">${MENTALITIES.map(m=>m.name + "：" + m.desc).join("；")}</div>`; }
 function htSetMent(id){ mock.state.tprof[LIVE.sportId].mentality = id; mock.save(); pushLine(LIVE.minute, `中场变阵：改打「${(MENTALITIES.find(m=>m.id===id) || {}).name}」。`, "chance"); htDone(); }
-function htSubs(){ const p = $("#htPanel"); if(!p || !LIVE) return; const L = LIVE;
+function htSubs(p){ p = p || $("#htPanel"); if(!p || !LIVE) return; const L = LIVE;
   p.innerHTML = `<div class="hint" style="margin-top:8px">先点要换下的，再点替补席的（剩余换人 ${L.subsLeft} 次）</div>` +
     L.onPitch.map(x=>{ const pl = findPlayer(x.pid); const ps = mock.state.pstat[x.pid]; return `<button class="mini" style="margin:2px" onclick="htPickOut('${x.pid}')">${pl ? pl.name : x.pid}（体${ps ? Math.round(ps.stamina - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 48 : 90))) : 100}）</button>`; }).join("") +
     `<div style="margin-top:4px">` + L.bench.map(pid=>{ const pl = findPlayer(pid); return `<button class="mini ghost" style="margin:2px" onclick="htPickIn('${pid}')">${pl ? pl.name : pid}（${pl ? effBase(pl) : ""}）</button>`; }).join("") + `</div>`; }
@@ -1756,16 +1825,34 @@ function htPickIn(pid){ const L = LIVE; if(!L || !HT_OUT){ toast("先点要换�
   L.playedMins[HT_OUT] = (L.playedMins[HT_OUT] || 0) + (L.minute - (L.onPitch[idx].inMin || 0));
   const slot = L.onPitch[idx].slot; L.onPitch[idx] = { pid, slot, inMin: L.minute }; L.bench = L.bench.filter(x=>x!==pid); L.bench.push(HT_OUT); L.subsLeft--;
   pushLine(L.minute, `换人：${(findPlayer(HT_OUT) || {}).name || HT_OUT} 下，${(findPlayer(pid) || {}).name || pid} 上。`, "chance");
-  if(typeof bumpDaily === "function") bumpDaily("sub", 1); HT_OUT = null; htDone(); }
+  if(typeof bumpDaily === "function") bumpDaily("sub", 1); HT_OUT = null; if(SUB_LIVE){ closeLivePanel(); } else { htDone(); } }
+/* ---------- v20 比赛页内临场指挥（学 IdleFC：战术在比赛页换） ---------- */
+let SUB_LIVE = false;
+function renderLiveBar(){
+  const el = $("#liveBar"); if(!el || !LIVE) return;
+  const tp = mock.state.tprof[LIVE.sportId]; if(!tp) return;
+  el.innerHTML = `<div class="row" style="flex-wrap:wrap;gap:4px;align-items:center"><span class="hint" style="white-space:nowrap">临场</span>` +
+    MENTALITIES.map(m=>`<button class="mini ${tp.mentality === m.id ? "" : "ghost"}" onclick="liveSetMent('${m.id}')">${m.name}</button>`).join("") +
+    INSTRUCTIONS[LIVE.sportId].map(d=>`<button class="mini ${tp.instr && tp.instr[d.id] ? "" : "ghost"}" onclick="liveToggleInstr('${d.id}')">${d.name}</button>`).join("") +
+    `<button class="mini ghost" onclick="liveSubs()">换人（剩 ${LIVE.subsLeft}）</button></div>
+    <div class="hint" style="margin:2px 0 6px">临场调整从下个进攻回合起对后续攻势生效；换人会暂停比赛。</div>`;
+}
+function liveSetMent(id){ const L = LIVE; if(!L) return; mock.state.tprof[L.sportId].mentality = id; mock.save(); pushLine(L.minute, `临场变阵：改打「${(MENTALITIES.find(m=>m.id === id) || {}).name}」。`, "chance"); renderLiveBar(); }
+function liveToggleInstr(id){ const L = LIVE; if(!L) return; const tp = mock.state.tprof[L.sportId]; if(!tp.instr) tp.instr = {}; tp.instr[id] = !tp.instr[id]; mock.save(); const d = INSTRUCTIONS[L.sportId].find(x=>x.id === id); pushLine(L.minute, `临场指令：「${d ? d.name : id}」${tp.instr[id] ? "开启" : "关闭"}。`, "chance"); renderLiveBar(); }
+function liveSubs(){ const L = LIVE; if(!L || L.settled) return; if(L.paused){ toast("先处理完当前事件再换人"); return; } if(L.subsLeft <= 0){ toast("换人名额用完了"); return; }
+  SUB_LIVE = true; L.paused = true; htSubs($("#livePanel"));
+  const p = $("#livePanel"); if(p) p.innerHTML += `<button style="width:100%;margin-top:6px" onclick="closeLivePanel()">完成换人 · 继续比赛</button>`; }
+function closeLivePanel(){ const p = $("#livePanel"); if(p) p.innerHTML = ""; SUB_LIVE = false; const L = LIVE; if(L && !L.settled){ L.paused = false; renderLiveBar(); if(L.kick) L.kick(); } }
+window.liveSetMent = liveSetMent; window.liveToggleInstr = liveToggleInstr; window.liveSubs = liveSubs; window.closeLivePanel = closeLivePanel;
 function matchSkip(){ const L = LIVE; if(!L || L.settled) return; if(L.timer) clearTimeout(L.timer); const wasHT = L.atHT; L.atHT = false; closeNode(); L.paused = false; if(wasHT) matchAdvance(true); else finishSegment(true); }
 /* ---------- 球场皮肤（纯外观，声望解锁；学 IdleFC 实机 Skins） ---------- */
 const SKINS = [
-  { id:"classic", name:"经典绿", need:0, c1:"#2e6b46", c2:"#256040" },
-  { id:"forest", name:"深林绿", need:50, c1:"#1d4d33", c2:"#173f29" },
-  { id:"night", name:"夜空蓝", need:150, c1:"#274b73", c2:"#1f3c5e" },
-  { id:"royal", name:"皇家草", need:300, c1:"#3f7a3a", c2:"#2f612c" },
-  { id:"sunset", name:"落日陶", need:500, c1:"#a35a33", c2:"#8a4826" },
-  { id:"steel", name:"钢灰", need:800, c1:"#5a6068", c2:"#474c53" }
+  { id:"classic", name:"经典绿", need:0, c1:"#2e6b46", c2:"#256040", stripe:"v", ball:"#fffdf7" },
+  { id:"forest", name:"深林绿", need:50, c1:"#1d4d33", c2:"#173f29", stripe:"h", ball:"#f3e9c8" },
+  { id:"night", name:"夜空蓝", need:150, c1:"#274b73", c2:"#1f3c5e", stripe:"v", ball:"#ffd75e" },
+  { id:"royal", name:"皇家草", need:300, c1:"#3f7a3a", c2:"#2f612c", stripe:"none", ball:"#fffdf7" },
+  { id:"sunset", name:"落日陶", need:500, c1:"#a35a33", c2:"#8a4826", stripe:"h", ball:"#23201a" },
+  { id:"steel", name:"钢灰", need:800, c1:"#5a6068", c2:"#474c53", stripe:"v", ball:"#ffd75e" }
 ];
 function skinOf(){ const id = (mock.state && mock.state.skin) || "classic"; return SKINS.find(x=>x.id===id) || SKINS[0]; }
 function setSkin(id){ const sk = SKINS.find(x=>x.id===id); if(!sk) return; if((mock.state.rep || 0) < sk.need){ toast("声望到 " + sk.need + " 解锁「" + sk.name + "」"); return; } mock.state.skin = id; mock.save(); render(); }
@@ -1801,7 +1888,7 @@ function pitchStart(){
   const mk = (arr, mirror)=>pitchBasePos(L.sportId, arr, mirror).map(b=>({ bx: b.bx, by: b.by, x: b.bx, y: b.by }));
   PD.dots = mk(groups, false);
   PD.away = L.sportId === "basketball" ? mk(awayGroups, true) : mk(awayGroups.map(g=>g), true);
-  PD.ball = { x: .5, y: .5 }; PD.poss = "my"; PD.possT = 0; PD.flash = null;
+  PD.ball = { x: .5, y: .5 }; PD.poss = "my"; PD.possT = 0; PD.flash = null; PD.flow = null;
   PD.lastMy = L.my; PD.lastOpp = L.oppScore; PD.t = 0;
   PD.gen = (PD.gen || 0) + 1; const gen = PD.gen;
   if(PD.raf) cancelAnimationFrame(PD.raf);
@@ -1826,8 +1913,7 @@ function pitchTick(){
       PD.flash = { x: mine ? .985 : .015, y: .5, until: PD.t + 1.1 };
       PD.lastMy = L.my; PD.lastOpp = L.oppScore;
     }
-    PD.possT -= 1 / 60;
-    if(PD.possT <= 0){ PD.poss = Math.random() < .52 ? "my" : "opp"; PD.possT = 1.1 + Math.random() * 1.6; }
+    if(PD.flow) PD.poss = PD.flow.side;
     const shift = PD.poss === "my" ? .09 : -.09;
     const move = (d, i, atk)=>{ const jx = Math.sin(PD.t * 1.7 + i * 1.93) * .008, jy = Math.cos(PD.t * 1.45 + i * 2.31) * .012;
       const tx = Math.max(.03, Math.min(.97, d.bx + (atk ? shift : -shift * .7) + jx)), ty = Math.max(.06, Math.min(.94, d.by + jy));
@@ -1835,9 +1921,12 @@ function pitchTick(){
     PD.dots.forEach((d, i)=>move(d, i, PD.poss === "my"));
     PD.away.forEach((d, i)=>move(d, i + 7, PD.poss === "opp"));
     if(PD.flash && PD.t < PD.flash.until){ PD.ball.x += (PD.flash.x - PD.ball.x) * .16; PD.ball.y += (PD.flash.y - PD.ball.y) * .16; }
+    else if(PD.kickoff > 0){ PD.kickoff -= 1 / 60; PD.ball.x += (.5 - PD.ball.x) * .1; PD.ball.y += (.5 - PD.ball.y) * .1; }
     else { PD.flash = null;
       const team = PD.poss === "my" ? PD.dots : PD.away;
-      if(team.length){ const c = team[Math.floor((PD.t * .7) % team.length)]; PD.ball.x += (c.x - PD.ball.x) * .08; PD.ball.y += (c.y - PD.ball.y) * .08; } }
+      if(team.length){ const fx = PD.flow ? PD.flow.x : .5;
+        let c = team[0], best = 1e9; for(const d of team){ const dd = Math.abs(d.bx - fx); if(dd < best){ best = dd; c = d; } }
+        PD.ball.x += (c.x - PD.ball.x) * .07; PD.ball.y += (c.y - PD.ball.y) * .07; } }
   }
   pitchDraw(ctx, W, H, L);
 }
@@ -1846,7 +1935,9 @@ function pitchDraw(ctx, W, H, L){
   ctx.clearRect(0, 0, W, H);
   if(isB){ ctx.fillStyle = "#d9a45b"; ctx.fillRect(0, 0, W, H); ctx.fillStyle = "#c98f3d"; ctx.fillRect(0, H * .42, W, H * .16); }
   else { const sk = skinOf(); const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, sk.c1); g.addColorStop(1, sk.c2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = "rgba(255,255,255,.045)"; for(let i = 0; i < 6; i += 2) ctx.fillRect(W * i / 6, 0, W / 6, H); }
+    ctx.fillStyle = "rgba(255,255,255,.045)"; const stp = skinOf().stripe || "v";
+    if(stp === "v"){ for(let i = 0; i < 6; i += 2) ctx.fillRect(W * i / 6, 0, W / 6, H); }
+    else if(stp === "h"){ for(let i = 0; i < 6; i += 2) ctx.fillRect(0, H * i / 6, W, H / 6); } }
   ctx.strokeStyle = "rgba(255,253,247,.75)"; ctx.lineWidth = 2;
   ctx.strokeRect(14, 14, W - 28, H - 28);
   ctx.beginPath(); ctx.moveTo(W / 2, 14); ctx.lineTo(W / 2, H - 14); ctx.stroke();
@@ -1857,9 +1948,17 @@ function pitchDraw(ctx, W, H, L){
   const dot = (d, fill)=>{ ctx.beginPath(); ctx.arc(d.x * W, d.y * H, 9, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = "#fffdf7"; ctx.stroke(); };
   PD.away.forEach(d=>dot(d, "#2f5d8a"));
   PD.dots.forEach(d=>dot(d, "#a83226"));
-  ctx.beginPath(); ctx.arc(PD.ball.x * W, PD.ball.y * H, 5.5, 0, Math.PI * 2); ctx.fillStyle = "#fffdf7"; ctx.fill(); ctx.lineWidth = 1.6; ctx.strokeStyle = "#23201a"; ctx.stroke();
+  ctx.beginPath(); ctx.arc(PD.ball.x * W, PD.ball.y * H, 5.5, 0, Math.PI * 2); ctx.fillStyle = isB ? "#fffdf7" : (skinOf().ball || "#fffdf7"); ctx.fill(); ctx.lineWidth = 1.6; ctx.strokeStyle = "#23201a"; ctx.stroke();
   ctx.fillStyle = "rgba(255,253,247,.85)"; ctx.font = "600 15px sans-serif"; ctx.textAlign = "left";
   ctx.fillText(L.sportId === "basketball" ? "🏀" : "⚽", 22, 34);
+  // status chip (top-left) + possession chip (top-right), IdleFC style
+  ctx.font = "700 12px sans-serif";
+  ctx.fillStyle = "rgba(20,18,12,.82)"; ctx.beginPath(); ctx.roundRect(18, 14, 108, 24, 8); ctx.fill();
+  ctx.fillStyle = "#fffdf7"; ctx.textAlign = "left";
+  ctx.fillText((L.minute || 0) + "′ · " + (L.settled ? "全场" : (L.paused ? "已暂停" : "直播中")), 26, 30);
+  ctx.fillStyle = PD.poss === "my" ? "rgba(168,50,38,.9)" : "rgba(47,93,138,.92)"; ctx.beginPath(); ctx.roundRect(W - 128, 14, 110, 24, 8); ctx.fill();
+  ctx.fillStyle = "#fffdf7"; ctx.textAlign = "center";
+  ctx.fillText(PD.poss === "my" ? "我方控球" : "对方控球", W - 73, 30);
   // score pill + minute (IdleFC Matchday style)
   const pillW = 118, pillX = W / 2 - pillW / 2, pillY = 16;
   ctx.fillStyle = "rgba(20,18,12,.82)"; ctx.beginPath(); ctx.roundRect(pillX, pillY, pillW, 40, 10); ctx.fill();
@@ -2256,7 +2355,7 @@ async function render(){
   const sq=$("#squadList"); sq.innerHTML="";
   healCheck(); renderSquad(); renderTactics(); renderTable(); renderCoach(); renderDaily(); renderWheel();
   renderFinance(); renderFacility(); renderGuide(); renderOffline(h);
-  renderEvents(); renderScout(); renderLoanPending(); renderFriendly(); renderTickerCard(); drawPreviewPitch();
+  renderEvents(); renderScout(); renderLoanPending(); renderFriendly(); renderTickerCard(); renderFixtures(); drawPreviewPitch();
   if(!inShell) renderBoard();
   const hb=$("#heroBand");
   if(hb){ let dots=""; for(let d=1;d<=14;d++) dots+='<i class="'+(d<=dayN?"on":"")+'"></i>';
