@@ -126,6 +126,7 @@ let savePick = null;              // {c, r}
 let barAnim = null, barPos = 0, barDir = 1;
 let stats = { shoot: [0, 0], save: [0, 0] };   // [success, total]
 let history = [];                 // shooter thirds history (for keeper reads)
+let cpuFav = Math.random() < .5 ? 0 : 2, cpuSides = [];
 let busy = false;
 
 function goalRect(){ return goal.getBoundingClientRect(); }
@@ -136,11 +137,11 @@ function zoneInfo(nx, ny){
   const edge = Math.min(nx, 1 - nx), top = ny;
   const corner = (nx < .18 || nx > .82) && (ny < .30 || ny > .72);
   const dead = (nx < .13 || nx > .87) && (ny < .24 || ny > .78);
-  let name = "中路稳妥", miss = .03;
-  if(dead){ name = "死角！"; miss = .13; }
-  else if(corner){ name = "刁钻角落"; miss = .09; }
-  else if(edge < .22){ name = "贴边"; miss = .06; }
-  else if(top < .28){ name = "上角"; miss = .07; }
+  let name = "中路稳妥", miss = .05;
+  if(dead){ name = "死角！"; miss = .16; }
+  else if(corner){ name = "刁钻角落"; miss = .11; }
+  else if(edge < .22){ name = "贴边"; miss = .075; }
+  else if(top < .28){ name = "上角"; miss = .085; }
   return { name, miss, corner: corner || dead, dead };
 }
 
@@ -165,7 +166,8 @@ function newRound(){
     $("modeTag").textContent = "对方点球 · 你是门将";
     $("whoLine").textContent = `主罚：${pick(SHOOTERS)} · 你站在门线上`;
     $("saveHint").style.display = "block";
-    $("shootHint").innerHTML = "对方助跑了——<b>点选一个区域</b>赌他射那边，选好自动扑出。九宫格全凭预判。";
+    const tell = cpuSides.length >= 2 && cpuSides[cpuSides.length - 1] === cpuSides[cpuSides.length - 2] && cpuSides[cpuSides.length - 1] !== 1 ? `（球探小声说：他已经连打两次${cpuSides[cpuSides.length - 1] === 0 ? "左" : "右"}侧了）` : "";
+    $("shootHint").innerHTML = "对方助跑了——<b>点选一个区域</b>赌他射那边，选好自动扑出。九宫格全凭预判。" + tell;
     $("zoneName").textContent = "未选择"; $("riskPct").textContent = "—";
     btn.disabled = true; btn.textContent = "先选扑救区域";
     buildZones();
@@ -206,14 +208,14 @@ goal.addEventListener("click", ev => {
 
 function startBar(){
   cancelAnimationFrame(barAnim); barPos = 0; barDir = 1;
-  const step = () => { barPos += barDir * 2.1; if(barPos >= 100){ barPos = 100; barDir = -1; } if(barPos <= 0){ barPos = 0; barDir = 1; }
+  const step = () => { barPos += barDir * 2.45; if(barPos >= 100){ barPos = 100; barDir = -1; } if(barPos <= 0){ barPos = 0; barDir = 1; }
     $("marker").style.left = `calc(${barPos}% - 2px)`; if(phase === "power") barAnim = requestAnimationFrame(step); };
   barAnim = requestAnimationFrame(step);
 }
 function execOf(pos){ if(pos >= 44 && pos <= 56) return "perfect"; if(pos >= 30 && pos <= 70) return "good"; return "poor"; }
 
 function keeperPickThird(){
-  const w = [1, 1, 1];
+  const w = [1.15, 0.7, 1.1];
   if(history.length){ const last = history[history.length - 1]; w[last] += .55;
     if(history.length >= 2 && history[history.length - 2] === last) w[last] += .5; }
   const t = w[0] + w[1] + w[2]; let r = Math.random() * t;
@@ -250,13 +252,16 @@ $("actionBtn").addEventListener("click", () => {
   const missP = zi.miss * (exec === "perfect" ? .5 : exec === "good" ? 1 : 2.1);
   let res;
   if(Math.random() < missP) res = "miss";
-  else if(kThird === third){ const gp = exec === "perfect" ? (zi.corner ? .85 : .70) : exec === "good" ? .42 : .18; res = Math.random() < gp ? "goal" : "saved"; }
+  else if(kThird === third){ const gp = exec === "perfect" ? (zi.corner ? .78 : .62) : exec === "good" ? .35 : .12; res = Math.random() < gp ? "goal" : "saved"; }
+  else if(zi.dead && Math.random() < .10) res = "post";
   else res = "goal";
   setTimeout(() => {
     if(res === "goal"){ stats.shoot[0]++; banner("进球！", "#ffd34d"); SFX.cheer();
       $("flavor").innerHTML = `<span class="q">${pick(["死角入网，门将鞭长莫及。", "稳稳罚进，门将判断对了也够不着。", "球进了！看台炸了。"])}</span>发力评级：${exec === "perfect" ? "完美" : exec === "good" ? "一般" : "勉强"} · 落点「${zi.name}」`; }
     else if(res === "saved"){ banner("被扑出！", "#fff"); SFX.groan();
       $("flavor").innerHTML = `<span class="q">${pick(["门将神扑！他读穿了你的落点。", "扑出去了……就差一点角度。", "太正了，被门将没收。"])}</span>门将扑向了${["左", "中", "右"][kThird]}路——${exec === "poor" ? "而且你这脚发力也飘了。" : "下次换个边或者再刁一点。"}`; }
+    else if(res === "post"){ banner("中柱了！", "#fff"); SFX.groan();
+      $("flavor").innerHTML = `<span class="q">砰——砸在立柱上弹出去！</span>门将已经扑错了方向，就差这一根立柱的距离。死角的代价，就是这么薄。`; }
     else { banner("打偏了！", "#fff"); SFX.groan();
       $("flavor").innerHTML = `<span class="q">${pick(["擦柱而出！死角虽好，容错太低。", "打飞了——发力没压住。", "偏出立柱，全场一声叹息。"])}</span>落点「${zi.name}」的打偏风险本就有 ${Math.round(zi.miss * 100)}%，${exec === "poor" ? "加上发力失控，" : ""}这次没兜住。`; }
     updStats(); endRound();
@@ -265,19 +270,22 @@ $("actionBtn").addEventListener("click", () => {
 
 function resolveSave(){
   if(busy || !savePick) return; busy = true;
-  // CPU shooter: corners favored, occasional repeat tells
-  const rx = Math.random(); const nx = rx < .38 ? .08 + Math.random() * .18 : rx < .76 ? .74 + Math.random() * .18 : .38 + Math.random() * .24;
+  // CPU shooter: has a favorite side per stretch — watch for the tell
+  const fav = cpuFav; const rx = Math.random();
+  const nx = rx < .46 ? (fav === 0 ? .08 + Math.random() * .18 : .74 + Math.random() * .18)
+           : rx < .76 ? (fav === 0 ? .74 + Math.random() * .18 : .08 + Math.random() * .18)
+           : .38 + Math.random() * .24;
   const ny = Math.random() < .58 ? .68 + Math.random() * .24 : .10 + Math.random() * .30;
   const gr = goalRect(), sr = sceneRect();
   const tx = gr.left - sr.left + nx * gr.width, ty = gr.top - sr.top + ny * gr.height;
   diveKeeper(savePick.c, savePick.r === 0);
   SFX.kick(); flyBall(tx, ty);
   stats.save[1]++;
-  const cpuMiss = Math.random() < .11;
+  const cpuMiss = Math.random() < .13; cpuSides.push(nx < .34 ? 0 : nx > .66 ? 2 : 1); if(cpuSides.length > 6) cpuSides.shift(); if(stats.save[1] % 5 === 4) cpuFav = Math.random() < .5 ? 0 : 2;
   const zx = (savePick.c + .5) / 3, zy = (savePick.r + .5) / 3;
   const d = Math.hypot(nx - zx, (ny - zy) * 1.15);
   let saved = false;
-  if(!cpuMiss) saved = Math.random() < (d < .20 ? .85 : d < .36 ? .33 : .03);
+  if(!cpuMiss) saved = Math.random() < (d < .20 ? .85 : d < .36 ? .45 : d < .48 ? .12 : .02);
   setTimeout(() => {
     if(cpuMiss){ banner("他打偏了！", "#ffd34d"); SFX.cheer(); stats.save[0]++;
       $("flavor").innerHTML = `<span class="q">对方自己罚丢了——</span>压力太大，球偏出立柱。这一分算你扑救成功。`; }
