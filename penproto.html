@@ -289,7 +289,7 @@ function setupSave(){
   });
   const tell = cpuSides.length >= 2 && cpuSides[cpuSides.length - 1] === cpuSides[cpuSides.length - 2] && cpuSides[cpuSides.length - 1] !== 1
     ? `球探还提醒：他已经连打两次${cpuSides[cpuSides.length - 1] === 0 ? "左" : "右"}侧了。` : "";
-  $("mainHint").innerHTML = `你站在自家门将身后，看对面助跑：<b>起跑侧和身体倾斜是预判线索，但小心假动作</b>（顿步、假摆腿、临射变向）。点左/中/右任意一侧扑救——<b>扑得越早力量越足，越晚看得越准</b>。${tell}`;
+  $("mainHint").innerHTML = `你站在自家门将身后，看对面助跑：<b>起跑侧和身体倾斜是预判线索，但小心假动作</b>（顿步、假摆腿、临射变向）。三种扑法：<b>早扑</b>力量满但赌方向；<b>等他摆腿</b>——球出脚前有半拍能读真方向（推荐）；<b>球出脚后</b>纯反应也能补扑，只是很勉强。${tell}`;
   $("riskLine").style.display = "none";
   const btn = $("actionBtn"); btn.disabled = true; btn.textContent = "看他助跑…（点画面左/中/右扑救）";
   runSaveSequence();
@@ -299,15 +299,18 @@ function diveKeeperK(third, high){
   keeperFig.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
 }
 function commitDive(third, zoneEl){
-  if(mode !== "save" || !saveState || saveState.committed || saveState.kicked) return;
+  if(mode !== "save" || !saveState || saveState.committed || saveState.arrived) return;
   const now = performance.now();
-  const afterReveal = now >= saveState.revealAt;
-  saveState.committed = { third, power: afterReveal ? .82 : 1, label: afterReveal ? "看准了再扑" : "提前预判" };
+  let power, label;
+  if(saveState.kickAt){ power = .55; label = "纯反应扑救"; }
+  else if(now >= saveState.revealAt){ power = .85; label = "读到摆腿再扑"; }
+  else { power = 1; label = "提前预判"; }
+  saveState.committed = { third, power, label };
   document.querySelectorAll(".divezone").forEach(z => z.classList.remove("sel"));
   if(zoneEl) zoneEl.classList.add("sel");
   diveKeeperK(third, false);
   $("commitLine").style.display = "block";
-  $("commitLine").innerHTML = `已扑向<b>${["左", "中", "右"][third]}</b> · ${afterReveal ? "等摆腿后才动，看得准但力量打了折" : "提前预判，力量拉满——赌的就是这个方向"}`;
+  $("commitLine").innerHTML = `已扑向<b>${["左", "中", "右"][third]}</b> · ${label}${power === 1 ? "，力量拉满——赌的就是这个方向" : power === .85 ? "，方向是真的、力量略打折" : "，球已出脚才动——只剩指尖的机会"}`;
 }
 function gateKick(fn, earliest, deadline){
   const iv = setInterval(() => {
@@ -320,7 +323,6 @@ function gateKick(fn, earliest, deadline){
 }
 function runSaveSequence(){
   const guided = guideSave;
-  // decide target (screen space: where the ball arrives for the keeper)
   const fav = cpuFav, rx = Math.random();
   const nx = rx < .46 ? (fav === 0 ? .10 + Math.random() * .16 : .74 + Math.random() * .16)
            : rx < .76 ? (fav === 0 ? .74 + Math.random() * .16 : .10 + Math.random() * .16)
@@ -332,50 +334,57 @@ function runSaveSequence(){
   const earlyLean = fake === "flip" ? -trueLean : trueLean;
   const startSide = Math.random() < .5 ? -1 : 1;
   const T0 = performance.now();
-  const runStart = guided ? 1700 : 800;            // prep beat: he places the ball and steps back — nothing to tap yet
-  const runDur = guided ? 1500 : 1250;
-  let swingAt = runStart + (guided ? 1250 : 620);  // run-up travel after prep
+  const runStart = guided ? 1700 : 800;              // prep beat: places the ball, steps back
+  const runDur = guided ? 1500 : 1100;
+  const kickGap = 500;                               // swing -> ball out: the readable window
+  let swingAt = runStart + (guided ? 1250 : 950);    // swing (reveal) moment
   if(fake === "stutter") swingAt += guided ? 500 : 380;
-  saveState = { committed: null, kicked: false, revealAt: T0 + swingAt, target: { nx, ny, third }, fake, guided };
+  const realSwingAt = fake === "fakeSwing" ? swingAt + 560 : swingAt;
+  saveState = { committed: null, kicked: false, arrived: false, kickAt: 0, revealAt: T0 + realSwingAt, target: { nx, ny, third }, fake, guided };
   takerFig.style.transform = `translate(${startSide * 30}px, 6px)`;
   if(guided) coach("先别急——他在摆球、量步点。<b>这段时间什么都不用点</b>，就看他从哪一侧开始起跑。");
   later(() => { takerFig.style.transition = `transform ${runDur}ms cubic-bezier(.4,.1,.4,1)`;
-    takerFig.style.transform = `translate(${earlyLean * 7}px, 0) rotate(${earlyLean * 7}deg) scale(1.06)`;
+    takerFig.style.transform = `translate(${earlyLean * 8}px, 0) rotate(${earlyLean * 10}deg) scale(1.06)`;
     if(guided) coach("他动了！<b>盯他的身体往哪边斜</b>——斜向哪边，多半就往哪边打。先别急着扑，扑早了会被假动作锁死。"); }, runStart);
   if(fake === "stutter"){
-    later(() => { takerFig.style.transition = "transform .12s ease"; takerFig.style.transform = `translate(${earlyLean * 7}px, -2px) rotate(${earlyLean * 7}deg) scale(1.06)`; }, runStart + runDur * .5);
-    later(() => { takerFig.style.transform = `translate(${earlyLean * 8}px, 0) rotate(${earlyLean * 8}deg) scale(1.08)`; }, runStart + runDur * .5 + 320);
+    later(() => { takerFig.style.transition = "transform .12s ease"; takerFig.style.transform = `translate(${earlyLean * 8}px, -2px) rotate(${earlyLean * 10}deg) scale(1.06)`; }, runStart + runDur * .5);
+    later(() => { takerFig.style.transform = `translate(${earlyLean * 9}px, 0) rotate(${earlyLean * 11}deg) scale(1.08)`; }, runStart + runDur * .5 + 340);
   }
-  const doKick = (isReal) => {
-    if(!isReal){ // dummy swing: leg goes, ball stays
-      takerFig.style.transition = "transform .16s ease";
-      takerFig.style.transform = `translate(${earlyLean * 9}px, 0) rotate(${earlyLean * 13}deg) scale(1.09)`;
-      noise(0, .05, .12);
-      if(guided) coach("这下是<b>假摆腿</b>——球还没动！扑早了的人这会儿已经被锁在地上了。稳住，等他真摆腿。");
-      return;
-    }
-    saveState.kicked = true;
+  const doSwingVisual = () => {  // the real swing: true lean shows, ball still on the spot for kickGap ms
     const leanNow = fake === "flip" ? trueLean : earlyLean;
     if(guided && fake === "flip") coach("看见没——他<b>摆腿时突然变向</b>了！摆腿之前的倾斜是装的，这一下才是真的。");
-    takerFig.style.transition = "transform .14s ease";
-    takerFig.style.transform = `translate(${leanNow * 10}px, 0) rotate(${leanNow * 14}deg) scale(1.1)`;
+    takerFig.style.transition = "transform .15s ease";
+    takerFig.style.transform = `translate(${leanNow * 10}px, 0) rotate(${leanNow * 15}deg) scale(1.1)`;
+  };
+  const doDummySwing = () => {
+    takerFig.style.transition = "transform .16s ease";
+    takerFig.style.transform = `translate(${earlyLean * 9}px, 0) rotate(${earlyLean * 13}deg) scale(1.09)`;
+    noise(0, .05, .12);
+    if(guided) coach("这下是<b>假摆腿</b>——球还没动！扑早了的人这会儿已经被锁在地上了。稳住，等他真摆腿。");
+  };
+  const doBallOut = () => {
+    if(!saveState || saveState.kicked) return;
+    saveState.kicked = true; saveState.kickAt = performance.now();
     SFX.kick();
     const gr = goalRect(), sr = sceneRect();
     const tx = gr.left - sr.left + nx * gr.width, ty = gr.top - sr.top + ny * gr.height;
-    ball.style.transition = "all .34s cubic-bezier(.3,.5,.4,1)";
+    ball.style.transition = "all .42s cubic-bezier(.3,.5,.4,1)";
     ball.style.left = tx + "px"; ball.style.top = ty + "px"; ball.style.bottom = "auto";
     ball.style.width = "34px"; ball.style.height = "34px"; ball.style.marginLeft = "-17px";
-    resolveSaveShot();
+    later(() => { if(saveState) saveState.arrived = true; resolveSaveShot(); }, 430);
   };
   if(fake === "fakeSwing"){
-    later(() => doKick(false), swingAt);
-    if(guided){ saveState.revealAt = T0 + swingAt + 800; gateKick(() => doKick(true), T0 + swingAt + 800, T0 + swingAt + 4200); }
-    else later(() => doKick(true), swingAt + 480);
+    later(doDummySwing, swingAt);
+    later(doSwingVisual, realSwingAt);
+    if(guided) gateKick(doBallOut, T0 + realSwingAt + 350, T0 + realSwingAt + 4200);
+    else later(doBallOut, realSwingAt + kickGap);
   } else if(guided){
-    later(() => coach("就是现在——他要摆腿了！<b>点画面左 / 中 / 右任意一侧</b>，把门将扑出去。"), Math.max(runStart + 400, swingAt - 420));
-    gateKick(() => doKick(true), T0 + swingAt, T0 + swingAt + 3800);
+    later(() => coach("盯紧他的<b>摆腿</b>——腿一摆，方向就藏不住了，球还没出脚的那半拍就是你的窗口。点左 / 中 / 右扑出去！"), Math.max(runStart + 500, swingAt - 380));
+    later(doSwingVisual, swingAt);
+    gateKick(doBallOut, T0 + swingAt + 350, T0 + swingAt + 4000);
   } else {
-    later(() => doKick(true), swingAt);
+    later(doSwingVisual, swingAt);
+    later(doBallOut, swingAt + kickGap);
   }
 }
 function resolveSaveShot(){
@@ -402,13 +411,13 @@ function resolveSaveShot(){
     if(how === "miss"){ banner("他打偏了！", "#ffd34d"); SFX.cheer(); stats.save[0]++;
       $("flavor").innerHTML = `<span class="q">对方自己罚丢了。</span>${fakeName ? `这球带了「${fakeName}」，` : ""}压力之下脚法变形，偏出立柱。`; }
     else if(saved){ banner("扑出去了！", "#ffd34d"); SFX.cheer(); stats.save[0]++;
-      $("flavor").innerHTML = `<span class="q">${how === "reach" ? "指尖蹭到——扑出去了！" : how === "stood" ? "他正打中路，你没动就对了。" : "神扑！方向、时机全读对了。"}</span>他打${["左", "中", "右"][third]}路${ny > .5 ? "低球" : "高球"}${fakeName ? `，还耍了「${fakeName}」` : ""}${c ? `；你${c.label}，${c.power < 1 ? "力量打折但方向没错" : "力量拉满"}` : ""}。`; }
+      $("flavor").innerHTML = `<span class="q">${how === "reach" ? "指尖蹭到——扑出去了！" : how === "stood" ? "他正打中路，你没动就对了。" : "神扑！方向、时机全读对了。"}</span>他打${["左", "中", "右"][third]}路${ny > .5 ? "低球" : "高球"}${fakeName ? `，还耍了「${fakeName}」` : ""}${c ? `；你${c.label}，${c.power === 1 ? "力量拉满" : c.power === .85 ? "方向读对了、力量略打折" : "纯反应还能扑到，神了"}` : ""}。`; }
     else { banner("球进了…", "#fff"); SFX.groan();
       $("flavor").innerHTML = `<span class="q">${how === "wrongway" ? "被骗了——他摆腿前的倾斜是假的。" : how === "beaten" ? "方向扑对了，但这球太刁、太快。" : "你没扑，他从容打进。"}</span>他实际打${["左", "中", "右"][third]}路${ny > .5 ? "低球" : "高球"}${fakeName ? `（假动作：${fakeName}）` : ""}。盯他<b>摆腿那一下</b>再动，看得最准。`; }
     updStats();
     if(saveState && saveState.guided){ guideSave = false; coach("记住三条就够了：①<b>摆球时不用点</b> ②<b>盯倾斜读方向</b> ③<b>摆腿那下才是真的</b>。下一轮起恢复正常速度，自己读。"); }
     endRound();
-  }, 380);
+  }, 130);
 }
 
 // ================= round scaffolding =================
