@@ -3146,7 +3146,7 @@ function renderMatchHead(){
   const el = $("#matchHead"); if(!el) return;
   const avgSt = L.onPitch.length ? Math.round(L.onPitch.reduce((t,x)=>{ const es = engStamOf(x.pid); if(es != null) return t + es; const ps = mock.state.pstat[x.pid]; return t + (ps ? ps.stamina : 100) - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 40 : 90)); }, 0) / L.onPitch.length) : 100;
   el.innerHTML = `<div class="vs" style="margin:0"><div class="side"><div class="vnum">${L.sportId === "basketball" ? L.my : L.my}</div><div class="vlab">${mock.state.clubName || "我方"}</div></div><div class="vmid">${L.minute}′<br>${mentalityOf(L.sportId).name}打法</div><div class="side"><div class="vnum" style="color:var(--bad)">${L.oppScore}</div><div class="vlab">${L.opp} · ${L.oppMent.name}</div></div></div>
-  <div class="hint" style="margin-top:2px">黄牌 ${L.yc || 0} · 红牌 ${L.rc || 0}</div>
+  ${L.sportId === "football" ? '<div class="hint" style="margin-top:2px">黄牌 ' + (L.yc || 0) + ' · 红牌 ' + (L.rc || 0) + '</div>' : ''}
   <div style="margin-top:8px"><div class="hint">全队体能${L.sportId === "football" ? "" : "（估算）"} ${Math.max(5, avgSt)}%</div><div style="height:7px;background:#e7ddc6;border-radius:4px"><div style="height:100%;width:${Math.max(5, avgSt)}%;background:${avgSt < 40 ? "#c0392b" : "#2e6b46"};border-radius:4px;transition:width .4s"></div></div></div>`;
 }
 function renderMatchTicker(){
@@ -3357,7 +3357,7 @@ function simDriveStart(){
     if(L.paused || L.nodesPending) return;
     if(S.deadBall){ simOnDeadBall(); return; }
     if(!S.forceNode && L.forceQueue.length && S.tick > 40) S.forceNode = L.forceQueue.shift();
-    const per = (L.sportId === "basketball" ? 1.25 : 1) * (L.speed || 1);
+    const per = (L.sportId === "basketball" ? 0.85 : 1) * (L.speed || 1);
     L._acc = (L._acc || 0) + per;
     let n = Math.floor(L._acc); L._acc -= n;
     while(n-- > 0){ SIMCORE.stepSim(S); if(S.deadBall || S.over) break; }
@@ -3392,6 +3392,7 @@ function simApplySub(outPid, inPid, free){
 function closeNode(){ const box = $("#matchNode"); if(box) box.innerHTML = ""; if(LIVE){ LIVE.paused = false; LIVE.nodesPending = false; if(LIVE.nodeTimer){ clearTimeout(LIVE.nodeTimer); LIVE.nodeTimer = null; } } }
 function simBookInjury(nd){
   const L = LIVE; if(!L || nd._booked) return; nd._booked = true;
+  if(nd.foulOut) return;
   const victim = L.S.players[nd.victimIdx]; if(!victim) return;
   const days = 1 + Math.floor(Math.random() * 2);
   const ps = pstatOf(victim.pid); ps.injFrom = L.dayN; ps.injUntil = L.dayN + days; nd._days = days;
@@ -3435,7 +3436,7 @@ function simShowNode(nd){
   }
   else if(nd.type === "injury"){
     const victim = S.players[nd.victimIdx];
-    box.innerHTML = `<div class="nodebox"><div class="pname">🚑 伤退（${L.minute}′）</div><div class="pmeta">${victim ? victim.name : "一名球员"} 拼抢后倒地不起，必须换人（预计缺阵 ${nd._days || 1} 天）——这次换人不占换人名额。</div>
+    box.innerHTML = `<div class="nodebox"><div class="pname">${nd.foulOut ? "🟥 犯满离场" : "🚑 伤退"}（${L.minute}′）</div><div class="pmeta">${nd.foulOut ? `${victim ? victim.name : "一名球员"} 五次犯规毕业，必须换人——这次换人不占换人名额。` : `${victim ? victim.name : "一名球员"} 拼抢后倒地不起，必须换人（预计缺阵 ${nd._days || 1} 天）——这次换人不占换人名额。`}</div>
     <div class="tiers" style="grid-template-columns:1fr 1fr">${L.bench.slice(0, 4).map(pid=>{ const bp = findPlayer(pid); return `<button onclick="injurySub('${pid}')">${bp ? bp.name : pid}（${bp ? effBase(bp) : ""}）</button>`; }).join("") || '<span class="hint">替补席没人了</span>'}<button class="ghost" onclick="injurySub('')">无人可换 · 少一人应战（战力打折）</button></div></div>`;
   }
   renderMatchTicker();
@@ -3484,7 +3485,7 @@ function injurySub(inPid){
   SIMCORE.resolveSimNode(S, innObj ? { inPlayer: innObj } : {});
   L._evCursor = S.events.length;
   simSyncFromEngine();
-  pushLine(L.minute, innObj ? `伤退换人：${victim.name} 离场（缺阵 ${nd._days || 1} 天），${innObj.name} 替补登场。` : `伤退：${victim.name} 离场（缺阵 ${nd._days || 1} 天），替补席无人，少一人应战。`, "injury");
+  pushLine(L.minute, nd.foulOut ? (innObj ? `犯满离场：${victim.name} 五犯毕业，${innObj.name} 替补登场。` : `犯满离场：${victim.name} 五犯毕业，替补席无人，少一人应战。`) : (innObj ? `伤退换人：${victim.name} 离场（缺阵 ${nd._days || 1} 天），${innObj.name} 替补登场。` : `伤退：${victim.name} 离场（缺阵 ${nd._days || 1} 天），替补席无人，少一人应战。`), "injury");
   closeNode(); renderMatchHead();
 }
 function simAutoResolve(){
@@ -3624,8 +3625,9 @@ function pitchTick(){
       const mine = S.players.filter(p=>p.side === 0 && !p.out), away = S.players.filter(p=>p.side === 1 && !p.out);
       if(PD.dots.length !== mine.length) PD.dots = mine.map(p=>({ bx: p.x / (PD.cw || 100), by: p.y / (PD.ch || 64), x: p.x / (PD.cw || 100), y: p.y / (PD.ch || 64) }));
       if(PD.away.length !== away.length) PD.away = away.map(p=>({ bx: p.x / (PD.cw || 100), by: p.y / (PD.ch || 64), x: p.x / (PD.cw || 100), y: p.y / (PD.ch || 64) }));
-      mine.forEach((p, i)=>{ const d = PD.dots[i]; if(d){ d.x += (p.x / (PD.cw || 100) - d.x) * .42; d.y += (p.y / (PD.ch || 64) - d.y) * .42; } });
-      away.forEach((p, i)=>{ const d = PD.away[i]; if(d){ d.x += (p.x / (PD.cw || 100) - d.x) * .42; d.y += (p.y / (PD.ch || 64) - d.y) * .42; } });
+      const LF = L.sportId === "basketball" ? .3 : .42;
+      mine.forEach((p, i)=>{ const d = PD.dots[i]; if(d){ d.x += (p.x / (PD.cw || 100) - d.x) * LF; d.y += (p.y / (PD.ch || 64) - d.y) * LF; } });
+      away.forEach((p, i)=>{ const d = PD.away[i]; if(d){ d.x += (p.x / (PD.cw || 100) - d.x) * LF; d.y += (p.y / (PD.ch || 64) - d.y) * LF; } });
       const bo = S.ball.owner != null ? S.players[S.ball.owner] : null;
       if(bo) PD.poss = bo.side === 0 ? "my" : "opp";
       PD.flow = { side: PD.poss, x: S.ball.x / (PD.cw || 100), y: S.ball.y / (PD.ch || 64), pid: bo && bo.side === 0 ? bo.pid : null, ai: bo && bo.side === 1 ? away.indexOf(bo) : null };
@@ -3646,8 +3648,8 @@ function pitchDraw(ctx, W, H, L){
   if(isB){
     ctx.fillStyle = "#8a5a28"; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = "#d9a45b"; ctx.fillRect(RX, RY, RW, RH);
-    ctx.fillStyle = "rgba(122,72,20,.10)";
-    for(let i = 0; i < 10; i += 2) ctx.fillRect(RX, RY + RH * i / 10, RW, RH / 10);
+    ctx.fillStyle = "rgba(122,72,20,.07)";
+    for(let i = 1; i < 12; i++) ctx.fillRect(RX + RW * i / 12, RY, 2, RH);
     ctx.strokeStyle = "rgba(255,253,247,.85)"; ctx.lineWidth = 2;
     const X = fx=>RX + fx * KK, Y = fy=>RY + fy * KK;
     ctx.strokeRect(RX, RY, RW, RH);
@@ -3656,7 +3658,7 @@ function pitchDraw(ctx, W, H, L){
     for(const mir of [0, 1]){
       const fx = v=>mir ? 94 - v : v;
       /* paint + free-throw circle */
-      ctx.fillStyle = "rgba(168,50,38,.30)";
+      ctx.fillStyle = "rgba(168,50,38,.40)";
       ctx.fillRect(Math.min(X(fx(0)), X(fx(19))), Y(17), 19 * KK, 16 * KK);
       ctx.strokeStyle = "rgba(255,253,247,.85)"; ctx.lineWidth = 2;
       ctx.strokeRect(Math.min(X(fx(0)), X(fx(19))), Y(17), 19 * KK, 16 * KK);
@@ -3690,7 +3692,7 @@ function pitchDraw(ctx, W, H, L){
     ctx.beginPath(); ctx.arc(W / 2, H / 2, H * .16, 0, Math.PI * 2); ctx.stroke();
     for(const sx of [0, 1]){ const bx = sx ? W - 14 - W * .13 : 14; ctx.strokeRect(bx, H * .24, W * .13, H * .52); ctx.strokeRect(sx ? W - 14 - W * .05 : 14, H * .38, W * .05, H * .24); }
   }
-  const dot = (d, fill)=>{ ctx.beginPath(); ctx.arc(PX(d.x), PY(d.y), 9, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = "#fffdf7"; ctx.stroke(); };
+  const dot = (d, fill)=>{ ctx.beginPath(); ctx.arc(PX(d.x), PY(d.y), isB ? 7.5 : 9, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = "#fffdf7"; ctx.stroke(); };
   PD.away.forEach((d, i)=>dot(d, i === 0 && !isB ? "#58b368" : "#2f5d8a"));
   PD.dots.forEach((d, i)=>dot(d, i === 0 && !isB ? "#e9b949" : "#a83226"));
   { const bx = PX(PD.ball.x), by = PY(PD.ball.y);
