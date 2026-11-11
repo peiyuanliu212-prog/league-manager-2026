@@ -1596,7 +1596,7 @@ function renderMatchHead(){
   const L = LIVE; if(!L) return;
   const el = $("#matchHead"); if(!el) return;
   const avgSt = L.onPitch.length ? Math.round(L.onPitch.reduce((t,x)=>{ const ps = mock.state.pstat[x.pid]; return t + (ps ? ps.stamina : 100) - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 48 : 90)); }, 0) / L.onPitch.length) : 100;
-  el.innerHTML = `<div class="vs" style="margin:0"><div class="side"><div class="vnum">${L.sportId === "basketball" ? L.my : L.my}</div><div class="vlab">${mock.state.clubName || "我方"}</div></div><div class="vmid">${L.minute}′<br>${L.oppMent.name}打法</div><div class="side"><div class="vnum" style="color:var(--bad)">${L.oppScore}</div><div class="vlab">${L.opp}</div></div></div>
+  el.innerHTML = `<div class="vs" style="margin:0"><div class="side"><div class="vnum">${L.sportId === "basketball" ? L.my : L.my}</div><div class="vlab">${mock.state.clubName || "我方"}</div></div><div class="vmid">${L.minute}′<br>${mentalityOf(L.sportId).name}打法</div><div class="side"><div class="vnum" style="color:var(--bad)">${L.oppScore}</div><div class="vlab">${L.opp} · ${L.oppMent.name}</div></div></div>
   <div class="hint" style="margin-top:2px">黄牌 ${L.yc || 0} · 红牌 0</div>
   <div style="margin-top:8px"><div class="hint">全队体能（估算） ${Math.max(5, avgSt)}%</div><div style="height:7px;background:#e7ddc6;border-radius:4px"><div style="height:100%;width:${Math.max(5, avgSt)}%;background:${avgSt < 40 ? "#c0392b" : "#2e6b46"};border-radius:4px;transition:width .4s"></div></div></div>`;
 }
@@ -1633,7 +1633,12 @@ function sampleSegment(L, from, to){
   else { for(let i = 0; i < myG; i++) evs.push({ side:"my", pts: 1, min: from + Math.random() * (to - from) });
     for(let i = 0; i < opG; i++) evs.push({ side:"opp", pts: 1, min: from + Math.random() * (to - from) }); }
   const nf = 2 + Math.floor(Math.random() * 3);
-  for(let i = 0; i < nf; i++){ const p = pickScorer(L, true); evs.push({ side:"fill", min: from + Math.random() * (to - from), text: (isB ? FILLER_B : FILLER_F)[Math.floor(Math.random() * 6)].replace("{p}", p ? p.name : "队员") }); }
+  const FPOOL = isB ? FILLER_B : FILLER_F;
+  for(let i = 0; i < nf; i++){ const rp = L.onPitch.length ? findPlayer(L.onPitch[Math.floor(Math.random() * L.onPitch.length)].pid) : null;
+    let ft = FPOOL[Math.floor(Math.random() * FPOOL.length)], guard = 0;
+    while(ft === L.lastFillText && guard++ < 3) ft = FPOOL[Math.floor(Math.random() * FPOOL.length)];
+    L.lastFillText = ft;
+    evs.push({ side:"fill", min: from + Math.random() * (to - from), text: ft.replace("{p}", rp ? rp.name : "队员") }); }
   if(Math.random() < 0.5) evs.push({ side:"card", min: from + Math.random() * (to - from) });
   evs.sort((a,b)=>a.min-b.min);
   return { evs, lamMy, lamOpp };
@@ -1652,40 +1657,54 @@ function pickByGroup(L, groups){
   const src = cand.length ? cand : L.onPitch.map(x=>({ p: findPlayer(x.pid) })).filter(x=>x.p);
   return src.length ? src[Math.floor(Math.random() * src.length)].p : null;
 }
-/* v20 组织进攻链：推进 → 机会 → 射门，比分只在射门结果落地时变（学 IdleFC Matchday 实机） */
+/* v22 组织进攻链：推进 → 机会 → 射门；每一步都点名持球人，球场上由该球员带球推进、传给下一人 */
 function buildSegmentScript(L, from, to){
   const { evs, lamMy, lamOpp } = sampleSegment(L, from, to);
   const isB = L.sportId === "basketball", span = to - from, items = [];
-  const nm = g => { const p = pickByGroup(L, g); return p ? p.name : "队员"; };
-  const buildMyF = [()=>`${nm(["GK","DF"])} 后场稳住球权，慢慢组织推进。`, ()=>`${nm(["MF"])} 中场连续传递，把球送到前场。`, ()=>`${nm(["WG","ST","FW"])} 压到禁区前沿，进攻成型。`];
-  const buildOpF = ["对方后场倒脚，组织推进。", "对方中场连续传递，压过半场。", "对方攻到禁区前沿，防线告急。"];
-  const buildMyB = ()=>`${nm(["控卫","分卫"])} 后场推进，组织半场进攻。`;
-  const buildOpB = "对方后场推进，组织半场进攻。";
-  for(const ev of evs){
-    if(ev.side === "my" || ev.side === "opp"){
-      const mine = ev.side === "my", steps = isB ? 1 : 2;
-      for(let k = 0; k < steps; k++){
-        const mm = Math.max(from + 0.5, ev.min - (steps - k) * (span / 7));
-        items.push({ min: mm, kind: "build", delay: isB ? 480 : 760, flow: { side: ev.side, x: mine ? (k === 0 ? .3 : .55) : (k === 0 ? .7 : .45) },
-          text: isB ? (mine ? buildMyB() : buildOpB) : (mine ? buildMyF[k]() : buildOpF[k]) });
-      }
-      items.push({ ev, min: ev.min, delay: isB ? 820 : 1250, flow: { side: ev.side, x: mine ? .93 : .07 } });
-    } else if(ev.side === "fill"){
-      items.push({ ev, min: ev.min, delay: 850, flow: { side: Math.random() < .5 ? "my" : "opp", x: .5 } });
-    } else {
-      items.push({ ev, min: ev.min, delay: 900, flow: { side: "opp", x: .4 } });
+  const myGroups = L.onPitch.map(x=>{ const p = findPlayer(x.pid); return p ? slotGroupOf(p, L.sportId) : "MF"; });
+  const myPos = pitchBasePos(L.sportId, myGroups, false);
+  const awayGroups = (L.oppForm && L.oppForm.slots) ? L.oppForm.slots.slice() : (isB ? ["控卫","分卫","小前锋","大前锋","中锋"] : ["GK","DF","DF","DF","DF","MF","MF","MF","WG","ST","ST"]);
+  const awayPos = pitchBasePos(L.sportId, awayGroups, true);
+  const myCarrier = groups => { const p = pickByGroup(L, groups); if(!p) return null; const i = L.onPitch.findIndex(x=>x.pid === p.pid); return { p, flow: { pid: p.pid, y: i >= 0 ? myPos[i].by : .5 } }; };
+  const awayCarrierAt = x => { let bi = 0, bd = 1e9; awayPos.forEach((pp, i)=>{ const d = Math.abs(pp.bx - x); if(d < bd){ bd = d; bi = i; } }); return { flow: { ai: bi, y: awayPos[bi] ? awayPos[bi].by : .5 } }; };
+  const progF = [["GK","DF"],["MF"],["WG","ST","FW"]], progB = [["控卫","分卫"],["小前锋","大前锋","中锋"]];
+  const buildMyF = [c=>`${c.p.name} 后场稳住球权，带球向前推进。`, c=>`${c.p.name} 中场连续盘带传递，把球送到前场。`, c=>`${c.p.name} 压到禁区前沿，进攻成型。`];
+  const buildOpF = ["对方后卫带球推进过半场。", "对方中场连续传递，压了上来。", "对方攻到禁区前沿，防线告急。"];
+  const buildMyB = c=>`${c.p.name} 持球推进，组织半场进攻。`;
+  const buildOpB = "对方后卫持球推进，组织半场进攻。";
+  let lastFlow = { side: "my", x: .45, pid: null };
+  const mkGoalChain = ev => {
+    const mine = ev.side === "my", steps = isB ? 2 : 3, xs = isB ? [.35, .68] : [.27, .52, .77];
+    let carrier = null;
+    for(let k = 0; k < steps; k++){
+      const mm = Math.max(from + 0.5, ev.min - (steps - k) * (span / 8));
+      if(mine){ carrier = myCarrier(isB ? progB[k] : progF[k]); }
+      else { carrier = awayCarrierAt(1 - xs[k]); }
+      const fl = Object.assign({ side: ev.side, x: mine ? xs[k] : 1 - xs[k] }, carrier ? carrier.flow : {});
+      items.push({ min: mm, kind: "build", delay: isB ? 480 : 760, flow: fl, text: isB ? (mine ? buildMyB(carrier || { p: { name: "队员" } }) : buildOpB) : (mine ? buildMyF[k](carrier || { p: { name: "队员" } }) : buildOpF[k]) });
+      lastFlow = fl;
     }
+    const fl = Object.assign({ side: ev.side, x: mine ? .93 : .07 }, carrier ? carrier.flow : {});
+    items.push({ ev, min: ev.min, delay: isB ? 820 : 1250, flow: fl }); lastFlow = fl;
+  };
+  for(const ev of evs){
+    if(ev.side === "my" || ev.side === "opp") mkGoalChain(ev);
+    else if(ev.side === "fill"){ items.push({ ev, min: ev.min, delay: 850, flow: Object.assign({}, lastFlow, { x: .45 }) }); }
+    else { items.push({ ev, min: ev.min, delay: 900, flow: Object.assign({}, lastFlow) }); }
   }
   const chMy = pois(lamMy * 0.9), chOpp = pois(lamOpp * 0.9);
-  const chanceMyF = [()=>`${nm(["WG","ST","FW"])} 禁区弧顶一脚远射，被门将稳稳抱住。`, ()=>`${nm(["WG","ST","FW"])} 头球攻门，稍稍偏出立柱。`, ()=>`${nm(["MF"])} 直塞打穿防线，临门一脚被后卫封堵。`];
-  const chanceOpF = ["对方禁区外远射，被门将飞身扑出。", "对方头球攻门，擦着立柱偏出。", "对方小禁区前抢点，球被后卫抢先解围。"];
-  const addChance = (mine, txt) => {
+  const addChance = (mine, txt, carrier) => {
     const mm = from + Math.random() * span;
-    items.push({ min: Math.max(from + 0.5, mm - span / 7), kind: "build", delay: isB ? 480 : 760, flow: { side: mine ? "my" : "opp", x: mine ? .55 : .45 }, text: isB ? (mine ? buildMyB() : buildOpB) : (mine ? buildMyF[1]() : buildOpF[1]) });
-    items.push({ min: mm, kind: "chance", delay: isB ? 750 : 1050, flow: { side: mine ? "my" : "opp", x: mine ? .85 : .15 }, text: txt });
+    const c1 = mine ? myCarrier(isB ? ["控卫","分卫","小前锋"] : ["MF"]) : awayCarrierAt(.48);
+    const fl1 = Object.assign({ side: mine ? "my" : "opp", x: mine ? .52 : .48 }, c1 ? c1.flow : {});
+    items.push({ min: Math.max(from + 0.5, mm - span / 8), kind: "build", delay: isB ? 480 : 760, flow: fl1, text: isB ? (mine ? buildMyB(c1 || { p: { name: "队员" } }) : buildOpB) : (mine ? buildMyF[1](c1 || { p: { name: "队员" } }) : buildOpF[1]) });
+    const fl2 = Object.assign({ side: mine ? "my" : "opp", x: mine ? .85 : .15 }, carrier ? carrier.flow : {});
+    items.push({ min: mm, kind: "chance", delay: isB ? 750 : 1050, flow: fl2, text: txt });
   };
-  for(let i = 0; i < chMy; i++) addChance(true, isB ? `${nm(["分卫","小前锋","大前锋"])} 迎着防守出手，弹框而出。` : chanceMyF[i % 3]());
-  for(let i = 0; i < chOpp; i++) addChance(false, isB ? "对方外线出手，打铁偏出。" : chanceOpF[i % 3]);
+  const chanceMyF = [c=>`${c.p.name} 禁区弧顶一脚远射，被门将稳稳抱住。`, c=>`${c.p.name} 头球攻门，稍稍偏出立柱。`, c=>`${c.p.name} 直塞打穿防线，临门一脚被后卫封堵。`];
+  const chanceOpF = ["对方禁区外远射，被门将飞身扑出。", "对方头球攻门，擦着立柱偏出。", "对方小禁区前抢点，球被后卫抢先解围。"];
+  for(let i = 0; i < chMy; i++){ const c = myCarrier(isB ? ["分卫","小前锋","大前锋"] : ["WG","ST","FW"]); addChance(true, isB ? `${(c ? c.p.name : "队员")} 迎着防守出手，弹框而出。` : chanceMyF[i % 3](c || { p: { name: "队员" } }), c); }
+  for(let i = 0; i < chOpp; i++){ const c = awayCarrierAt(.18); addChance(false, isB ? "对方外线出手，打铁偏出。" : chanceOpF[i % 3], c); }
   items.sort((a,b)=>a.min - b.min);
   return items;
 }
@@ -1708,7 +1727,7 @@ function matchAdvance(instant){
   let i = 0;
   const step = ()=>{ if(!LIVE || LIVE.settled) return;
     if(LIVE.paused){ return; }
-    if(i < script.length){ const it = script[i++]; applyItem(L, it); LIVE.timer = setTimeout(step, Math.max(50, (it.delay || 900) / LIVE.speed)); }
+    if(i < script.length){ const it = script[i++]; applyItem(L, it); const PACE = L.sportId === "basketball" ? 1.15 : 1.9; LIVE.timer = setTimeout(step, Math.max(50, (it.delay || 900) * PACE / LIVE.speed)); }
     else { finishSegment(false); } };
   L.kick = step;
   step();
@@ -1832,13 +1851,13 @@ function renderLiveBar(){
   const el = $("#liveBar"); if(!el || !LIVE) return;
   const tp = mock.state.tprof[LIVE.sportId]; if(!tp) return;
   el.innerHTML = `<div class="row" style="flex-wrap:wrap;gap:4px;align-items:center"><span class="hint" style="white-space:nowrap">临场</span>` +
-    MENTALITIES.map(m=>`<button class="mini ${tp.mentality === m.id ? "" : "ghost"}" onclick="liveSetMent('${m.id}')">${m.name}</button>`).join("") +
-    INSTRUCTIONS[LIVE.sportId].map(d=>`<button class="mini ${tp.instr && tp.instr[d.id] ? "" : "ghost"}" onclick="liveToggleInstr('${d.id}')">${d.name}</button>`).join("") +
+    MENTALITIES.map(m=>`<button class="mini ${tp.mentality === m.id ? "" : "ghost"}" ${tp.mentality === m.id ? 'style="background:#a83226;color:#fff;border-color:#a83226"' : ""} onclick="liveSetMent('${m.id}')">${m.name}</button>`).join("") +
+    INSTRUCTIONS[LIVE.sportId].map(d=>`<button class="mini ${tp.instr && tp.instr[d.id] ? "" : "ghost"}" ${tp.instr && tp.instr[d.id] ? 'style="background:#2e6b46;color:#fff;border-color:#2e6b46"' : ""} onclick="liveToggleInstr('${d.id}')">${d.name}</button>`).join("") +
     `<button class="mini ghost" onclick="liveSubs()">换人（剩 ${LIVE.subsLeft}）</button></div>
     <div class="hint" style="margin:2px 0 6px">临场调整从下个进攻回合起对后续攻势生效；换人会暂停比赛。</div>`;
 }
-function liveSetMent(id){ const L = LIVE; if(!L) return; mock.state.tprof[L.sportId].mentality = id; mock.save(); pushLine(L.minute, `临场变阵：改打「${(MENTALITIES.find(m=>m.id === id) || {}).name}」。`, "chance"); renderLiveBar(); }
-function liveToggleInstr(id){ const L = LIVE; if(!L) return; const tp = mock.state.tprof[L.sportId]; if(!tp.instr) tp.instr = {}; tp.instr[id] = !tp.instr[id]; mock.save(); const d = INSTRUCTIONS[L.sportId].find(x=>x.id === id); pushLine(L.minute, `临场指令：「${d ? d.name : id}」${tp.instr[id] ? "开启" : "关闭"}。`, "chance"); renderLiveBar(); }
+function liveSetMent(id){ const L = LIVE; if(!L) return; mock.state.tprof[L.sportId].mentality = id; mock.save(); pushLine(L.minute, `临场变阵：改打「${(MENTALITIES.find(m=>m.id === id) || {}).name}」。`, "chance"); renderLiveBar(); toast(`已改打「${(MENTALITIES.find(m=>m.id === id) || {}).name}」，下个回合生效`); }
+function liveToggleInstr(id){ const L = LIVE; if(!L) return; const tp = mock.state.tprof[L.sportId]; if(!tp.instr) tp.instr = {}; tp.instr[id] = !tp.instr[id]; mock.save(); const d = INSTRUCTIONS[L.sportId].find(x=>x.id === id); pushLine(L.minute, `临场指令：「${d ? d.name : id}」${tp.instr[id] ? "开启" : "关闭"}。`, "chance"); renderLiveBar(); toast(`指令「${d ? d.name : id}」已${tp.instr[id] ? "开启" : "关闭"}`); }
 function liveSubs(){ const L = LIVE; if(!L || L.settled) return; if(L.paused){ toast("先处理完当前事件再换人"); return; } if(L.subsLeft <= 0){ toast("换人名额用完了"); return; }
   SUB_LIVE = true; L.paused = true; htSubs($("#livePanel"));
   const p = $("#livePanel"); if(p) p.innerHTML += `<button style="width:100%;margin-top:6px" onclick="closeLivePanel()">完成换人 · 继续比赛</button>`; }
@@ -1914,19 +1933,29 @@ function pitchTick(){
       PD.lastMy = L.my; PD.lastOpp = L.oppScore;
     }
     if(PD.flow) PD.poss = PD.flow.side;
-    const shift = PD.poss === "my" ? .09 : -.09;
-    const move = (d, i, atk)=>{ const jx = Math.sin(PD.t * 1.7 + i * 1.93) * .008, jy = Math.cos(PD.t * 1.45 + i * 2.31) * .012;
-      const tx = Math.max(.03, Math.min(.97, d.bx + (atk ? shift : -shift * .7) + jx)), ty = Math.max(.06, Math.min(.94, d.by + jy));
-      d.x += (tx - d.x) * .06; d.y += (ty - d.y) * .06; };
-    PD.dots.forEach((d, i)=>move(d, i, PD.poss === "my"));
-    PD.away.forEach((d, i)=>move(d, i + 7, PD.poss === "opp"));
+    const fl = PD.flow, depth = fl ? (fl.side === "my" ? fl.x : 1 - fl.x) : .5;
+    const myShift = fl ? (fl.side === "my" ? (depth - .45) * .34 : -(depth - .45) * .18) : 0;
+    const awShift = fl ? (fl.side === "opp" ? -(depth - .45) * .34 : (depth - .45) * .18) : 0;
+    let carrierDot = null;
+    if(fl && fl.pid != null){ const idx = L.onPitch.findIndex(x=>x.pid === fl.pid); if(idx >= 0 && PD.dots[idx]) carrierDot = PD.dots[idx]; }
+    if(fl && fl.ai != null && PD.away[fl.ai]) carrierDot = PD.away[fl.ai];
+    const move = (d, i, shift)=>{ const edge = (d.bx < .12 || d.bx > .88) ? .25 : 1;
+      const jx = Math.sin(PD.t * 1.7 + i * 1.93) * .008, jy = Math.cos(PD.t * 1.45 + i * 2.31) * .012;
+      let tx = d.bx + shift * edge + jx, ty = d.by + jy + (PD.ball.y - .5) * .05;
+      if(d === carrierDot){ tx = fl.x; ty = fl.y != null ? fl.y : d.by; }
+      tx = Math.max(.03, Math.min(.97, tx)); ty = Math.max(.06, Math.min(.94, ty));
+      const rate = d === carrierDot ? .045 : .06;
+      d.x += (tx - d.x) * rate; d.y += (ty - d.y) * rate; };
+    PD.dots.forEach((d, i)=>move(d, i, myShift));
+    PD.away.forEach((d, i)=>move(d, i + 7, awShift));
     if(PD.flash && PD.t < PD.flash.until){ PD.ball.x += (PD.flash.x - PD.ball.x) * .16; PD.ball.y += (PD.flash.y - PD.ball.y) * .16; }
     else if(PD.kickoff > 0){ PD.kickoff -= 1 / 60; PD.ball.x += (.5 - PD.ball.x) * .1; PD.ball.y += (.5 - PD.ball.y) * .1; }
     else { PD.flash = null;
-      const team = PD.poss === "my" ? PD.dots : PD.away;
-      if(team.length){ const fx = PD.flow ? PD.flow.x : .5;
-        let c = team[0], best = 1e9; for(const d of team){ const dd = Math.abs(d.bx - fx); if(dd < best){ best = dd; c = d; } }
-        PD.ball.x += (c.x - PD.ball.x) * .07; PD.ball.y += (c.y - PD.ball.y) * .07; } }
+      if(carrierDot){ PD.ball.x += (carrierDot.x - PD.ball.x) * .3; PD.ball.y += (carrierDot.y - PD.ball.y) * .3; }
+      else { const team = PD.poss === "my" ? PD.dots : PD.away;
+        if(team.length){ const fx = fl ? fl.x : .5;
+          let c = team[0], best = 1e9; for(const d of team){ const dd = Math.abs(d.bx - fx); if(dd < best){ best = dd; c = d; } }
+          PD.ball.x += (c.x - PD.ball.x) * .07; PD.ball.y += (c.y - PD.ball.y) * .07; } } }
   }
   pitchDraw(ctx, W, H, L);
 }
