@@ -94,6 +94,7 @@
 .tk b{color:#a83226;margin-right:4px}
 .tk.goal{background:#fdf6e3;font-weight:600}
 .tk.oppgoal{background:#fbeeec}
+.tk.goal{background:#fdf6e3;font-weight:700}
 .tk.card{color:#8a6d1a}
 .tk.pen,.tk.chance{background:#eef5ee;font-weight:600}
 .tk.injury{background:#fbeeec;font-weight:600}
@@ -152,6 +153,7 @@
   <h2 data-no="01"><span class="eb">STAR LEAGUE</span>明星联赛 · 跨联赛对决</h2>
   <div class="card" id="leagueCard"></div>
   <div id="friendlySlot"></div>
+  <div id="tickerSlot"></div>
   <div id="finaleSlot"></div>
   <div id="dailySlot"></div>
   <div id="tableSlot"></div>
@@ -928,6 +930,52 @@ function claimLoanReturn(pid){
   delete mock.state.loansOut[pid]; mock.save();
   toast(`${p.name} 租借归队！练级有成，能力 +1`); render();
 }
+function previewHTML(sp, opp, dayN){
+  const venue = dayN % 2 === 1 ? "主场" : "客场";
+  const diff = (sp.opp()[opp] || 0) - teamPower();
+  const edge = diff >= 8 ? "对手占优（+" + diff + "）" : diff <= -8 ? "我方占优（" + diff + "）" : "势均力敌（" + (diff > 0 ? "+" : "") + diff + "）";
+  const myForm = (FORMATIONS[sp.id].find(f=>f.id === lineupOf(sp.id).formation) || FORMATIONS[sp.id][0]).name;
+  const oForm = oppFormOf(sp.id, opp, dayN).name;
+  const sk = skinOf();
+  const skinBtns = SKINS.map(x=>{ const locked = (mock.state.rep || 0) < x.need; const act = sk.id === x.id;
+    return `<button class="mini ${act ? "" : "ghost"}" onclick="setSkin('${x.id}')" title="${x.name}">${x.name}${locked ? " · 声望" + x.need : ""}</button>`; }).join(" ");
+  return `<canvas id="previewPitch" width="680" height="360" style="width:100%;display:block;border-radius:12px;margin:10px 0 4px"></canvas>
+  <div class="kv"><span>场地</span><b>${venue}作战</b></div>
+  <div class="kv"><span>预计阵型</span><b>我方 ${myForm} · 对手 ${oForm}</b></div>
+  <div class="kv"><span>实力对比</span><b>${edge}</b></div>
+  <div class="kv"><span>本场奖金</span><b>胜 80 · 平 30</b></div>
+  <div class="row" style="margin-top:6px;flex-wrap:wrap;gap:6px"><span class="hint" style="white-space:nowrap">球场皮肤</span><span style="display:flex;flex-wrap:wrap;gap:4px">${skinBtns}</span></div>`;
+}
+function drawPreviewPitch(){
+  const cv = document.querySelector("#previewPitch"); if(!cv) return;
+  const sp = curSport(), dayN = seasonDayN(), opp = sp.leagues()[(dayN - 1) % sp.leagues().length];
+  const ctx = cv.getContext("2d"), W = cv.width, H = cv.height, isB = sp.id === "basketball";
+  if(isB){ ctx.fillStyle = "#d9a45b"; ctx.fillRect(0, 0, W, H); ctx.fillStyle = "#c98f3d"; ctx.fillRect(0, H * .42, W, H * .16); }
+  else { const sk = skinOf(); const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, sk.c1); g.addColorStop(1, sk.c2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "rgba(255,255,255,.045)"; for(let i = 0; i < 6; i += 2) ctx.fillRect(W * i / 6, 0, W / 6, H); }
+  ctx.strokeStyle = "rgba(255,253,247,.75)"; ctx.lineWidth = 2;
+  ctx.strokeRect(14, 14, W - 28, H - 28);
+  ctx.beginPath(); ctx.moveTo(W / 2, 14); ctx.lineTo(W / 2, H - 14); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W / 2, H / 2, H * .16, 0, Math.PI * 2); ctx.stroke();
+  const myForm = FORMATIONS[sp.id].find(f=>f.id === lineupOf(sp.id).formation) || FORMATIONS[sp.id][0];
+  const oForm = oppFormOf(sp.id, opp, dayN);
+  const mine = pitchBasePos(sp.id, myForm.slots, false), away = pitchBasePos(sp.id, oForm.slots, true);
+  const dot = (d, fill)=>{ ctx.beginPath(); ctx.arc(d.bx * W, d.by * H, 9, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = "#fffdf7"; ctx.stroke(); };
+  away.forEach(d=>dot(d, "#2f5d8a")); mine.forEach(d=>dot(d, "#a83226"));
+  ctx.beginPath(); ctx.arc(W / 2, H / 2, 5.5, 0, Math.PI * 2); ctx.fillStyle = "#fffdf7"; ctx.fill(); ctx.lineWidth = 1.6; ctx.strokeStyle = "#23201a"; ctx.stroke();
+  ctx.fillStyle = "rgba(20,18,12,.82)"; ctx.beginPath(); ctx.roundRect(W / 2 - 34, 16, 68, 34, 9); ctx.fill();
+  ctx.fillStyle = "#fffdf7"; ctx.font = "700 18px sans-serif"; ctx.textAlign = "center"; ctx.fillText("VS", W / 2, 39);
+  ctx.font = "600 13px sans-serif"; ctx.textAlign = "left"; ctx.fillStyle = "rgba(255,253,247,.92)";
+  ctx.fillText("我方 " + myForm.name, 20, H - 16); ctx.textAlign = "right"; ctx.fillText(opp + " " + oForm.name, W - 20, H - 16);
+}
+function renderTickerCard(){
+  const el = document.querySelector("#tickerSlot"); if(!el) return;
+  const t = mock.state.lastTicker;
+  if(!t){ el.innerHTML = ""; return; }
+  el.innerHTML = `<div class="card"><div class="row"><div><span class="pname">战报</span><div class="pmeta">${t.friendly ? "友谊赛" : "第 " + t.dayN + " 轮"} · 对 ${t.opp} —— ${t.res} ${t.score}</div></div></div>
+  ${t.fundD ? `<div style="background:#f7e8c9;border-radius:8px;padding:6px 10px;margin:8px 0" class="pmeta">比赛奖金 <b>+${t.fundD} 资金</b> 已到账</div>` : ""}
+  <div>${t.lines.map(l=>`<div class="tk ${l.kind || ""}"><b>${l.min}′</b> ${l.text}</div>`).join("")}</div></div>`;
+}
 function renderFriendly(){
   const el = document.querySelector("#friendlySlot"); if(!el) return;
   ensureV2State();
@@ -1517,7 +1565,7 @@ function openLiveMatch(frTier){
   if(F.injury || Math.random() < injP) nodes.push({ type:"injury", at: 25 + Math.floor(Math.random() * (maxMin - 35)) });
   nodes.sort((a,b)=>a.at-b.at);
   if(frTier){ friendlyState().used += 1; mock.save(); }
-  LIVE = { sportId, dayN, opp, friendly: frTier || null, oppMent: oppMentalityFor(sportId, dayN, opp), seg: 0, minute: 0, my: 0, oppScore: 0,
+  LIVE = { sportId, dayN, opp, friendly: frTier || null, oppMent: oppMentalityFor(sportId, dayN, opp), oppForm: oppFormOf(sportId, opp, dayN), seg: 0, minute: 0, my: 0, oppScore: 0,
     lines: [], onPitch: clean.starters.map(x=>({ pid: x.pid, slot: x.slot, inMin: 0 })), bench: clean.rotation.slice(),
     subsLeft: 3, nodes, nodeIdx: 0, settled: false, timer: null, speed: 1, scorers: [], myGoals: 0,
     startMentality: mock.state.tprof[sportId].mentality, paused: false, playedMins: {} };
@@ -1710,6 +1758,20 @@ function htPickIn(pid){ const L = LIVE; if(!L || !HT_OUT){ toast("先点要换�
   pushLine(L.minute, `换人：${(findPlayer(HT_OUT) || {}).name || HT_OUT} 下，${(findPlayer(pid) || {}).name || pid} 上。`, "chance");
   if(typeof bumpDaily === "function") bumpDaily("sub", 1); HT_OUT = null; htDone(); }
 function matchSkip(){ const L = LIVE; if(!L || L.settled) return; if(L.timer) clearTimeout(L.timer); const wasHT = L.atHT; L.atHT = false; closeNode(); L.paused = false; if(wasHT) matchAdvance(true); else finishSegment(true); }
+/* ---------- 球场皮肤（纯外观，声望解锁；学 IdleFC 实机 Skins） ---------- */
+const SKINS = [
+  { id:"classic", name:"经典绿", need:0, c1:"#2e6b46", c2:"#256040" },
+  { id:"forest", name:"深林绿", need:50, c1:"#1d4d33", c2:"#173f29" },
+  { id:"night", name:"夜空蓝", need:150, c1:"#274b73", c2:"#1f3c5e" },
+  { id:"royal", name:"皇家草", need:300, c1:"#3f7a3a", c2:"#2f612c" },
+  { id:"sunset", name:"落日陶", need:500, c1:"#a35a33", c2:"#8a4826" },
+  { id:"steel", name:"钢灰", need:800, c1:"#5a6068", c2:"#474c53" }
+];
+function skinOf(){ const id = (mock.state && mock.state.skin) || "classic"; return SKINS.find(x=>x.id===id) || SKINS[0]; }
+function setSkin(id){ const sk = SKINS.find(x=>x.id===id); if(!sk) return; if((mock.state.rep || 0) < sk.need){ toast("声望到 " + sk.need + " 解锁「" + sk.name + "」"); return; } mock.state.skin = id; mock.save(); render(); }
+window.setSkin = setSkin;
+function oppFormOf(sportId, opp, dayN){ const fs = FORMATIONS[sportId]; let h = 0; const str = opp + "@" + dayN; for(let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0; return fs[h % fs.length]; }
+
 /* ---------- v14.1 2D 小点比赛可视化（纯表现层：事件流驱动，不动模拟引擎） ---------- */
 const PD = { dots: [], away: [], ball: { x: .5, y: .5 }, poss: "my", possT: 0, flash: null, lastMy: -1, lastOpp: -1, raf: 0, t: 0 };
 window.__PD = PD;
@@ -1734,7 +1796,7 @@ function pitchStart(){
   const L = LIVE; if(!L) return;
   const cv = $("#matchPitch"); if(!cv) return;
   const groups = L.onPitch.map(x=>{ const p = findPlayer(x.pid); return p ? slotGroupOf(p, L.sportId) : "MF"; });
-  const awayGroups = L.sportId === "basketball" ? ["控卫","分卫","小前锋","大前锋","中锋"] : ["GK","DF","DF","DF","DF","MF","MF","MF","WG","ST","ST"];
+  const awayGroups = (L.oppForm && L.oppForm.slots) ? L.oppForm.slots.slice() : (L.sportId === "basketball" ? ["控卫","分卫","小前锋","大前锋","中锋"] : ["GK","DF","DF","DF","DF","MF","MF","MF","WG","ST","ST"]);
   const awaySlot = L.sportId === "basketball" ? ["中锋","大前锋","小前锋","分卫","控卫"] : null;
   const mk = (arr, mirror)=>pitchBasePos(L.sportId, arr, mirror).map(b=>({ bx: b.bx, by: b.by, x: b.bx, y: b.by }));
   PD.dots = mk(groups, false);
@@ -1783,7 +1845,7 @@ function pitchDraw(ctx, W, H, L){
   const isB = L.sportId === "basketball";
   ctx.clearRect(0, 0, W, H);
   if(isB){ ctx.fillStyle = "#d9a45b"; ctx.fillRect(0, 0, W, H); ctx.fillStyle = "#c98f3d"; ctx.fillRect(0, H * .42, W, H * .16); }
-  else { const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#2e6b46"); g.addColorStop(1, "#256040"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  else { const sk = skinOf(); const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, sk.c1); g.addColorStop(1, sk.c2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = "rgba(255,255,255,.045)"; for(let i = 0; i < 6; i += 2) ctx.fillRect(W * i / 6, 0, W / 6, H); }
   ctx.strokeStyle = "rgba(255,253,247,.75)"; ctx.lineWidth = 2;
   ctx.strokeRect(14, 14, W - 28, H - 28);
@@ -1796,8 +1858,21 @@ function pitchDraw(ctx, W, H, L){
   PD.away.forEach(d=>dot(d, "#2f5d8a"));
   PD.dots.forEach(d=>dot(d, "#a83226"));
   ctx.beginPath(); ctx.arc(PD.ball.x * W, PD.ball.y * H, 5.5, 0, Math.PI * 2); ctx.fillStyle = "#fffdf7"; ctx.fill(); ctx.lineWidth = 1.6; ctx.strokeStyle = "#23201a"; ctx.stroke();
-  ctx.fillStyle = "rgba(255,253,247,.85)"; ctx.font = "600 17px sans-serif"; ctx.textAlign = "left";
-  ctx.fillText(L.sportId === "basketball" ? "🏀 2D 直播" : "⚽ 2D 直播", 22, 36);
+  ctx.fillStyle = "rgba(255,253,247,.85)"; ctx.font = "600 15px sans-serif"; ctx.textAlign = "left";
+  ctx.fillText(L.sportId === "basketball" ? "🏀" : "⚽", 22, 34);
+  // score pill + minute (IdleFC Matchday style)
+  const pillW = 118, pillX = W / 2 - pillW / 2, pillY = 16;
+  ctx.fillStyle = "rgba(20,18,12,.82)"; ctx.beginPath(); ctx.roundRect(pillX, pillY, pillW, 40, 10); ctx.fill();
+  ctx.fillStyle = "#fffdf7"; ctx.font = "700 21px sans-serif"; ctx.textAlign = "center";
+  ctx.fillText(L.my + " : " + L.oppScore, W / 2, pillY + 27);
+  ctx.font = "600 13px sans-serif"; ctx.fillStyle = "rgba(255,253,247,.92)";
+  ctx.fillText(L.settled ? "全场" : L.minute + "′", W / 2, pillY + 58);
+  // formation labels
+  ctx.font = "600 13px sans-serif"; ctx.textAlign = "left"; ctx.fillStyle = "rgba(255,253,247,.9)";
+  const myForm = (FORMATIONS[L.sportId].find(f=>f.id === (lineupOf(L.sportId).formation)) || FORMATIONS[L.sportId][0]).name;
+  ctx.fillText("我方 " + myForm, 20, H - 16);
+  ctx.textAlign = "right";
+  ctx.fillText(L.opp + " " + (L.oppForm ? L.oppForm.name : ""), W - 20, H - 16);
   if(L.paused && !L.settled){ ctx.textAlign = "right"; ctx.fillText("⏸ 已暂停", W - 22, 36); }
 }
 function matchToggleSpeed(){ const L = LIVE; if(!L) return; L.speed = L.speed === 1 ? 3 : 1; const b = $("#matchSpeed"); if(b) b.textContent = "倍速 ×" + L.speed; }
@@ -1841,6 +1916,7 @@ function settleMatch(){
     if(typeof applyTableResult === "function") applyTableResult(L.sportId, L.opp, L.my, L.oppScore);
   }
   if(typeof bumpDaily === "function"){ bumpDaily("goals", L.myGoals); if(res === "胜") bumpDaily("win", 1); }
+  s.lastTicker = { sportId: L.sportId, dayN: L.dayN, opp: L.opp, res, score: scoreTxt, fundD, friendly: isFr, lines: L.lines.slice(-10) };
   mock.save();
   const box = $("#matchNode");
   if(box) box.innerHTML = isFr
@@ -2163,7 +2239,7 @@ async function render(){
   const omL = oppMentalityFor(spL.id, dayN, opp), mentL = mentalityOf(spL.id), cdL = counterDelta(mentL.style, omL.style);
   const insNames = INSTRUCTIONS[spL.id].filter(d=>mock.state.tprof[spL.id].instr && mock.state.tprof[spL.id].instr[d.id]).map(d=>d.name).join("、") || "无";
   const metaL = mock.state.matchMeta && mock.state.matchMeta[spL.id + ":" + dayN];
-  lc.innerHTML = `<div class="vs"><div class="side"><div class="vnum">${teamPower()}</div><div class="vlab">${$("#clubName").textContent||"我方"} · 我方战力</div></div><div class="vmid">第 ${dayN} 轮<br>VS</div><div class="side"><div class="vnum" style="color:var(--bad)">${spL.opp()[opp]}</div><div class="vlab">${opp} · 对手强度</div></div></div>` +
+  lc.innerHTML = `<div class="vs"><div class="side"><div class="vnum">${teamPower()}</div><div class="vlab">${$("#clubName").textContent||"我方"} · 我方战力</div></div><div class="vmid">第 ${dayN} 轮<br>VS</div><div class="side"><div class="vnum" style="color:var(--bad)">${spL.opp()[opp]}</div><div class="vlab">${opp} · 对手强度</div></div></div>` + previewHTML(spL, opp, dayN) +
     (played ? `<div style="margin-top:10px"><span class="tag back">${played}</span> <span class="hint">本轮已赛，明天再战</span>${metaL ? `<div class="hint" style="margin-top:6px">复盘：进球 ${metaL.scorers && metaL.scorers.length ? metaL.scorers.join("、") : "—"} · 本方「${metaL.mentality}」对对手「${metaL.oppMentality}」</div>` : ""}</div>`
     : `<div class="hint" style="margin-top:8px">赛前情报：${opp} 偏「${omL.name}」打法（${omL.desc}）。我方「${mentL.name}」＋指令【${insNames}】${cdL > 0 ? "，风格克制对方（+" + cdL + "）" : cdL < 0 ? "，风格被对方克制（" + cdL + "），去阵容页换档还来得及" : ""}。</div><div style="margin-top:10px"><button id="playBtn" style="width:100%;padding:12px;font-size:15px">进入直播间 · 打这场</button></div>`)
     + (mock.state.log.length ? `<div class="hint">${mock.state.log.slice(-3).join("<br>")}</div>` : "");
@@ -2180,7 +2256,7 @@ async function render(){
   const sq=$("#squadList"); sq.innerHTML="";
   healCheck(); renderSquad(); renderTactics(); renderTable(); renderCoach(); renderDaily(); renderWheel();
   renderFinance(); renderFacility(); renderGuide(); renderOffline(h);
-  renderEvents(); renderScout(); renderLoanPending(); renderFriendly();
+  renderEvents(); renderScout(); renderLoanPending(); renderFriendly(); renderTickerCard(); drawPreviewPitch();
   if(!inShell) renderBoard();
   const hb=$("#heroBand");
   if(hb){ let dots=""; for(let d=1;d<=14;d++) dots+='<i class="'+(d<=dayN?"on":"")+'"></i>';
