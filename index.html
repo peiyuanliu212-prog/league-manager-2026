@@ -3523,7 +3523,7 @@ function simDriveStart(){
     if(L.paused || L.nodesPending) return;
     if(S.deadBall){ simOnDeadBall(); return; }
     if(!S.forceNode && L.forceQueue.length && S.tick > 40) S.forceNode = L.forceQueue.shift();
-    const per = (L.sportId === "basketball" ? 0.55 : 1) * (L.speed || 1);
+    const per = (L.sportId === "basketball" ? 0.44 : 1) * (L.speed || 1);
     L._acc = (L._acc || 0) + per;
     let n = Math.floor(L._acc); L._acc -= n;
     while(n-- > 0){ SIMCORE.stepSim(S); if(S.deadBall || S.over) break; }
