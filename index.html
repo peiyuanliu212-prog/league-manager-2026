@@ -1607,7 +1607,10 @@ function anchorsFor(sport, groups, side){
   const pos = [];
   const put = (gx, ys)=>{ for(const y of ys) pos.push({ x: side ? 100 - gx * 100 : gx * 100, y: y * 64 }); };
   if(sport === "basketball"){
-    put(.16, [.5]); put(.32, [.22, .78]); put(.50, [.36, .64]);
+    /* feet court 94x50, team frame attacking +x: [PG, SG, SF, PF, C] start spots */
+    const start = [{ x: 30, y: 25 }, { x: 38, y: 10 }, { x: 38, y: 40 }, { x: 27, y: 34 }, { x: 24, y: 16 }];
+    groups.forEach((g, i)=>{ const a = start[i] || { x: 30, y: 25 }; pos.push(side ? { x: BBW - a.x, y: a.y } : { x: a.x, y: a.y }); });
+    return pos;
   } else {
     const g = { GK: 0, DF: 0, MF: 0, WG: 0, ST: 0, FW: 0 };
     for(const k of groups) g[k] = (g[k] || 0) + 1;
@@ -1642,7 +1645,7 @@ function createSim(cfg){
     });
   };
   mk(cfg.myTeam, 0); mk(cfg.oppTeam, 1);
-  kickoff(S, 0);
+  if(sport === "basketball") bbInit(S); else kickoff(S, 0);
   return S;
 }
 function teamPlayers(S, side){ return S.players.filter(p=>p.side === side && !p.out); }
@@ -1658,6 +1661,7 @@ function setSimTactics(S, side, mentId, instr){
   if(mentId) S.ments[side] = mentId;
   if(instr) S.instrs[side] = instr;
   S.params[side] = deriveParams(S.sport, S.ments[side], S.instrs[side]);
+  if(S.sport === "basketball" && S.bbP){ S.bbP[side] = bbParams(S.ments[side], S.instrs[side]); if(S.bb) bbBuildMatchups(S); }
 }
 function simSubstitute(S, side, outPid, inn){
   const idx = S.players.findIndex(p=>p.side === side && p.pid === outPid && !p.out);
@@ -1670,7 +1674,7 @@ function simSubstitute(S, side, outPid, inn){
   return true;
 }
 /* ---------------- shared infra ---------------- */
-function emit(S, ev){ ev.tick = S.tick; ev.min = Math.floor(S.tick / S.totalTicks * (S.sport === "basketball" ? 48 : 90)); S.events.push(ev); return ev; }
+function emit(S, ev){ ev.tick = S.tick; ev.min = Math.floor(S.tick / S.totalTicks * (S.sport === "basketball" ? 40 : 90)); S.events.push(ev); return ev; }
 function nearestOppTo(S, p){ let b = null, bd = 1e18; for(const q of S.players){ if(q.side === p.side || q.out) continue; const d = dist2(q.x, q.y, p.x, p.y); if(d < bd){ bd = d; b = q; } } return b; }
 function nearestMate(S, p, pred){ let b = null, bd = 1e18; for(const q of S.players){ if(q.side !== p.side || q === p || q.out) continue; if(pred && !pred(q)) continue; const d = dist2(q.x, q.y, p.x, p.y); if(d < bd){ bd = d; b = q; } } return b; }
 function maxSpeed(p){ return (0.26 + p.skill.pace / 100 * 0.38) * (0.72 + 0.28 * p.stam) * (p.speedMul || 1); }
@@ -2013,118 +2017,493 @@ function decideCarrierBasketball(S, p, evs){
   p.tx = clamp(p.x + dir * 16, 2, 98); p.ty = clamp(ty, 4, 60); p.state = "dribble";
   p.cool = Math.round((C.decCool[0] + S.rng() * (C.decCool[1] - C.decCool[0])) * P.tempo * (1.15 - p.skill.decide / 100 * .3) * .6);
 }
+/* ================= BASKETBALL — possession state machine on the shared tick chassis =================
+   Court in feet, 94x50, full-court coordinates always. Team 0 attacks the right hoop (88.75,25), team 1 the left (5.25,25).
+   Attack frame: fx measured toward the hoop a team attacks (fx = x for team 0, 94 - x for team 1), fy = y.
+   Model (per docs/研究-篮球比赛模拟方案-20261111.md): TRANS -> SET (spacing + handler decisions) with PnR / Drive / Post
+   sub-states, shot flight with precomputed outcome from release context, box-out rebound contest, fouls -> FT nodes/auto FTs. */
+const BBW = 94, BBH = 50;
+function bbHoop(side){ return side === 0 ? { x: 88.75, y: 25 } : { x: 5.25, y: 25 }; }
+function bbToWorld(side, fx, fy){ return side === 0 ? { x: fx, y: fy } : { x: BBW - fx, y: fy }; }
+function bbFrameX(side, x){ return side === 0 ? x : BBW - x; }
+function bbParams(mentId, instr){
+  const table = {
+    vdef: { scheme: "zone", pace: .8,  threeT: .9,  inside: .9,  shrink: 1.35, pnrDef: "drop",   crash: .7,  pressFull: 0, pnrFreq: .3 },
+    def:  { scheme: "man",  pace: .9,  threeT: .95, inside: 1,   shrink: 1.15, pnrDef: "drop",   crash: .85, pressFull: 0, pnrFreq: .35 },
+    bal:  { scheme: "man",  pace: 1,   threeT: 1,   inside: 1,   shrink: 1,    pnrDef: "switch", crash: 1,   pressFull: 0, pnrFreq: .42 },
+    off:  { scheme: "man",  pace: 1.12, threeT: 1.15, inside: 1,  shrink: .9,   pnrDef: "hedge",  crash: 1.1, pressFull: 0, pnrFreq: .5 },
+    voff: { scheme: "man",  pace: 1.25, threeT: 1.25, inside: .95, shrink: .85, pnrDef: "hedge",  crash: 1.3, pressFull: 1, pnrFreq: .55 }
+  };
+  const P = Object.assign({}, table[mentId] || table.bal);
+  if(instr){
+    if(instr.fastbreak){ P.pace += .15; P.early = 1; }
+    if(instr.outside || instr.three) P.threeT *= 1.3;
+    if(instr.inside){ P.inside *= 1.35; P.threeT *= .8; }
+    if(instr.fullpress || instr.press) P.pressFull = 1;
+  }
+  return P;
+}
+function bbEmit(S, evs, ev){ ev.tick = S.tick; ev.min = Math.floor(S.tick / S.totalTicks * 40); evs.push(ev); S.events.push(ev); return ev; }
+function bbSpeed(p, kind){ const base = kind === "sprint" ? 3.5 : kind === "jog" ? 2.3 : 1.3; return base * (.8 + p.skill.pace / 100 * .35) * (.7 + .3 * p.stam); }
+function bbSteer(p, tx, ty, sp){
+  const dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy);
+  const v = sp * (d < 3 ? Math.max(.2, d / 3) : 1);
+  const dvx = d > .05 ? dx / d * v : 0, dvy = d > .05 ? dy / d * v : 0;
+  p.vx += clamp(dvx - p.vx, -.55, .55); p.vy += clamp(dvy - p.vy, -.55, .55);
+}
+function bbIntegrate(S){
+  for(const p of S.players){ if(p.out) continue; p.x += p.vx; p.y += p.vy; p.dist += Math.hypot(p.vx, p.vy); p.x = clamp(p.x, 1, BBW - 1); p.y = clamp(p.y, 1, BBH - 1); }
+  const ps = S.players;
+  for(let i = 0; i < ps.length; i++){ const a = ps[i]; if(a.out) continue;
+    for(let j = i + 1; j < ps.length; j++){ const b = ps[j]; if(b.out) continue;
+      const dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy;
+      if(d2 < 4.4 && d2 > .001){ const d = Math.sqrt(d2), push = (2.1 - d) * .3, ux = dx / d, uy = dy / d; a.x -= ux * push; a.y -= uy * push; b.x += ux * push; b.y += uy * push; } } }
+  for(const p of S.players){ if(p.out) continue; const drain = 9000 * (0.75 + (100 - p.skill.stam) / 100 * 0.5); p.stam = clamp(1 - p.dist / drain, .4, 1); }
+}
+function bbPickHandler(S, side){ let best = null, bs = -1; for(const p of teamPlayers(S, side)){ const sc = p.skill.ctrl + p.skill.pass + (p.group === "控卫" ? 14 : 0); if(sc > bs){ bs = sc; best = p; } } return best; }
+function bbBuildMatchups(S){
+  const B = S.bb, defSide = 1 - B.off, rank = { "中锋": 0, "大前锋": 1, "小前锋": 2, "分卫": 3, "控卫": 4 };
+  const defs = teamPlayers(S, defSide).slice().sort((a, b)=>(rank[a.group] || 2) - (rank[b.group] || 2));
+  const offs = teamPlayers(S, B.off).slice().sort((a, b)=>(rank[a.group] || 2) - (rank[b.group] || 2));
+  B.match = {};
+  defs.forEach((d, i)=>{ if(offs[i]) B.match[S.players.indexOf(d)] = S.players.indexOf(offs[i]); });
+}
+function bbInit(S){
+  S.bbP = [bbParams(S.ments[0], S.instrs[0]), bbParams(S.ments[1], S.instrs[1])];
+  S.bb = { off: 0, phase: "trans", clock: 60, tPhase: 0, handler: -1, lastPassBy: -1, lastPassTick: -99,
+    match: {}, pf: {}, teamF: [0, 0], penNodes: 0, duelUsed: false, act: null, flight: null, reb: null, pendingPost: -1,
+    stats: [0, 1].map(()=>({ poss: 0, fga: 0, fgm: 0, tpa: 0, tpm: 0, to: 0, stl: 0, blk: 0, orb: 0, drb: 0, pf: 0 })) };
+  bbDeadReset(S, 0);
+}
+function bbDeadReset(S, side){
+  const B = S.bb; B.off = side; B.phase = "trans"; B.tPhase = 0; B.clock = 60; B.act = null; B.flight = null; B.reb = null; B.pendingPost = -1; B.possStart = S.tick;
+  B.stats[side].poss++;
+  const off = teamPlayers(S, side), def = teamPlayers(S, 1 - side);
+  const osp = [{ fx: 15, fy: 25 }, { fx: 23, fy: 10 }, { fx: 23, fy: 40 }, { fx: 17, fy: 33 }, { fx: 17, fy: 17 }];
+  off.forEach((p, i)=>{ const w = bbToWorld(side, osp[i].fx, osp[i].fy); p.x = w.x; p.y = w.y; p.vx = 0; p.vy = 0; });
+  const dsp = [{ fx: 32, fy: 25 }, { fx: 42, fy: 12 }, { fx: 42, fy: 38 }, { fx: 36, fy: 32 }, { fx: 36, fy: 18 }];
+  def.forEach((p, i)=>{ const w = bbToWorld(side, dsp[i].fx, dsp[i].fy); p.x = w.x; p.y = w.y; p.vx = 0; p.vy = 0; });
+  const handler = bbPickHandler(S, side);
+  B.handler = S.players.indexOf(handler);
+  S.ball.owner = B.handler; S.ball.x = handler.x; S.ball.y = handler.y; S.ball.passTarget = null; S.ball.air = 0;
+  bbBuildMatchups(S);
+}
+function bbGainLive(S, side, how){
+  const B = S.bb; B.off = side; B.act = null; B.flight = null; B.reb = null; B.pendingPost = -1; B.tPhase = 0;
+  if(how === "orb"){ B.phase = "set"; B.clock = 35; }
+  else { B.phase = "trans"; B.clock = 60; B.stats[side].poss++; }
+  B.handler = S.ball.owner;
+  bbBuildMatchups(S);
+}
+function bbAfterNode(S){
+  const B = S.bb; if(!B) return;
+  B.act = null; B.flight = null; B.reb = null; B.tPhase = 0;
+  if(S.ball.owner != null){ const o = S.players[S.ball.owner]; B.off = o.side; B.handler = S.ball.owner; }
+  B.phase = "trans"; B.clock = 60; bbBuildMatchups(S);
+}
+function bbNearestDef(S, p, exclude){ let b = null, bd = 1e18; for(const q of S.players){ if(q.side === p.side || q.out || q === exclude) continue; const d = dist2(q.x, q.y, p.x, p.y); if(d < bd){ bd = d; b = q; } } return b ? { p: b, d: Math.sqrt(bd) } : { p: null, d: 99 }; }
+function bbIsThree(side, x, y){ const H = bbHoop(side), fx = bbFrameX(side, x); const d = Math.hypot(x - H.x, y - H.y); return d > 23.75 || (fx >= 79 && (y <= 7.5 || y >= 42.5)); }
+function bbZoneOf(side, x, y){ const H = bbHoop(side); const d = Math.hypot(x - H.x, y - H.y); if(bbIsThree(side, x, y)) return "three"; return d <= 7 ? "rim" : d <= 15 ? "close" : "mid"; }
+function bbContest(S, sh){
+  /* effective contest distance: a defender trailing BEHIND the shooter contests weakly */
+  const H = bbHoop(sh.side); let best = 99;
+  for(const q of S.players){ if(q.side === sh.side || q.out) continue; const d = Math.hypot(q.x - sh.x, q.y - sh.y);
+    const front = (q.x - sh.x) * (H.x - sh.x) + (q.y - sh.y) * (H.y - sh.y) > 0;
+    best = Math.min(best, front ? d : d + 4.5); }
+  return best;
+}
+function bbPMake(S, sh, zone, nd){
+  let base = zone === "rim" ? .60 : zone === "close" ? .47 : zone === "mid" ? .42 : .355;
+  let pm = base + (sh.skill.shoot - 82) * .0045;
+  if(nd >= 8) pm += .05; else if(nd >= 5.5) pm += .02; else if(nd >= 3.5) pm -= .01; else pm -= .07;
+  if(zone === "rim"){ const H = bbHoop(sh.side); for(const q of S.players){ if(q.side === sh.side || q.out || q === bbNearestDef(S, sh).p) continue; if(Math.hypot(q.x - H.x, q.y - H.y) < 4.5){ pm -= .04; break; } } }
+  return clamp(pm, .08, .88);
+}
+function bbAddPF(S, evs, p, shooter, zone){
+  const B = S.bb, idx = S.players.indexOf(p); B.pf[idx] = (B.pf[idx] || 0) + 1; B.teamF[p.side]++; B.stats[p.side].pf++;
+  if(B.pf[idx] >= 5 && !p.out){
+    if(p.side === 0){ S.deadBall = { type: "injury", side: 0, victimIdx: idx, pid: p.pid, foulOut: true }; return "node"; }
+    const bench = (S.bench[1] || []).shift();
+    if(bench){ simSubstitute(S, 1, p.pid, bench); bbEmit(S, evs, { type: "foulout", side: 1, p }); return "subbed"; }
+    p.out = true; return "out";
+  }
+  return "";
+}
+function bbFTAuto(S, evs, off, shooter, attempts){
+  const B = S.bb; let made = 0; const pFT = clamp(.62 + shooter.skill.shoot / 100 * .18, .5, .92);
+  for(let i = 0; i < attempts; i++) if(S.rng() < pFT) made++;
+  S.score[off] += made;
+  if(made) S.stats.scorers.push({ name: shooter.name, side: off, min: Math.floor(S.tick / S.totalTicks * 40), pts: made, ft: true });
+  bbEmit(S, evs, { type: "ft", side: off, p: shooter, made, n: attempts });
+  bbDeadReset(S, 1 - off);
+}
+function bbShoot(S, evs, sh, foulPOverride, contestAdj){
+  const B = S.bb, off = sh.side, H = bbHoop(off);
+  const zone = bbZoneOf(off, sh.x, sh.y), pts = zone === "three" ? 3 : 2;
+  const nd = bbNearestDef(S, sh); nd.eff = Math.max(.5, bbContest(S, sh) + (contestAdj || 0));
+  const st = B.stats[off]; st.fga++; if(zone === "three") st.tpa++;
+  /* block check: close defender in front */
+  let blocked = false, blocker = null;
+  if(nd.p && nd.d < 3.9){ const bp = (.06 + Math.max(0, nd.p.skill.tackle - 72) * .0035) * ((nd.p.group === "中锋" || nd.p.group === "大前锋") ? 1.7 : 1);
+    if(S.rng() < bp){ blocked = true; blocker = nd.p; B.stats[1 - off].blk++; } }
+  const make = !blocked && S.rng() < bbPMake(S, sh, zone, nd.eff);
+  /* shooting foul */
+  let foul = null;
+  if(!blocked && S.rng() < (foulPOverride != null ? foulPOverride : zone === "rim" ? .17 : zone === "close" ? .09 : zone === "mid" ? .045 : .035) * (S.bbP[1 - off].pressFull ? 1.25 : 1)) foul = nd.p;
+  B.flight = { kind: "shot", t: 0, dur: Math.round(7 + Math.hypot(sh.x - H.x, sh.y - H.y) * .22), sx: sh.x, sy: sh.y, hx: H.x, hy: H.y,
+    shooter: S.players.indexOf(sh), make, blocked, blocker: blocker ? S.players.indexOf(blocker) : -1, zone, pts, foul: foul ? S.players.indexOf(foul) : -1 };
+  S.ball.owner = null; S.ball.air = 0;
+  B.act = null;
+}
+function bbPass(S, evs, from, to){
+  const B = S.bb, d = Math.hypot(to.x - from.x, to.y - from.y);
+  B.flight = { kind: "pass", t: 0, dur: Math.max(2, Math.round(d / 22)), sx: from.x, sy: from.y, ex: to.x, ey: to.y, from: S.players.indexOf(from), to: S.players.indexOf(to), checked: {} };
+  S.ball.owner = null;
+  from.cool = 4;
+  /* anticipation: the receiver's own defender jumps the route */
+  { const rd = teamPlayers(S, 1 - from.side).map(q=>({ q, d: Math.hypot(q.x - to.x, q.y - to.y) })).sort((a, b)=>a.d - b.d)[0];
+    if(rd && rd.d < 6.5 && S.rng() < .075 + Math.max(0, rd.q.skill.tackle - 74) * .002) B.flight.stealBy = S.players.indexOf(rd.q); }
+  /* interception is judged on the passing lane (segment), not on sampled ball positions */
+  for(const q of S.players){ if(q.side === from.side || q.out) continue;
+    const tt = clamp(((q.x - from.x) * (to.x - from.x) + (q.y - from.y) * (to.y - from.y)) / Math.max(1, d * d), 0, 1);
+    const px = from.x + (to.x - from.x) * tt, py = from.y + (to.y - from.y) * tt;
+    if(Math.hypot(q.x - px, q.y - py) < 3.4 && tt > .15 && tt < .92){ B.flight.checked[S.players.indexOf(q)] = 1;
+      const sp = .26 + Math.max(0, q.skill.tackle - 74) * .004 + (S.bbP[q.side].pressFull ? .05 : 0);
+      if(S.rng() < sp){ B.flight.stealBy = S.players.indexOf(q); break; } } }
+  return bbEmit(S, evs, { type: "pass", side: from.side, from, to });
+}
+function bbStartDrive(S, h){ S.bb.act = { kind: "drive", p: S.players.indexOf(h), t: 0, stopped: 0 }; }
+function bbStartPnR(S, h){
+  const mates = teamPlayers(S, h.side).filter(q=>q !== h && (q.group === "中锋" || q.group === "大前锋"));
+  if(!mates.length) return false;
+  const scr = mates.sort((a, b)=>(b.skill.tackle + b.skill.pace) - (a.skill.tackle + a.skill.pace))[0];
+  S.bb.act = { kind: "pnr", p: S.players.indexOf(h), scr: S.players.indexOf(scr), t: 0, stage: 0, pop: scr.skill.shoot >= 84 && S.rng() < .5 };
+  return true;
+}
+function bbDecide(S, evs){
+  const B = S.bb, off = B.off, P = S.bbP[off], h = S.players[B.handler];
+  if(!h || h.out || S.ball.owner !== B.handler) return;
+  const H = bbHoop(off), dHoop = Math.hypot(h.x - H.x, h.y - H.y), nd = bbNearestDef(S, h);
+  const zone = bbZoneOf(off, h.x, h.y);
+  /* catch-and-shoot: the closeout arrives DURING the shot — contest is tighter than the snapshot suggests */
+  const cAdj = (h.catchTick != null && S.tick - h.catchTick < 10) ? -2.2 : 0;
+  const ev = bbPMake(S, h, zone, Math.max(.5, bbContest(S, h) + cAdj)) * (zone === "three" ? 3 : 2) * (zone === "three" ? P.threeT * .86 : 1);
+  h._cAdj = cAdj;
+  const forced = B.clock <= 12;
+  const thr = forced ? .5 : .88 - Math.max(0, 52 - B.clock) * .009;
+  const settle = h.noShootT > 0 && !forced && nd.d <= 8; /* just caught it: work the ball unless truly wide open */
+  /* a pull-up jumper is only a first resort when the look is genuinely clean (or the clock says so);
+     otherwise the offense must DEVELOP: pass, screen, drive — that is where passes and actions come from */
+  const cleanLook = zone === "rim" || zone === "close" || (zone === "mid" ? (nd.d > 5 || B.clock <= 16) : (nd.d > (h.skill.shoot >= 87 ? 6.5 : 8.5) || B.clock <= 20));
+  if((ev > thr && !settle && cleanLook) || (forced && dHoop < 30)){ bbShoot(S, evs, h, null, h._cAdj || 0); return; }
+  /* options */
+  const opts = [];
+  let laneDefs = 0; for(const q of S.players){ if(q.side === off || q.out) continue; const t = clamp(((q.x - h.x) * (H.x - h.x) + (q.y - h.y) * (H.y - h.y)) / Math.max(1, dHoop * dHoop), 0, 1); const px = h.x + (H.x - h.x) * t, py = h.y + (H.y - h.y) * t; if(Math.hypot(q.x - px, q.y - py) < 5.5) laneDefs++; }
+  const laneOpen = Math.max(0, 1 - laneDefs * .34);
+  if(dHoop < 34) opts.push({ k: "drive", w: laneOpen * (0.45 + h.skill.pace / 100 * .55) * P.inside * 2.35 * ((h.catchTick != null && S.tick - h.catchTick < 10 && nd.d > 3 && nd.d < 8.5) ? 1.5 : 1) });
+  if(dHoop > 15 && dHoop < 44 && B.clock > 18) opts.push({ k: "pnr", w: P.pnrFreq * 2.4 });
+  if(P.inside > 1.05){ const big = teamPlayers(S, off).find(q=>(q.group === "中锋" || q.group === "大前锋") && Math.hypot(q.x - H.x, q.y - H.y) < 16); if(big) opts.push({ k: "post", w: .9 * P.inside, big: S.players.indexOf(big) }); }
+  opts.push({ k: "pass", w: 1.05 });
+  let sum = 0; for(const o of opts) sum += o.w;
+  let r = S.rng() * sum, pick = opts[opts.length - 1];
+  for(const o of opts){ r -= o.w; if(r <= 0){ pick = o; break; } }
+  if(pick.k === "drive"){ bbStartDrive(S, h); return; }
+  if(pick.k === "pnr" && bbStartPnR(S, h)) return;
+  if(pick.k === "post"){ const big = S.players[pick.big]; B.pendingPost = pick.big; bbPass(S, evs, h, big); return; }
+  /* swing pass: best openness + advance + cutter bonus */
+  let best = null, bs = -1;
+  for(const q of teamPlayers(S, off)){ if(q === h) continue; const oq = bbNearestDef(S, q).d; const adv = bbFrameX(off, q.x) / 94; let sc = oq * 1.15 + adv * 7 + (q.cutT > 0 ? 9 : 0) + S.rng() * 2.5;
+    if(q.group === "中锋" || q.group === "大前锋") sc -= 2; if(sc > bs){ bs = sc; best = q; } }
+  if(best) bbPass(S, evs, h, best);
+}
+function bbSpots(S, off){
+  /* set-offense spacing template in attack frame; returns Map idx -> {fx, fy} for non-handler offense */
+  const B = S.bb, h = S.players[B.handler];
+  const bs = h && h.y <= 25 ? -1 : 1;
+  const cand = {
+    "中锋": [[85.5, 25 + 6.5 * bs], [90, 25 - 11 * bs], [75, 25 + 8 * bs], [84, 25 + 14 * bs]],
+    "大前锋": [[75, 25 - 8 * bs], [84, 25 + 14 * bs], [90, 25 - 22 * bs], [75, 25 + 8 * bs]],
+    "小前锋": [[90, 25 + 22 * bs], [72, 25 - 18 * bs], [90, 25 - 22 * bs], [72, 25 + 18 * bs]],
+    "分卫": [[72, 25 + 18 * bs], [90, 25 - 22 * bs], [65, 25], [90, 25 + 22 * bs]],
+    "控卫": [[65, 25], [72, 25 - 18 * bs], [72, 25 + 18 * bs]]
+  };
+  const taken = [], out = new Map();
+  const order = teamPlayers(S, off).filter(p=>S.players.indexOf(p) !== B.handler)
+    .sort((a, b)=>({ "中锋": 0, "大前锋": 1, "小前锋": 2, "分卫": 3, "控卫": 4 }[a.group] || 2) - ({ "中锋": 0, "大前锋": 1, "小前锋": 2, "分卫": 3, "控卫": 4 }[b.group] || 2));
+  for(const p of order){
+    const list = cand[p.group] || cand["小前锋"];
+    let spot = list[list.length - 1];
+    for(const c of list){ if(!taken.some(t=>Math.hypot(t[0] - c[0], t[1] - c[1]) < 5)){ spot = c; break; } }
+    taken.push(spot); out.set(S.players.indexOf(p), { fx: spot[0], fy: spot[1] });
+  }
+  return out;
+}
+function bbZoneAnchors(S, defSide, ball){
+  /* 2-3 zone anchors in the OFFENSE attack frame (hoop the defense protects is at frame right) */
+  const off = 1 - defSide;
+  const shiftY = clamp((ball.y - 25) * .3, -6, 6), deep = bbFrameX(off, ball.x) > 74 ? -2.5 : 0;
+  const a = [[74, 17], [74, 33], [85 + deep, 7], [85 + deep, 43], [87 + deep, 25]];
+  return teamPlayers(S, defSide).map((p, i)=>{ const w = bbToWorld(off, a[i][0], clamp(a[i][1] + shiftY, 3, 47)); return { p, x: w.x, y: w.y }; });
+}
 function stepBasketball(S, evs){
-  const C = S.C, owner = ballOwner(S);
-  if(owner) S.stats.poss[owner.side]++;
-  if(S.ball.noSteal > 0) S.ball.noSteal--;
-  for(const p of S.players){ if(p.cool > 0) p.cool--; if(p.tackCool > 0) p.tackCool--; }
-  if(S.celebrate > 0){ S.celebrate--; for(const p of S.players){ const a = anchorTarget(S, p); steer(p, a.x, a.y, .4); } integrate(S); return; }
-  const carrier = owner;
-  let supporter = null, spot = null, cutter = null;
-  if(carrier){ spot = supportSpotFor(S, carrier); let bd = 1e18; for(const t of teamPlayers(S, carrier.side)){ if(t === carrier) continue; const d = dist2(t.x, t.y, spot.x, spot.y); if(d < bd){ bd = d; supporter = t; } }
-    const dirC = carrier.side ? -1 : 1;
-    if((S.ball.x - 50) * dirC > -18){ let cs = -1; for(const t of teamPlayers(S, carrier.side)){ if(t === carrier || t === supporter) continue; const sc = t.skill.shoot + t.skill.pace; if(sc > cs){ cs = sc; cutter = t; } } } }
+  const B = S.bb; if(!B) return;
+  const off = B.off, P = S.bbP[off], DP = S.bbP[1 - off];
+  const H = bbHoop(off);
+  for(const p of S.players){ if(p.cool > 0) p.cool--; if(p.cutT > 0) p.cutT--; if(p.noShootT > 0) p.noShootT--; }
+  B.tPhase++;
+  /* forced nodes (tests / product hooks) */
+  if(S.forceNode && S.tick > 60 && !B.flight && B.phase === "set"){
+    /* forceNode items are {type} objects (same shape the football triggerForce consumes);
+       only consume when the branch's precondition actually holds — never eat a force silently */
+    const kind = S.forceNode.type;
+    if(kind === "duel" && off === 1 && !B.duelUsed){ const c = S.players[B.handler]; const d = c && bbNearestDef(S, c).p;
+      if(c && d){ S.forceNode = null; B.duelUsed = true; S.deadBall = { type: "duel", carrierIdx: B.handler, defenderIdx: S.players.indexOf(d) }; return; } }
+    if(kind === "penFor"){ S.forceNode = null; const t = teamPlayers(S, 0).sort((a, b)=>b.skill.shoot - a.skill.shoot)[0]; B.penNodes++; S.deadBall = { type: "pen", side: 0, takerIdx: S.players.indexOf(t), pts: 2 }; return; }
+    if(kind === "penAgainst"){ S.forceNode = null; const t = teamPlayers(S, 1).sort((a, b)=>b.skill.shoot - a.skill.shoot)[0]; B.penNodes++; S.deadBall = { type: "pen", side: 1, takerIdx: S.players.indexOf(t), pts: 2 }; return; }
+    if(kind === "injury"){ S.forceNode = null; const v = teamPlayers(S, 0)[2] || teamPlayers(S, 0)[0]; S.deadBall = { type: "injury", side: 0, victimIdx: S.players.indexOf(v), pid: v.pid }; return; }
+  }
+  /* shot clock */
+  if(!B.flight && B.phase !== "reb"){ B.clock--; if(B.clock <= 0){ B.stats[off].to++; bbEmit(S, evs, { type: "violation", side: off, p: S.players[B.handler] }); bbDeadReset(S, 1 - off); return; } }
+  const handler = S.players[B.handler];
+  /* ---------- phase logic ---------- */
+  if(B.flight){
+    const F = B.flight; F.t++;
+    const pr = Math.min(1, F.t / F.dur);
+    if(F.kind === "pass"){
+      S.ball.x = F.sx + (S.players[F.to].x - F.sx) * pr; S.ball.y = F.sy + (S.players[F.to].y - F.sy) * pr; S.ball.air = 0;
+      if(F.stealBy != null && pr >= .55){ const q = S.players[F.stealBy]; B.stats[1 - off].stl++; B.stats[off].to++; bbEmit(S, evs, { type: "steal", side: 1 - off, p: q, victim: S.players[F.from] });
+        S.ball.owner = F.stealBy; S.ball.x = q.x; S.ball.y = q.y; B.flight = null; bbGainLive(S, 1 - off, "live"); return bbMoveAll(S, evs); }
+      if(pr >= 1){ const to = S.players[F.to]; S.ball.owner = F.to; S.ball.x = to.x; S.ball.y = to.y; B.lastPassBy = F.from; B.lastPassTick = S.tick; B.flight = null;
+        B.handler = F.to; to.cool = 1; to.noShootT = 6; to.catchTick = S.tick;
+        if(B.pendingPost === F.to){ B.pendingPost = -1; B.act = { kind: "post", p: F.to, t: 0 }; }
+        else if(Math.hypot(to.x - H.x, to.y - H.y) < 9 && to.cutT > 0){ bbShoot(S, evs, to); }
+        if(B.pendingRoll === F.to) B.pendingRoll = -1;
+      }
+    } else { /* shot flight */
+      S.ball.x = F.sx + (F.hx - F.sx) * pr; S.ball.y = F.sy + (F.hy - F.sy) * pr; S.ball.air = Math.sin(Math.PI * pr);
+      if(pr >= 1){ S.ball.air = 0; const sh = S.players[F.shooter]; B.flight = null;
+        if(F.blocked){ const bl = S.players[F.blocker]; bbEmit(S, evs, { type: "block", side: 1 - off, p: bl, on: sh });
+          B.phase = "reb"; B.reb = { x: sh.x + (S.rng() * 8 - 4), y: sh.y + (S.rng() * 8 - 4), t: 0, dur: 6, offSide: off }; }
+        else if(F.make){ S.score[off] += F.pts; B.stats[off].fgm++; if(F.pts === 3) B.stats[off].tpm++;
+          if(B.lastPassBy >= 0 && B.lastPassTick >= (B.possStart || 0) && S.tick - B.lastPassTick <= 44 && B.lastPassBy !== F.shooter) B.stats[off].ast = (B.stats[off].ast || 0) + 1;
+          bbEmit(S, evs, { type: "goal", side: off, p: sh, pts: F.pts, zone: F.zone });
+          S.stats.scorers.push({ name: sh.name, side: off, min: Math.floor(S.tick / S.totalTicks * 40), pts: F.pts });
+          if(F.foul >= 0){ const fp = S.players[F.foul]; const r = bbAddPF(S, evs, fp, sh, F.zone);
+            if(r === "node"){ S.deadBall.then = { type: "pen", side: off, pts: 1 }; return; }
+            bbFTAuto(S, evs, off, sh, 1); return; }
+          bbDeadReset(S, 1 - off); return; }
+        else { bbEmit(S, evs, { type: "shot_miss", side: off, p: sh, zone: F.zone });
+          if(F.foul >= 0){ const fp = S.players[F.foul];
+            const attempts = F.pts;
+            const r = bbAddPF(S, evs, fp, sh, F.zone);
+            if(r === "node"){ S.deadBall.then = { type: "pen", side: off, pts: attempts }; return; }
+            if(B.penNodes < 3 && !S.noNode){ B.penNodes++; S.deadBall = { type: "pen", side: off, takerIdx: F.shooter, pts: attempts }; B.phase = "dead"; return; }
+            bbFTAuto(S, evs, off, sh, attempts); return; }
+          /* rebound spot: long shots bounce long */
+          const dShot = Math.hypot(F.sx - F.hx, F.sy - F.hy);
+          const bx = F.hx + (F.sx - F.hx) / Math.max(1, dShot) * (2 + S.rng() * (dShot > 20 ? 7 : 3.5));
+          const by = F.hy + (F.sy - F.hy) / Math.max(1, dShot) * (2 + S.rng() * 3) + (S.rng() * 6 - 3);
+          B.phase = "reb"; B.reb = { x: clamp(bx, 2, 92), y: clamp(by, 2, 48), t: 0, dur: 7, offSide: off };
+        }
+      }
+    }
+  }
+  else if(B.phase === "reb" && B.reb){
+    const R = B.reb; R.t++;
+    if(R.t >= R.dur){
+      let best = null, bs = -1;
+      for(const q of S.players){ if(q.out) continue; const d = Math.hypot(q.x - R.x, q.y - R.y);
+        const gMul = q.group === "中锋" ? 1.35 : q.group === "大前锋" ? 1.18 : q.group === "小前锋" ? 1 : .82;
+        let w = gMul * (.55 + q.skill.tackle / 100 * .6) * clamp(1.7 - d / 13, .12, 1.7);
+        if(q.side === R.offSide) w *= S.bbP[R.offSide].crash * .95; else w *= 1.07;
+        w *= .55 + S.rng() * .9;
+        if(w > bs){ bs = w; best = q; } }
+      S.ball.owner = S.players.indexOf(best); S.ball.x = best.x; S.ball.y = best.y; B.reb = null;
+      const isOff = best.side === R.offSide;
+      if(isOff) B.stats[R.offSide].orb++; else B.stats[R.offSide].drb++;
+      bbEmit(S, evs, { type: "reb", side: best.side, p: best, off: isOff });
+      if(isOff){ B.handler = S.ball.owner; B.phase = "set"; B.clock = 35; B.tPhase = 0;
+        if(Math.hypot(best.x - H.x, best.y - H.y) < 7.5 && (best.group === "中锋" || best.group === "大前锋") && S.rng() < .45) bbShoot(S, evs, best);
+      } else bbGainLive(S, best.side, "live");
+      return bbMoveAll(S, evs);
+    }
+  }
+  else if(B.act){
+    const A = B.act, A2 = S.players[A.p]; A.t++;
+    if(A.kind === "drive"){
+      const hd = Math.hypot(A2.x - H.x, A2.y - H.y);
+      const nd = bbNearestDef(S, A2);
+      if(A.t >= 3 && A.t <= 10 && nd.p && S.rng() < .03){ /* blocking foul on the drive: offense keeps the ball, fresh clock */
+        const r = bbAddPF(S, evs, nd.p, A2, "close"); bbEmit(S, evs, { type: "foul", side: nd.p.side, p: nd.p, victim: A2 });
+        if(r === "node"){ S.deadBall.then = null; return; }
+        B.act = null; B.clock = Math.max(B.clock, 35); A2.cool = 4; return bbMoveAll(S, evs); }
+      if(nd.p && nd.d < 2.3 && Math.hypot(nd.p.x - H.x, nd.p.y - H.y) < hd) A.stopped++;
+      if(hd < 7 || A.t > 16){ /* finish: rim shot, or kick if help fully committed */
+        const helper = A.helper != null ? S.players[A.helper] : null;
+        if(helper && Math.hypot(helper.x - H.x, helper.y - H.y) < 5.5 && A.t <= 16){
+          const open = teamPlayers(S, off).find(q=>S.players.indexOf(q) === A.helperMan);
+          if(open && bbNearestDef(S, open).d > 6){ B.act = null; bbPass(S, evs, A2, open); return bbMoveAll(S, evs); } }
+        B.act = null; bbShoot(S, evs, A2); return bbMoveAll(S, evs); }
+      if(A.stopped >= 3){ B.act = null; A2.cool = 5;
+        if(nd.p && S.rng() < .25){ B.stats[1 - off].stl++; B.stats[off].to++; bbEmit(S, evs, { type: "steal", side: 1 - off, p: nd.p, victim: A2 });
+          S.ball.owner = S.players.indexOf(nd.p); S.ball.x = nd.p.x; S.ball.y = nd.p.y; bbGainLive(S, 1 - off, "live"); return; } }
+    }
+    else if(A.kind === "pnr"){
+      const scr = S.players[A.scr], hd = S.players[A.p];
+      if(A.stage === 0 && (Math.hypot(scr.x - A.sx, scr.y - A.sy) < 2 || A.t > 8)){ A.stage = 1; A.t = 0; }
+      else if(A.stage === 1 && A.t >= 5){
+        const myDef = bbNearestDef(S, hd);
+        const lane = Math.hypot(hd.x - H.x, hd.y - H.y);
+        B.act = null;
+        if(myDef.d > 6.5 && lane > 19){ bbShoot(S, evs, hd); }
+        else if(DP.pnrDef !== "switch" && S.rng() < .62){ B.pendingRoll = A.scr; bbPass(S, evs, hd, scr); }
+        else if(lane <= 19){ bbStartDrive(S, hd); }
+        else { hd.cool = 4; }
+        return bbMoveAll(S, evs); }
+    }
+    else if(A.kind === "post"){
+      if(A.t >= 7){ const post = A2; B.act = null;
+        const nd = bbNearestDef(S, post);
+        if(nd.d < 3 && S.rng() < .4){ const open = teamPlayers(S, off).filter(q=>q !== post).sort((a, b)=>bbNearestDef(S, b).d - bbNearestDef(S, a).d)[0]; if(open) bbPass(S, evs, post, open); }
+        else bbShoot(S, evs, post);
+        return bbMoveAll(S, evs); }
+    }
+  }
+  else if(B.phase === "trans"){
+    if(DP.pressFull && handler){ const nd = bbNearestDef(S, handler);
+      if(nd.p && nd.d < 3 && S.rng() < .0025){ bbAddPF(S, evs, nd.p, handler, "close"); bbEmit(S, evs, { type: "foul", side: nd.p.side, p: nd.p, victim: handler }); B.clock = Math.max(B.clock, 40); } }
+    if(handler && bbFrameX(off, handler.x) > 48 && B.tPhase > 5){ B.phase = "set"; B.tPhase = 0; }
+    if(B.tPhase > 30) B.phase = "set";
+    /* fastbreak finish: numbers advantage + open lane */
+    if(handler && B.tPhase >= 6 && B.tPhase <= 26 && !B.act){
+      let defsBack = 0; for(const q of S.players){ if(q.side === off || q.out) continue; if(bbFrameX(off, q.x) > 55) defsBack++; }
+      if(defsBack <= 2 && bbFrameX(off, handler.x) > 46 && S.rng() < .3) bbStartDrive(S, handler);
+    }
+  }
+  else if(B.phase === "set"){
+    if(handler && S.ball.owner === B.handler){ const nd = bbNearestDef(S, handler);
+      if(nd.p && nd.d < 3){ B.pressureT = (B.pressureT || 0) + 1;
+        if(B.pressureT > 14 && S.rng() < .05){ B.pressureT = 0; B.stats[off].to++; bbEmit(S, evs, { type: "to", side: off, p: handler }); bbDeadReset(S, 1 - off); return; } }
+      else B.pressureT = 0; }
+    if(handler && handler.cool <= 0 && S.ball.owner === B.handler) bbDecide(S, evs);
+    /* off-ball cut: defender ball-watching on the weak side */
+    if(S.tick % 7 === 0){ for(const q of teamPlayers(S, off)){ if(S.players.indexOf(q) === B.handler || q.group === "中锋") continue;
+      const d = bbNearestDef(S, q).d; const weakSide = (q.y - 25) * (handler.y - 25) < 0;
+      if(weakSide && d > 8 && S.rng() < .16) q.cutT = 11; } }
+  }
+  bbMoveAll(S, evs);
+}
+function bbMoveAll(S, evs){
+  const B = S.bb, off = B.off, P = S.bbP[off], DP = S.bbP[1 - off], H = bbHoop(off);
+  const handler = S.players[B.handler];
+  const spots = (B.phase === "set" && !B.flight) ? bbSpots(S, off) : null;
+  /* precompute drive helper */
+  if(B.act && B.act.kind === "drive" && B.act.helper == null){
+    const drv = S.players[B.act.p]; let bd = 1e18, bh = null, bm = null;
+    for(const q of S.players){ if(q.side === off || q.out) continue; if(bbNearestDef(S, drv).p === q) continue;
+      const man = B.match[S.players.indexOf(q)]; const d = dist2(q.x, q.y, H.x, H.y); if(d < bd){ bd = d; bh = q; bm = man; } }
+    if(bh){ B.act.helper = S.players.indexOf(bh); B.act.helperMan = bm; }
+  }
   for(const p of S.players){
     if(p.out) continue;
-    if(carrier === p){ p.state = "hasball"; continue; }
-    if(carrier && carrier.side === p.side){
-      if(p === cutter){ const dirC = carrier.side ? -1 : 1; p.tx = clamp((carrier.side ? 1.5 : 98.5) - dirC * 13, 3, 97); p.ty = clamp(32 + (p.home.y < 32 ? -10 : 10), 5, 59); p.state = "cut"; }
-      else if(p === supporter && spot){ p.tx = spot.x; p.ty = spot.y; p.state = "support"; }
-      else { const a = anchorTarget(S, p); p.tx = a.x; p.ty = a.y; p.state = "hold"; }
-    } else if(carrier){
-      const P = S.params[p.side];
-      const defs = teamPlayers(S, p.side).sort((a, b)=>dist2(a.x, a.y, carrier.x, carrier.y) - dist2(b.x, b.y, carrier.x, carrier.y));
-      const pressers = defs.slice(0, 1 + P.press);
-      if(pressers.includes(p)){ p.tx = carrier.x + carrier.vx * 3; p.ty = carrier.y + carrier.vy * 3; p.state = "press"; }
-      else { let man = null, md = 22 * 22; for(const q of teamPlayers(S, carrier.side)){ if(q === carrier) continue; const d = dist2(q.x, q.y, p.x, p.y); if(d < md){ md = d; man = q; } }
-        if(man){ const hx = p.side ? 1.5 : 98.5; p.tx = man.x + (hx - man.x) * .14; p.ty = man.y; p.state = "mark"; }
-        else { const a = anchorTarget(S, p); p.tx = a.x; p.ty = a.y; p.state = "hold"; } }
-    } else {
-      const mine = teamPlayers(S, p.side).sort((a, b)=>dist2(a.x, a.y, S.ball.x, S.ball.y) - dist2(b.x, b.y, S.ball.x, S.ball.y))[0];
-      if(p === mine){ p.tx = S.ball.x + S.ball.vx * 3; p.ty = S.ball.y + S.ball.vy * 3; p.state = "chase"; }
-      else { const a = anchorTarget(S, p); p.tx = a.x; p.ty = a.y; p.state = "hold"; }
+    const idx = S.players.indexOf(p);
+    let tx, ty, sp = "jog";
+    if(B.flight){
+      /* during flights: offense holds spots / crashes, defense recovers to scheme */
+      if(p.side === off && B.pendingRoll === idx){ tx = H.x; ty = H.y; sp = "sprint"; }
+      else if(p.side === off){ const s = spots ? spots.get(idx) : null; if(s){ const w = bbToWorld(off, s.fx, s.fy); tx = w.x; ty = w.y; } else { tx = p.x; ty = p.y; } sp = "walk"; }
+      else if(B.flight.kind === "shot"){ /* box out: stay rim-side of your man while the shot is in the air */
+        const man = B.match[idx] != null ? S.players[B.match[idx]] : null;
+        if(man){ tx = H.x + (man.x - H.x) * .42; ty = H.y + (man.y - H.y) * .42; } else { tx = H.x; ty = H.y; } sp = "sprint"; }
+      else { const t = bbDefTarget(S, p, idx); tx = t.x; ty = t.y; sp = "jog"; }
     }
-  }
-  if(carrier && carrier.cool <= 0) decideCarrierBasketball(S, carrier, evs);
-  /* steals */
-  const cur = ballOwner(S);
-  if(cur){
-    for(const d of teamPlayers(S, 1 - cur.side)){
-      if(d.tackCool > 0) continue;
-      if(Math.hypot(d.x - cur.x, d.y - cur.y) < C.tackleR){
-        d.tackCool = 40;
-        const pSteal = C.stealP + (d.skill.tackle - cur.skill.ctrl) * .006;
-        if(S.rng() < pSteal){ S.ball.owner = S.players.indexOf(d); d.cool = 10; evs.push(emit(S, { type: "steal", side: d.side, p: d, victim: cur })); }
-        else if(S.rng() < C.foulP * 2){
-          evs.push(emit(S, { type: "foul", side: d.side, p: d, victim: cur }));
-          const dHoop = Math.hypot((cur.side ? 1.5 : 98.5) - cur.x, 32 - cur.y);
-          if(dHoop < 22){ S.deadBall = { type: "pen", side: cur.side, takerIdx: S.players.indexOf(cur) }; return; }
-          foulRestart(S, cur.side, cur.x, cur.y);
-        }
-        break;
+    else if(B.phase === "reb" && B.reb){
+      const R = B.reb; const chase = p.group === "中锋" || p.group === "大前锋" || Math.hypot(p.x - R.x, p.y - R.y) < 15;
+      tx = chase ? R.x : p.x; ty = chase ? R.y : p.y; sp = "sprint";
+    }
+    else if(p.side === off){
+      /* offense */
+      if(idx === B.handler){
+        if(B.act && B.act.kind === "drive"){ tx = H.x; ty = H.y; sp = "sprint"; }
+        else if(B.act && B.act.kind === "pnr"){ const A = B.act;
+          if(A.stage === 0){ tx = p.x; ty = p.y; sp = "walk"; }
+          else { const scr = S.players[A.scr]; tx = scr.x + (H.x - scr.x) * .24; ty = scr.y + (H.y - scr.y) * .24; sp = "sprint"; } }
+        else if(B.act && B.act.kind === "post"){ tx = p.x; ty = p.y; }
+        else if(B.phase === "trans"){ const w = bbToWorld(off, 58, 25 + (p.y - 25) * .3); tx = w.x; ty = w.y; sp = "jog"; }
+        else { tx = p.x; ty = p.y; sp = "walk"; }
       }
+      else if(B.act && B.act.kind === "pnr" && idx === B.act.scr){
+        const A = B.act, hd = S.players[A.p], dfn = bbNearestDef(S, hd).p;
+        if(A.stage === 0){ const gx = dfn ? dfn.x : hd.x, gy = dfn ? dfn.y : hd.y;
+          A.sx = hd.x + (gx - hd.x) * .55; A.sy = hd.y + (gy - hd.y) * .55; tx = A.sx; ty = A.sy; sp = "jog"; }
+        else if(A.pop){ const w = bbToWorld(off, 72, p.y <= 25 ? 12 : 38); tx = w.x; ty = w.y; sp = "jog"; }
+        else { tx = H.x + (p.y - 25) * .1; ty = H.y + (p.y - 25) * .35; sp = "sprint"; }
+      }
+      else if(B.pendingRoll === idx){ tx = H.x; ty = H.y; sp = "sprint"; if(Math.hypot(p.x - H.x, p.y - H.y) < 8) S.bb.pendingRoll = -1; }
+      else if(p.cutT > 0){ tx = H.x - (off === 0 ? 3 : -3); ty = 25 + (p.y - 25) * .2; sp = "sprint"; }
+      else if(B.phase === "trans"){ const lane = idx % 3; const w = bbToWorld(off, lane === 0 ? 76 : 66, p.y < 25 ? 7 + lane * 3 : 43 - lane * 3); tx = w.x; ty = w.y; sp = "sprint"; }
+      else if(spots && spots.has(idx)){ const w = bbToWorld(off, spots.get(idx).fx, spots.get(idx).fy); tx = w.x; ty = w.y; sp = "jog"; }
+      else { tx = p.x; ty = p.y; }
+      /* post player backs down */
+      if(B.act && B.act.kind === "post" && idx === B.act.p){ tx = p.x + (H.x - p.x) * .06; ty = p.y + (H.y - p.y) * .06; sp = "walk"; }
     }
+    else {
+      const t = bbDefTarget(S, p, idx); tx = t.x; ty = t.y; sp = t.sp || "jog";
+    }
+    bbSteer(p, tx, ty, bbSpeed(p, sp) * (p.side === off ? P.pace * .45 + .55 : 1));
   }
-  const cur2 = ballOwner(S);
-  if(cur2 && cur2.side === 1 && !S.noDuel && S.stats.duels < 2 && S.tick > 150 && S.lastPoss !== 1){
-    const dHoop = Math.hypot(1.5 - cur2.x, 32 - cur2.y);
-    if(dHoop < 30){ const between = teamPlayers(S, 0).filter(q=>q.x > cur2.x + 1).length;
-      if(between <= 1){ const defs = teamPlayers(S, 0).sort((a, b)=>dist2(a.x, a.y, cur2.x, cur2.y) - dist2(b.x, b.y, cur2.x, cur2.y));
-        S.stats.duels++; S.deadBall = { type: "duel", carrierIdx: S.players.indexOf(cur2), defenderIdx: S.players.indexOf(defs[0]) }; return; } }
-  }
-  if(cur2) S.lastPoss = cur2.side;
-  if(S.forceNode && cur2 && S.tick > 40){ triggerForce(S, evs); if(S.deadBall) return; }
-  for(const p of S.players){ if(p.out) continue; steer(p, p.tx, p.ty, p === ballOwner(S) ? .95 : (p.state === "press" || p.state === "chase" ? 1 : .85)); }
-  integrate(S);
-  ballStepBasketball(S, evs);
+  bbIntegrate(S);
+  /* dribble: ball sticks to owner */
+  if(S.ball.owner != null){ const o = S.players[S.ball.owner]; S.ball.x = o.x; S.ball.y = o.y; }
+  else if(!B.flight && B.phase === "reb" && B.reb){ S.ball.x = B.reb.x; S.ball.y = B.reb.y; }
 }
-function ballStepBasketball(S, evs){
-  const C = S.C, B = S.ball, owner = ballOwner(S);
-  if(owner){ B.x = owner.x + (owner.side ? -0.9 : 0.9); B.y = owner.y; B.vx = 0; B.vy = 0; return; }
-  B.x += B.vx; B.y += B.vy; B.vx *= C.friction; B.vy *= C.friction;
-  const speed = Math.hypot(B.vx, B.vy);
-  if(B.hoopShot){
-    const hoop = { x: B.hoopShot.side ? 1.5 : 98.5, y: 32 };
-    // block chance early in flight
-    if(speed > 1.2){ for(const d of teamPlayers(S, 1 - B.hoopShot.side)){ if(Math.hypot(d.x - B.x, d.y - B.y) < 1.35 && S.rng() < .3){ B.hoopShot = null; B.shotBy = -1; B.vx *= -.2; B.vy = (S.rng() * 2 - 1); evs.push(emit(S, { type: "block", side: d.side, p: d })); return; } } }
-    if(Math.hypot(hoop.x - B.x, hoop.y - B.y) < 3.4 || speed < .35){
-      const hs = B.hoopShot; B.hoopShot = null; B.shotBy = -1;
-      if(S.rng() < hs.pMake){
-        S.score[hs.side] += hs.pts;
-        S.stats.scorers.push({ name: hs.shooter.name, side: hs.side, min: Math.floor(S.tick / S.totalTicks * 48), pts: hs.pts });
-        evs.push(emit(S, { type: "goal", side: hs.side, p: hs.shooter, pts: hs.pts }));
-        const guards = teamPlayers(S, 1 - hs.side);
-        const g = guards[0];
-        B.owner = S.players.indexOf(g); B.x = g.x; B.y = g.y; B.vx = 0; B.vy = 0; g.cool = 14;
-      } else {
-        evs.push(emit(S, { type: "miss", side: hs.side, p: hs.shooter }));
-        B.x = hoop.x + (S.rng() * 4 - 2); B.y = 32 + (S.rng() * 6 - 3); B.vx = (S.rng() * 2 - 1) * .8; B.vy = (S.rng() * 2 - 1) * .8;
-      }
-      return;
+function bbDefTarget(S, p, idx){
+  const B = S.bb, off = B.off, DP = S.bbP[p.side], H = bbHoop(off);
+  const ball = S.ball, handler = S.players[B.handler];
+  /* PnR defense overrides */
+  if(B.act && B.act.kind === "pnr"){
+    const A = B.act, scr = S.players[A.scr], hd = S.players[A.p];
+    const myMan = B.match[idx];
+    if(myMan === A.scr && A.stage >= 1){
+      if(DP.pnrDef === "drop"){ const w = bbToWorld(off, 78, scr.y + (25 - scr.y) * .3); return { x: w.x, y: w.y, sp: "jog" }; }
+      if(DP.pnrDef === "hedge" && A.t <= 7) return { x: hd.x, y: hd.y, sp: "sprint" };
     }
-    return; // still flying; no control during shot flight except blocks above
+    if(myMan === A.p && DP.pnrDef === "switch" && A.stage >= 1){ return { x: scr.x + (H.x - scr.x) * .12, y: scr.y + (H.y - scr.y) * .12, sp: "jog" }; }
   }
-  if(B.x < .4 || B.x > 99.6 || B.y < .4 || B.y > 63.6){
-    B.x = clamp(B.x, 1, 99); B.y = clamp(B.y, 2, 62); B.vx = 0; B.vy = 0;
-    const side = 1 - B.lastTouch;
-    let b = null, bd = 1e18; for(const q of teamPlayers(S, side)){ const d = dist2(q.x, q.y, B.x, B.y); if(d < bd){ bd = d; b = q; } }
-    if(b){ B.owner = S.players.indexOf(b); b.cool = 12; evs.push(emit(S, { type: "throwin", side })); }
-    return;
+  if(DP.scheme === "zone" && B.phase !== "trans"){
+    const anchors = bbZoneAnchors(S, p.side, ball);
+    const mine = anchors.find(a=>a.p === p) || { x: p.x, y: p.y };
+    /* on-ball: closest zone man steps out */
+    let closest = null, cd = 1e18; for(const a of anchors){ const d = dist2(a.p.x, a.p.y, ball.x, ball.y); if(d < cd){ cd = d; closest = a.p; } }
+    if(closest === p && Math.sqrt(cd) < 15) return { x: ball.x + (H.x - ball.x) * .16, y: ball.y + (H.y - ball.y) * .16, sp: "jog" };
+    return { x: mine.x, y: mine.y, sp: "jog" };
   }
-  const sorted = S.players.filter(p=>!p.out).sort((a, b)=>dist2(a.x, a.y, B.x, B.y) - dist2(b.x, b.y, B.x, B.y));
-  for(const p of sorted){
-    const d = Math.hypot(p.x - B.x, p.y - B.y);
-    if(d > C.ctrlR) break;
-    if(B.noSteal > 0 && p.side !== B.kickSide && speed > 1.6) continue;
-    const thr = 0.95 + p.skill.ctrl / 100 * 1.5;
-    if(speed < thr){ const wasPass = B.passTarget != null && B.passTarget !== S.players.indexOf(p);
-      B.owner = S.players.indexOf(p); B.passTarget = null; p.cool = Math.round(3 + S.rng() * 5);
-      if(wasPass && p.side !== B.kickSide) evs.push(emit(S, { type: "intercept", side: p.side, p }));
-      return; }
-    if(d < 1.25 && S.tick - (B.bounced || -99) > 5){ B.vx *= .35; B.vy *= .35; B.bounced = S.tick; }
-    break;
+  /* man defense */
+  let manIdx = B.match[idx];
+  if(DP.pnrDef === "switch" && B.act && B.act.kind === "pnr" && B.act.stage >= 1){
+    if(manIdx === B.act.p) manIdx = B.act.scr; else if(manIdx === B.act.scr) manIdx = B.act.p;
   }
-  if(speed < .06){ B.vx = 0; B.vy = 0; }
+  const man = manIdx != null ? S.players[manIdx] : null;
+  if(!man || man.out){ const q = bbNearestDefMate(S, p); if(!q) return { x: H.x, y: 25, sp: "jog" }; return bbManPos(S, p, q, H, DP); }
+  /* drive help: nearest weak-side defender protects the rim */
+  if(B.act && B.act.kind === "drive" && B.act.helper === idx){ return { x: H.x - (off === 0 ? 4 : -4), y: H.y + (S.players[B.act.p].y - 25) * .25, sp: "sprint" }; }
+  return bbManPos(S, p, man, H, DP);
+}
+function bbNearestDefMate(S, p){ let b = null, bd = 1e18; for(const q of S.players){ if(q.side === p.side || q.out) continue; const d = dist2(q.x, q.y, p.x, p.y); if(d < bd){ bd = d; b = q; } } return b; }
+function bbManPos(S, p, man, H, DP){
+  const B = S.bb, isBall = S.players.indexOf(man) === B.handler && S.ball.owner === B.handler;
+  if(B.phase === "trans"){
+    if(DP.pressFull && bbNearestDef(S, S.players[B.handler]).p === p) return { x: S.players[B.handler].x, y: S.players[B.handler].y, sp: "sprint" };
+    const fx = bbFrameX(B.off, p.x);
+    if(fx < 62 && !isBall) return { x: H.x - (B.off === 0 ? 9 : -9), y: 25 + (man.y - 25) * .5, sp: "sprint" };
+  }
+  const g = isBall ? (DP.pressFull ? 2.8 : 3.6) : 0;
+  if(isBall){ const dx = H.x - man.x, dy = H.y - man.y, d = Math.max(1, Math.hypot(dx, dy)); return { x: man.x + dx / d * g, y: man.y + dy / d * g, sp: "jog" }; }
+  /* off-ball: sit on the man-hoop line, sag toward the paint on the weak side */
+  const sag = ((man.y - 25) * (S.ball.y - 25) < 0) ? DP.shrink * 3.4 : DP.shrink * 1.1;
+  const dx = H.x - man.x, dy = H.y - man.y, d = Math.max(1, Math.hypot(dx, dy));
+  const t = clamp((4.5 + sag) / d, 0, .55);
+  return { x: man.x + dx * t, y: man.y + dy * t, sp: "jog" };
 }
 /* ---------------- dispatcher / nodes / headless ---------------- */
 function stepSim(S){
@@ -2132,7 +2511,8 @@ function stepSim(S){
   const n0 = S.events.length;
   S.tick++;
   if(!S.htDone && S.tick === Math.floor(S.totalTicks / 2)){ S.deadBall = { type: "ht" }; return []; }
-  if(S.tick >= S.totalTicks){ S.over = true; S.deadBall = { type: "ft" }; emit(S, { type: "ft" }); return S.events.slice(n0); }
+  const bbBusy = S.sport === "basketball" && S.bb && (S.bb.flight || S.bb.phase === "reb");
+  if(S.tick >= S.totalTicks && !(bbBusy && S.tick < S.totalTicks + 120)){ S.over = true; S.deadBall = { type: "ft" }; emit(S, { type: "ft" }); return S.events.slice(n0); }
   if(S.sport === "basketball") stepBasketball(S, S._evs = []);
   else stepFootball(S, S._evs = []);
   const out = S._evs; S._evs = null;
@@ -2141,7 +2521,7 @@ function stepSim(S){
 function resolveSimNode(S, choice){
   const nd = S.deadBall; if(!nd) return;
   choice = choice || {};
-  if(nd.type === "ht"){ S.htDone = true; S.deadBall = null; kickoff(S, 1); return; }
+  if(nd.type === "ht"){ S.htDone = true; S.deadBall = null; if(S.sport === "basketball") bbDeadReset(S, 1); else kickoff(S, 1); return; }
   if(nd.type === "ft"){ S.deadBall = null; return; }
   if(nd.type === "duel"){
     const C = S.players[nd.carrierIdx], D = S.players[nd.defenderIdx];
@@ -2154,22 +2534,20 @@ function resolveSimNode(S, choice){
       const w = act === "slide" ? Math.min(.85, winP + .12) : winP, fP = act === "slide" ? .38 : .26;
       const r = S.rng();
       if(r < w){ S.ball.owner = nd.defenderIdx; S.ball.x = D.x; S.ball.y = D.y; D.cool = 12; emit(S, { type: "duelWon", side: 0, p: D }); }
-      else if(r < w + fP){ if(S.rng() < .4) emit(S, { type: "card", side: 0, p: D }); emit(S, { type: "foul", side: 0, p: D, victim: C }); foulRestart(S, 1, C.x, C.y); }
+      else if(r < w + fP){ if(S.rng() < .4) emit(S, { type: "card", side: 0, p: D }); emit(S, { type: "foul", side: 0, p: D, victim: C }); if(isB){ S.ball.owner = nd.defenderIdx; S.ball.x = D.x; S.ball.y = D.y; } else foulRestart(S, 1, C.x, C.y); }
       else { goalP = clamp(.34 + (C.skill.shoot - 65) * .006, .15, .6); resolveDuelShot(S, C, goalP); }
     }
-    S.deadBall = null; return;
+    S.deadBall = null; if(isB) bbAfterNode(S); return;
   }
   if(nd.type === "pen"){
     if(S.sport === "basketball"){
       const taker = nd.takerIdx >= 0 ? S.players[nd.takerIdx] : teamPlayers(S, nd.side).sort((a, b)=>b.skill.shoot - a.skill.shoot)[0];
-      let made = 0; const pFT = .52 + taker.skill.shoot / 100 * .3;
-      for(let i = 0; i < 2; i++) if(S.rng() < pFT) made++;
+      let made = 0; const pFT = .52 + taker.skill.shoot / 100 * .3, attempts = nd.pts || 2;
+      for(let i = 0; i < attempts; i++) if(S.rng() < pFT) made++;
       S.score[nd.side] += made;
-      if(made) S.stats.scorers.push({ name: taker.name, side: nd.side, min: Math.floor(S.tick / S.totalTicks * 48), pts: made, ft: true });
-      emit(S, { type: "ft", side: nd.side, p: taker, made });
-      const g = teamPlayers(S, 1 - nd.side)[0];
-      S.ball.owner = S.players.indexOf(g); S.ball.x = g.x; S.ball.y = g.y;
-      S.deadBall = null; return;
+      if(made) S.stats.scorers.push({ name: taker.name, side: nd.side, min: Math.floor(S.tick / S.totalTicks * 40), pts: made, ft: true });
+      emit(S, { type: "ft", side: nd.side, p: taker, made, n: attempts });
+      S.deadBall = null; bbDeadReset(S, 1 - nd.side); return;
     }
     const taker = nd.takerIdx >= 0 ? S.players[nd.takerIdx] : teamPlayers(S, nd.side).filter(p=>!p.isGK).sort((a, b)=>b.skill.shoot - a.skill.shoot)[0];
     let guess = Math.floor(S.rng() * 6), zone = choice.zone != null ? choice.zone : Math.floor(S.rng() * 6);
@@ -2191,15 +2569,15 @@ function resolveSimNode(S, choice){
     else if(v){ v.out = true; if(S.ball.owner === nd.victimIdx) S.ball.owner = null; }
     emit(S, { type: "injuryDone", side: nd.side, p: v });
     const then = nd.then; S.deadBall = null;
-    if(then && then.type === "pen"){ S.deadBall = { type: "pen", side: then.side, takerIdx: -1 }; }
+    if(then && then.type === "pen"){ S.deadBall = { type: "pen", side: then.side, takerIdx: then.takerIdx != null ? then.takerIdx : -1, pts: then.pts || 2 }; }
     else if(then){ foulRestart(S, then.side, then.x, then.y); }
     return;
   }
 }
 function resolveDuelShot(S, C, goalP){
   if(S.sport === "basketball"){
-    if(S.rng() < goalP + .25){ S.score[1] += 2; S.stats.scorers.push({ name: C.name, side: 1, min: Math.floor(S.tick / S.totalTicks * 48), pts: 2 }); emit(S, { type: "goal", side: 1, p: C, pts: 2 }); const g = teamPlayers(S, 0)[0]; S.ball.owner = S.players.indexOf(g); S.ball.x = g.x; S.ball.y = g.y; }
-    else { emit(S, { type: "duelWon", side: 0, p: C }); S.ball.owner = null; S.ball.x = C.x; S.ball.y = C.y; S.ball.vx = .8; S.ball.vy = .4; }
+    if(S.rng() < goalP + .25){ S.score[1] += 2; S.stats.scorers.push({ name: C.name, side: 1, min: Math.floor(S.tick / S.totalTicks * 40), pts: 2 }); emit(S, { type: "goal", side: 1, p: C, pts: 2 }); bbDeadReset(S, 0); }
+    else { emit(S, { type: "duelWon", side: 0, p: C }); const my = teamPlayers(S, 0).filter(q=>Math.hypot(q.x - C.x, q.y - C.y) < 6)[0] || teamPlayers(S, 0)[0]; S.ball.owner = S.players.indexOf(my); S.ball.x = my.x; S.ball.y = my.y; }
     return;
   }
   const gk = teamPlayers(S, 0).find(p=>p.isGK);
@@ -2224,7 +2602,7 @@ function runHeadless(cfg, seed){
     }
     stepSim(S);
   }
-  return { score: S.score, events: S.events, stats: S.stats, players: S.players, ticks: S.tick };
+  return { score: S.score, events: S.events, stats: S.stats, bbStats: S.bb ? S.bb.stats : null, players: S.players, ticks: S.tick };
 }
 if(typeof module !== "undefined" && module.exports) module.exports = { createSim, stepSim, setSimTactics, simSubstitute, resolveSimNode, runHeadless, SIM_CFG, deriveParams };
 if(typeof window !== "undefined") window.SIMCORE = { createSim, stepSim, setSimTactics, simSubstitute, resolveSimNode, runHeadless, SIM_CFG, deriveParams };
@@ -2271,11 +2649,11 @@ function openLiveMatch(frTier){
   const ms = $("#matchSpeed"); if(ms) ms.textContent = "倍速 ×1";
   renderMatchHead(); renderMatchTicker(); pitchStart(); simDriveStart();
 }
-function segBounds(L){ return L.sportId === "basketball" ? [0, 12, 24, 36, 48] : [0, 15, 30, 45, 60, 75, 90]; }
+function segBounds(L){ return L.sportId === "basketball" ? [0, 10, 20, 30, 40] : [0, 15, 30, 45, 60, 75, 90]; }
 function renderMatchHead(){
   const L = LIVE; if(!L) return;
   const el = $("#matchHead"); if(!el) return;
-  const avgSt = L.onPitch.length ? Math.round(L.onPitch.reduce((t,x)=>{ const ps = mock.state.pstat[x.pid]; return t + (ps ? ps.stamina : 100) - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 48 : 90)); }, 0) / L.onPitch.length) : 100;
+  const avgSt = L.onPitch.length ? Math.round(L.onPitch.reduce((t,x)=>{ const ps = mock.state.pstat[x.pid]; return t + (ps ? ps.stamina : 100) - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 40 : 90)); }, 0) / L.onPitch.length) : 100;
   el.innerHTML = `<div class="vs" style="margin:0"><div class="side"><div class="vnum">${L.sportId === "basketball" ? L.my : L.my}</div><div class="vlab">${mock.state.clubName || "我方"}</div></div><div class="vmid">${L.minute}′<br>${mentalityOf(L.sportId).name}打法</div><div class="side"><div class="vnum" style="color:var(--bad)">${L.oppScore}</div><div class="vlab">${L.opp} · ${L.oppMent.name}</div></div></div>
   <div class="hint" style="margin-top:2px">黄牌 ${L.yc || 0} · 红牌 0</div>
   <div style="margin-top:8px"><div class="hint">全队体能（估算） ${Math.max(5, avgSt)}%</div><div style="height:7px;background:#e7ddc6;border-radius:4px"><div style="height:100%;width:${Math.max(5, avgSt)}%;background:${avgSt < 40 ? "#c0392b" : "#2e6b46"};border-radius:4px;transition:width .4s"></div></div></div>`;
@@ -2416,7 +2794,7 @@ function simOppTeam(sportId, oppName, form){
 function simSyncFromEngine(){
   const L = LIVE; if(!L || !L.S) return; const S = L.S;
   L.my = S.score[0]; L.oppScore = S.score[1];
-  L.minute = Math.floor(S.tick / S.totalTicks * (L.sportId === "basketball" ? 48 : 90));
+  L.minute = Math.floor(S.tick / S.totalTicks * (L.sportId === "basketball" ? 40 : 90));
   L.onPitch = S.players.filter(p=>p.side === 0 && !p.out).map(p=>({ pid: p.pid, slot: L._slotMap[p.pid] || slotGroupOf(findPlayer(p.pid), L.sportId), inMin: L._inMin[p.pid] != null ? L._inMin[p.pid] : L.minute }));
   renderMatchHead();
 }
@@ -2426,11 +2804,16 @@ function simLineFor(ev){
   const throttled = (gap)=>{ if(S.tick - L._lastBuildTick < gap) return true; L._lastBuildTick = S.tick; return false; };
   switch(ev.type){
     case "goal": if(ev.pen) return { min, kind: "pen", text: mine ? `点球命中！${ev.p ? ev.p.name : ""} 骗过门将，比分 ${score}。` : `对方点球命中，扑错了方向。比分 ${score}。` };
-      return { min, kind: mine ? "goal" : "oppgoal", text: isB ? `${ev.p ? ev.p.name : (mine ? "我方" : "对方")} ${ev.pts === 3 ? "外线三分命中" : "打进两分"}！比分 ${score}。` : (mine ? `进球！${ev.p ? ev.p.name : "我方"} 破门得分！比分 ${score}。` : `丢球——${ev.p ? ev.p.name : "对方"} 打进。比分 ${score}。`) };
+      return { min, kind: mine ? "goal" : "oppgoal", text: isB ? `${ev.p ? ev.p.name : (mine ? "我方" : "对方")} ${ev.pts === 3 ? "外线三分命中" : ev.zone === "rim" ? "杀入篮下得手" : ev.zone === "close" ? "篮下强打命中" : ev.zone === "mid" ? "中距离跳投命中" : "打进两分"}！比分 ${score}。` : (mine ? `进球！${ev.p ? ev.p.name : "我方"} 破门得分！比分 ${score}。` : `丢球——${ev.p ? ev.p.name : "对方"} 打进。比分 ${score}。`) };
     case "save": if(isB) return null; return { min, kind: "chance", text: mine ? `神扑！我方门将把对方的射门拒之门外。` : `对方门将扑出了我方一记射门。` };
     case "penSaved": return { min, kind: "pen", text: mine ? "点球被扑出！门将猜对了方向。" : "扑出去了！神扑！全场沸腾。" };
     case "goalkick": if(!isB && S.tick - L._lastShotTick < 40) return { min, kind: "chance", text: mine ? "对方射门偏出底线。" : "我方射门偏出底线。" }; return null;
-    case "block": return throttled(120) ? null : { min, kind: "chance", text: mine ? `${ev.p ? ev.p.name : "后卫"} 把对方的射门封堵下来！` : (isB ? `对方把我方出手盖了下来。` : `我方射门被对方后卫封堵。`) };
+    case "block": return throttled(120) ? null : { min, kind: "chance", text: isB ? (mine ? `一记大帽！${ev.p ? ev.p.name : "我方球员"} 把 ${ev.on ? ev.on.name : "对方"} 的出手扇了下来！` : `被盖了——对方把 ${ev.on ? ev.on.name : "我方"} 的出手帽掉。`) : (mine ? `${ev.p ? ev.p.name : "后卫"} 把对方的射门封堵下来！` : `我方射门被对方后卫封堵。`) };
+    case "shot_miss": return throttled(110) ? null : { min, kind: "", text: `${ev.p ? ev.p.name : "球员"} ${ev.zone === "three" ? "三分出手偏出" : ev.zone === "rim" ? "上篮偏出" : ev.zone === "close" ? "近筐出手偏出" : "跳投偏出"}。` };
+    case "reb": return throttled(90) ? null : { min, kind: "", text: ev.off ? `${ev.p ? ev.p.name : "球员"} 抢下进攻篮板，还有机会！` : `${ev.p ? ev.p.name : "球员"} 收下防守篮板。` };
+    case "to": return { min, kind: "", text: `失误——${ev.p ? ev.p.name : "持球人"} 在逼抢下丢了球权。` };
+    case "violation": return { min, kind: "", text: `24 秒违例——${mine ? "对方" : "我方"}进攻没能在 24 秒内出手，球权交换。` };
+    case "foulout": return { min, kind: "card", text: `五犯离场——${ev.p ? ev.p.name : "球员"} 犯满毕业，被换下场。` };
     case "miss": return throttled(120) ? null : { min, kind: "", text: `${ev.p ? ev.p.name : "对方"} 出手偏出，球权交换。` };
     case "intercept": return throttled(150) ? null : { min, kind: "", text: `${ev.p ? ev.p.name : "队员"} 中途断下传球，球权转换。` };
     case "steal": return throttled(150) ? null : { min, kind: "", text: `${ev.p ? ev.p.name : "队员"} 直接抢断！` };
@@ -2439,7 +2822,7 @@ function simLineFor(ev){
     case "card": if(mine) LIVE.yc = (LIVE.yc || 0) + 1; return { min, kind: "card", text: `黄牌——${ev.p ? ev.p.name : "球员"} 战术犯规，裁判出示黄牌。` };
     case "foul": return throttled(200) ? null : { min, kind: "", text: `犯规——${ev.p ? ev.p.name : "球员"} 动作过大，裁判吹停比赛。` };
     case "corner": return throttled(300) ? null : { min, kind: "", text: mine ? "我方获得角球机会。" : "对方获得角球。" };
-    case "ft": return { min, kind: "pen", text: `罚球：${ev.p ? ev.p.name : ""} 两罚${ev.made ? "命中 " + ev.made + " 球" : "全失"}。比分 ${score}。` };
+    case "ft": return { min, kind: "pen", text: `罚球：${ev.p ? ev.p.name : ""} ${ev.n || 2} 罚 ${ev.made || 0} 中。比分 ${score}。` };
     default: return null;
   }
 }
@@ -2577,7 +2960,7 @@ function penChoose(zone){
   const evs = S.events.slice(before); L._evCursor = S.events.length;
   simSyncFromEngine();
   let txt = null;
-  if(isB){ const ft = evs.find(e=>e.type === "ft"); if(ft) txt = `罚球：${ft.p ? ft.p.name : ""} 两罚${ft.made ? "命中 " + ft.made + " 球" : "全失"}。比分 ${L.my}:${L.oppScore}。`; }
+  if(isB){ const ft = evs.find(e=>e.type === "ft"); if(ft) txt = `罚球：${ft.p ? ft.p.name : ""} ${ft.n || 2} 罚 ${ft.made || 0} 中。比分 ${L.my}:${L.oppScore}。`; }
   else { const g = evs.find(e=>e.type === "goal"), sv = evs.find(e=>e.type === "penSaved");
     if(g) txt = nd.side === 0 ? `点球命中！骗过门将，比分 ${L.my}:${L.oppScore}。` : `对方点球命中，扑错了方向。比分 ${L.my}:${L.oppScore}。`;
     else if(sv) txt = nd.side === 0 ? "点球被扑出！门将猜对了方向。" : "扑出去了！神扑！全场沸腾。"; }
@@ -2622,7 +3005,7 @@ function htTactics(){ const p = $("#htPanel"); if(!p) return; const cur = mock.s
 function htSetMent(id){ mock.state.tprof[LIVE.sportId].mentality = id; mock.save(); if(LIVE && LIVE.S) SIMCORE.setSimTactics(LIVE.S, 0, id, Object.assign({}, mock.state.tprof[LIVE.sportId].instr || {})); pushLine(LIVE.minute, `中场变阵：改打「${(MENTALITIES.find(m=>m.id===id) || {}).name}」。`, "chance"); htDone(); }
 function htSubs(p){ p = p || $("#htPanel"); if(!p || !LIVE) return; const L = LIVE;
   p.innerHTML = `<div class="hint" id="subHint" style="margin-top:8px">${HT_OUT ? `已选换下：<b>${(findPlayer(HT_OUT) || {}).name || HT_OUT}</b> —— 再点下方任意一名替补，立即完成换人` : `先点要换下的，再点替补席的（剩余换人 ${L.subsLeft} 次）`}</div>` +
-    L.onPitch.map(x=>{ const pl = findPlayer(x.pid); const ps = mock.state.pstat[x.pid]; return `<button class="mini" style="margin:2px${x.pid === HT_OUT ? ";background:#a83226;color:#fff;border-color:#a83226" : ""}" onclick="htPickOut('${x.pid}')">${pl ? pl.name : x.pid}（体${ps ? Math.round(ps.stamina - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 48 : 90))) : 100}）</button>`; }).join("") +
+    L.onPitch.map(x=>{ const pl = findPlayer(x.pid); const ps = mock.state.pstat[x.pid]; return `<button class="mini" style="margin:2px${x.pid === HT_OUT ? ";background:#a83226;color:#fff;border-color:#a83226" : ""}" onclick="htPickOut('${x.pid}')">${pl ? pl.name : x.pid}（体${ps ? Math.round(ps.stamina - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 40 : 90))) : 100}）</button>`; }).join("") +
     `<div style="margin-top:4px">` + L.bench.map(pid=>{ const pl = findPlayer(pid); return `<button class="mini ghost" style="margin:2px" onclick="htPickIn('${pid}')">${pl ? pl.name : pid}（${pl ? effBase(pl) : ""}）</button>`; }).join("") + `</div>`; }
 let HT_OUT = null;
 function htPickOut(pid){ HT_OUT = pid; toast("已选换下：" + ((findPlayer(pid) || {}).name || pid) + "，再点一名替补");
@@ -2640,7 +3023,7 @@ function renderLiveBar(){
     MENTALITIES.map(m=>`<button class="mini ${tp.mentality === m.id ? "" : "ghost"}" ${tp.mentality === m.id ? 'style="background:#a83226;color:#fff;border-color:#a83226"' : ""} onclick="liveSetMent('${m.id}')">${m.name}</button>`).join("") +
     INSTRUCTIONS[LIVE.sportId].map(d=>`<button class="mini ${tp.instr && tp.instr[d.id] ? "" : "ghost"}" ${tp.instr && tp.instr[d.id] ? 'style="background:#2e6b46;color:#fff;border-color:#2e6b46"' : ""} onclick="liveToggleInstr('${d.id}')">${d.name}</button>`).join("") +
     `<button class="mini ghost" onclick="liveSubs()">换人（剩 ${LIVE.subsLeft}）</button></div>
-    <div class="hint" style="margin:2px 0 6px">临场调整即刻改写全队的跑法：阵线前压、逼抢人数、出手果断度当场可见；换人会暂停比赛。</div>`;
+    <div class="hint" style="margin:2px 0 6px">${LIVE.sportId === "basketball" ? "临场调整即刻改写全队的打法：节奏快慢、盯人还是 2-3 联防、挡拆防守（沉退/换防/延误）当场可见；换人会暂停比赛。" : "临场调整即刻改写全队的跑法：阵线前压、逼抢人数、出手果断度当场可见；换人会暂停比赛。"}</div>`;
 }
 function liveSetMent(id){ const L = LIVE; if(!L) return; mock.state.tprof[L.sportId].mentality = id; mock.save(); if(L.S) SIMCORE.setSimTactics(L.S, 0, id, Object.assign({}, mock.state.tprof[L.sportId].instr || {})); pushLine(L.minute, `临场变阵：改打「${(MENTALITIES.find(m=>m.id === id) || {}).name}」——看场上，阵线开始移动了。`, "chance"); renderLiveBar(); toast(`已改打「${(MENTALITIES.find(m=>m.id === id) || {}).name}」，即刻生效`); }
 function liveToggleInstr(id){ const L = LIVE; if(!L) return; const tp = mock.state.tprof[L.sportId]; if(!tp.instr) tp.instr = {}; tp.instr[id] = !tp.instr[id]; mock.save(); if(L.S) SIMCORE.setSimTactics(L.S, 0, tp.mentality, Object.assign({}, tp.instr)); const d = INSTRUCTIONS[L.sportId].find(x=>x.id === id); pushLine(L.minute, `临场指令：「${d ? d.name : id}」${tp.instr[id] ? "开启" : "关闭"}——场上跑法马上跟着变。`, "chance"); renderLiveBar(); toast(`指令「${d ? d.name : id}」已${tp.instr[id] ? "开启" : "关闭"}，即刻生效`); }
@@ -2697,6 +3080,7 @@ function pitchStart(){
   PD.dots = mk(groups, false);
   PD.away = L.sportId === "basketball" ? mk(awayGroups, true) : mk(awayGroups.map(g=>g), true);
   PD.ball = { x: .5, y: .5 }; PD.poss = "my"; PD.possT = 0; PD.flash = null; PD.flow = null;
+  PD.cw = L.sportId === "basketball" ? 94 : 100; PD.ch = L.sportId === "basketball" ? 50 : 64; PD.ballAir = 0;
   PD.lastMy = L.my; PD.lastOpp = L.oppScore; PD.t = 0;
   PD.gen = (PD.gen || 0) + 1; const gen = PD.gen;
   if(PD.raf) cancelAnimationFrame(PD.raf);
@@ -2719,19 +3103,20 @@ function pitchTick(){
     if(S){
       if(L.my !== PD.lastMy || L.oppScore !== PD.lastOpp){
         const mine = L.my > PD.lastMy;
-        PD.flash = { x: mine ? .985 : .015, y: .5, until: PD.t + 1.1 };
+        PD.flash = { x: mine ? (L.sportId === "basketball" ? .944 : .985) : (L.sportId === "basketball" ? .056 : .015), y: .5, until: PD.t + 1.1 };
         PD.lastMy = L.my; PD.lastOpp = L.oppScore;
       }
       const mine = S.players.filter(p=>p.side === 0 && !p.out), away = S.players.filter(p=>p.side === 1 && !p.out);
-      if(PD.dots.length !== mine.length) PD.dots = mine.map(p=>({ bx: p.x / 100, by: p.y / 64, x: p.x / 100, y: p.y / 64 }));
-      if(PD.away.length !== away.length) PD.away = away.map(p=>({ bx: p.x / 100, by: p.y / 64, x: p.x / 100, y: p.y / 64 }));
-      mine.forEach((p, i)=>{ const d = PD.dots[i]; if(d){ d.x += (p.x / 100 - d.x) * .42; d.y += (p.y / 64 - d.y) * .42; } });
-      away.forEach((p, i)=>{ const d = PD.away[i]; if(d){ d.x += (p.x / 100 - d.x) * .42; d.y += (p.y / 64 - d.y) * .42; } });
+      if(PD.dots.length !== mine.length) PD.dots = mine.map(p=>({ bx: p.x / (PD.cw || 100), by: p.y / (PD.ch || 64), x: p.x / (PD.cw || 100), y: p.y / (PD.ch || 64) }));
+      if(PD.away.length !== away.length) PD.away = away.map(p=>({ bx: p.x / (PD.cw || 100), by: p.y / (PD.ch || 64), x: p.x / (PD.cw || 100), y: p.y / (PD.ch || 64) }));
+      mine.forEach((p, i)=>{ const d = PD.dots[i]; if(d){ d.x += (p.x / (PD.cw || 100) - d.x) * .42; d.y += (p.y / (PD.ch || 64) - d.y) * .42; } });
+      away.forEach((p, i)=>{ const d = PD.away[i]; if(d){ d.x += (p.x / (PD.cw || 100) - d.x) * .42; d.y += (p.y / (PD.ch || 64) - d.y) * .42; } });
       const bo = S.ball.owner != null ? S.players[S.ball.owner] : null;
       if(bo) PD.poss = bo.side === 0 ? "my" : "opp";
-      PD.flow = { side: PD.poss, x: S.ball.x / 100, y: S.ball.y / 64, pid: bo && bo.side === 0 ? bo.pid : null, ai: bo && bo.side === 1 ? away.indexOf(bo) : null };
+      PD.flow = { side: PD.poss, x: S.ball.x / (PD.cw || 100), y: S.ball.y / (PD.ch || 64), pid: bo && bo.side === 0 ? bo.pid : null, ai: bo && bo.side === 1 ? away.indexOf(bo) : null };
+      PD.ballAir = S.ball.air || 0;
       if(PD.flash && PD.t < PD.flash.until){ PD.ball.x += (PD.flash.x - PD.ball.x) * .16; PD.ball.y += (PD.flash.y - PD.ball.y) * .16; }
-      else { PD.flash = null; PD.ball.x += (S.ball.x / 100 - PD.ball.x) * .55; PD.ball.y += (S.ball.y / 64 - PD.ball.y) * .55; }
+      else { PD.flash = null; PD.ball.x += (S.ball.x / (PD.cw || 100) - PD.ball.x) * .55; PD.ball.y += (S.ball.y / (PD.ch || 64) - PD.ball.y) * .55; }
     }
   }
   pitchDraw(ctx, W, H, L);
@@ -2739,31 +3124,72 @@ function pitchTick(){
 function pitchDraw(ctx, W, H, L){
   const isB = L.sportId === "basketball";
   ctx.clearRect(0, 0, W, H);
-  if(isB){ ctx.fillStyle = "#d9a45b"; ctx.fillRect(0, 0, W, H); ctx.fillStyle = "#c98f3d"; ctx.fillRect(0, H * .42, W, H * .16); }
+  /* basketball court lives in a ratio-true rect (94x50 ft); football keeps the full-canvas pitch */
+  let RX = 0, RY = 0, RW = W, RH = H, KK = 1;
+  if(isB){ RW = W - 28; RH = RW * 50 / 94; RX = 14; RY = (H - RH) / 2; KK = RW / 94; }
+  const PX = nx=>isB ? RX + nx * RW : nx * W, PY = ny=>isB ? RY + ny * RH : ny * H;
+  if(isB){
+    ctx.fillStyle = "#8a5a28"; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#d9a45b"; ctx.fillRect(RX, RY, RW, RH);
+    ctx.fillStyle = "rgba(122,72,20,.10)";
+    for(let i = 0; i < 10; i += 2) ctx.fillRect(RX, RY + RH * i / 10, RW, RH / 10);
+    ctx.strokeStyle = "rgba(255,253,247,.85)"; ctx.lineWidth = 2;
+    const X = fx=>RX + fx * KK, Y = fy=>RY + fy * KK;
+    ctx.strokeRect(RX, RY, RW, RH);
+    ctx.beginPath(); ctx.moveTo(X(47), RY); ctx.lineTo(X(47), RY + RH); ctx.stroke();
+    ctx.beginPath(); ctx.arc(X(47), Y(25), 6 * KK, 0, Math.PI * 2); ctx.stroke();
+    for(const mir of [0, 1]){
+      const fx = v=>mir ? 94 - v : v;
+      /* paint + free-throw circle */
+      ctx.fillStyle = "rgba(168,50,38,.30)";
+      ctx.fillRect(Math.min(X(fx(0)), X(fx(19))), Y(17), 19 * KK, 16 * KK);
+      ctx.strokeStyle = "rgba(255,253,247,.85)"; ctx.lineWidth = 2;
+      ctx.strokeRect(Math.min(X(fx(0)), X(fx(19))), Y(17), 19 * KK, 16 * KK);
+      ctx.beginPath(); ctx.arc(X(fx(19)), Y(25), 6 * KK, 0, Math.PI * 2); ctx.stroke();
+      /* three-point line: corner straights + arc */
+      const hx = fx(5.25), a0 = Math.atan2(3 - 25, 14.2 - 5.25), a1 = Math.atan2(47 - 25, 14.2 - 5.25);
+      ctx.beginPath();
+      ctx.moveTo(X(fx(0)), Y(3)); ctx.lineTo(X(fx(14.2)), Y(3));
+      if(mir) ctx.arc(X(hx), Y(25), 23.75 * KK, Math.PI - a1, Math.PI - a0, false);
+      else ctx.arc(X(hx), Y(25), 23.75 * KK, a0, a1, false);
+      ctx.lineTo(X(fx(0)), Y(47)); ctx.stroke();
+      /* restricted arc + backboard + rim */
+      ctx.beginPath();
+      if(mir) ctx.arc(X(hx), Y(25), 4 * KK, Math.PI / 2, Math.PI * 1.5, false);
+      else ctx.arc(X(hx), Y(25), 4 * KK, -Math.PI / 2, Math.PI / 2, false);
+      ctx.stroke();
+      ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(X(fx(4)), Y(22)); ctx.lineTo(X(fx(4)), Y(28)); ctx.stroke();
+      ctx.lineWidth = 2; ctx.strokeStyle = "#e86a17";
+      ctx.beginPath(); ctx.arc(X(hx), Y(25), Math.max(3, .8 * KK), 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = "rgba(255,253,247,.85)";
+    }
+  }
   else { const sk = skinOf(); const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, sk.c1); g.addColorStop(1, sk.c2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = "rgba(255,255,255,.045)"; const stp = skinOf().stripe || "v";
     if(stp === "v"){ for(let i = 0; i < 6; i += 2) ctx.fillRect(W * i / 6, 0, W / 6, H); }
     else if(stp === "h"){ for(let i = 0; i < 6; i += 2) ctx.fillRect(0, H * i / 6, W, H / 6); } }
-  ctx.strokeStyle = "rgba(255,253,247,.75)"; ctx.lineWidth = 2;
-  ctx.strokeRect(14, 14, W - 28, H - 28);
-  ctx.beginPath(); ctx.moveTo(W / 2, 14); ctx.lineTo(W / 2, H - 14); ctx.stroke();
-  ctx.beginPath(); ctx.arc(W / 2, H / 2, H * .16, 0, Math.PI * 2); ctx.stroke();
-  if(isB){ for(const sx of [0, 1]){ const hx = sx ? W - 30 : 30; ctx.beginPath(); ctx.arc(hx, H / 2, 13, 0, Math.PI * 2); ctx.stroke();
-      ctx.strokeRect(sx ? W - 14 - W * .16 : 14, H * .28, W * .16, H * .44); } }
-  else { for(const sx of [0, 1]){ const bx = sx ? W - 14 - W * .13 : 14; ctx.strokeRect(bx, H * .24, W * .13, H * .52); ctx.strokeRect(sx ? W - 14 - W * .05 : 14, H * .38, W * .05, H * .24); } }
-  const dot = (d, fill)=>{ ctx.beginPath(); ctx.arc(d.x * W, d.y * H, 9, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = "#fffdf7"; ctx.stroke(); };
+  if(!isB){
+    ctx.strokeStyle = "rgba(255,253,247,.75)"; ctx.lineWidth = 2;
+    ctx.strokeRect(14, 14, W - 28, H - 28);
+    ctx.beginPath(); ctx.moveTo(W / 2, 14); ctx.lineTo(W / 2, H - 14); ctx.stroke();
+    ctx.beginPath(); ctx.arc(W / 2, H / 2, H * .16, 0, Math.PI * 2); ctx.stroke();
+    for(const sx of [0, 1]){ const bx = sx ? W - 14 - W * .13 : 14; ctx.strokeRect(bx, H * .24, W * .13, H * .52); ctx.strokeRect(sx ? W - 14 - W * .05 : 14, H * .38, W * .05, H * .24); }
+  }
+  const dot = (d, fill)=>{ ctx.beginPath(); ctx.arc(PX(d.x), PY(d.y), 9, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = "#fffdf7"; ctx.stroke(); };
   PD.away.forEach((d, i)=>dot(d, i === 0 && !isB ? "#58b368" : "#2f5d8a"));
   PD.dots.forEach((d, i)=>dot(d, i === 0 && !isB ? "#e9b949" : "#a83226"));
-  { const bx = PD.ball.x * W, by = PD.ball.y * H;
-    if(isB){ ctx.beginPath(); ctx.arc(bx, by, 6.2, 0, Math.PI * 2); ctx.fillStyle = "#d97b2f"; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = "#7a3f14"; ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(bx - 6.2, by); ctx.lineTo(bx + 6.2, by); ctx.moveTo(bx, by - 6.2); ctx.lineTo(bx, by + 6.2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(bx, by, 3.4, 0, Math.PI * 2); ctx.stroke(); }
+  { const bx = PX(PD.ball.x), by = PY(PD.ball.y);
+    if(isB){ const air = PD.ballAir || 0;
+      if(air > .03){ ctx.beginPath(); ctx.ellipse(bx + 3, by + 4, 5.5, 2.6, 0, 0, Math.PI * 2); ctx.fillStyle = "rgba(60,30,0,.30)"; ctx.fill(); }
+      const r = 6.2 * (1 + air * .8);
+      ctx.beginPath(); ctx.arc(bx, by, r, 0, Math.PI * 2); ctx.fillStyle = "#d97b2f"; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = "#7a3f14"; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(bx - r, by); ctx.lineTo(bx + r, by); ctx.moveTo(bx, by - r); ctx.lineTo(bx, by + r); ctx.stroke();
+      ctx.beginPath(); ctx.arc(bx, by, r * .55, 0, Math.PI * 2); ctx.stroke(); }
     else { ctx.beginPath(); ctx.arc(bx, by, 6.4, 0, Math.PI * 2); ctx.fillStyle = "#fffdf7"; ctx.fill(); ctx.lineWidth = 1.4; ctx.strokeStyle = "#23201a"; ctx.stroke();
       ctx.fillStyle = "#23201a"; ctx.beginPath(); ctx.arc(bx, by, 2.1, 0, Math.PI * 2); ctx.fill();
       for(let k = 0; k < 5; k++){ const a = k / 5 * Math.PI * 2 + .5; ctx.beginPath(); ctx.arc(bx + Math.cos(a) * 4.7, by + Math.sin(a) * 4.7, 1.35, 0, Math.PI * 2); ctx.fill(); } } }
   ctx.fillStyle = "rgba(255,253,247,.85)"; ctx.font = "600 15px sans-serif"; ctx.textAlign = "left";
   ctx.fillText(L.sportId === "basketball" ? "🏀" : "⚽", 22, 34);
-  // status chip (top-left) + possession chip (top-right), IdleFC style
   ctx.font = "700 12px sans-serif";
   ctx.fillStyle = "rgba(20,18,12,.82)"; ctx.beginPath(); ctx.roundRect(18, 14, 108, 24, 8); ctx.fill();
   ctx.fillStyle = "#fffdf7"; ctx.textAlign = "left";
@@ -2771,14 +3197,12 @@ function pitchDraw(ctx, W, H, L){
   ctx.fillStyle = PD.poss === "my" ? "rgba(168,50,38,.9)" : "rgba(47,93,138,.92)"; ctx.beginPath(); ctx.roundRect(W - 128, 14, 110, 24, 8); ctx.fill();
   ctx.fillStyle = "#fffdf7"; ctx.textAlign = "center";
   ctx.fillText(PD.poss === "my" ? "我方控球" : "对方控球", W - 73, 30);
-  // score pill + minute (IdleFC Matchday style)
   const pillW = 118, pillX = W / 2 - pillW / 2, pillY = 16;
   ctx.fillStyle = "rgba(20,18,12,.82)"; ctx.beginPath(); ctx.roundRect(pillX, pillY, pillW, 40, 10); ctx.fill();
   ctx.fillStyle = "#fffdf7"; ctx.font = "700 21px sans-serif"; ctx.textAlign = "center";
   ctx.fillText(L.my + " : " + L.oppScore, W / 2, pillY + 27);
   ctx.font = "600 13px sans-serif"; ctx.fillStyle = "rgba(255,253,247,.92)";
   ctx.fillText(L.settled ? "全场" : L.minute + "′", W / 2, pillY + 58);
-  // formation labels
   ctx.font = "600 13px sans-serif"; ctx.textAlign = "left"; ctx.fillStyle = "rgba(255,253,247,.9)";
   const myForm = (FORMATIONS[L.sportId].find(f=>f.id === (lineupOf(L.sportId).formation)) || FORMATIONS[L.sportId][0]).name;
   ctx.fillText("我方 " + myForm, 20, H - 16);
@@ -2792,7 +3216,7 @@ function settleMatch(){
   const s = mock.state, isB = L.sportId === "basketball";
   const B = segBounds(L);
   if(!isB && L.my === L.oppScore){ /* 平局直接成立 */ }
-  if(isB && L.my === L.oppScore){ L.my += 2; pushLine(48, "加时赛一波小高潮，我方 +2 分险胜！", "goal"); }
+  if(isB && L.my === L.oppScore){ L.my += 2; pushLine(40, "加时赛一波小高潮，我方 +2 分险胜！", "goal"); }
   const res = L.my > L.oppScore ? "胜" : L.my === L.oppScore ? "平" : "负";
   const isFr = !!L.friendly;
   const repD = isFr ? 0 : (res === "胜" ? 10 : res === "平" ? 4 : -2), fundD = isFr ? (res === "胜" ? 30 : res === "平" ? 10 : 0) : (res === "胜" ? 80 : res === "平" ? 30 : 0);
@@ -2801,7 +3225,7 @@ function settleMatch(){
   const ment = mentalityOf(L.sportId), tprof = s.tprof[L.sportId];
   if(!tprof.fam) tprof.fam = {}; tprof.fam[L.startMentality] = (tprof.fam[L.startMentality] || 0) + 1;
   const stamMulAll = (ment.stam || 1) * instrFactor(L, "stam") * (isFr ? 0.5 : 1);
-  const maxMin = isB ? 48 : 90;
+  const maxMin = isB ? 40 : 90;
   const minsMap = Object.assign({}, L.playedMins || {});
   for(const x of L.onPitch) minsMap[x.pid] = (minsMap[x.pid] || 0) + (maxMin - (x.inMin || 0));
   for(const pid of Object.keys(minsMap)){ const ps = pstatOf(pid); ps.stamina = Math.max(5, Math.round(ps.stamina - MATCH_CFG.staminaStartCost * (minsMap[pid] / maxMin) * stamMulAll)); }
