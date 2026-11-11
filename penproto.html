@@ -59,6 +59,13 @@
   button.main:disabled{ background:#c9bfa5; }
   button.mini{ margin-top:10px; padding:7px 14px; font-size:12px; border-radius:999px; border:1px solid var(--line); background:#fffdf6; cursor:pointer; }
   .commitline{ margin-top:8px; font-size:12.5px; color:#6d6350; }
+  .coach{ position:absolute; left:10px; right:10px; bottom:10px; z-index:9; background:rgba(35,32,26,.93); color:#f7f1de; border-radius:10px; padding:9px 12px; font-size:13px; line-height:1.6; box-shadow:0 4px 14px rgba(0,0,0,.3); text-align:left; }
+  .coach b{ color:#ffd34d; }
+  .coach .who{ display:inline-block; background:#a87b1f; color:#fff; border-radius:4px; font-size:11px; padding:0 6px; margin-right:6px; }
+  .goal.guideGlow{ animation:gpulse 1.1s ease-in-out infinite; }
+  @keyframes gpulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(255,211,77,0); } 50%{ box-shadow:0 0 0 6px rgba(255,211,77,.55); } }
+  .divezone.guideGlow{ animation:zpulse 1.1s ease-in-out infinite; }
+  @keyframes zpulse{ 0%,100%{ box-shadow:inset 0 0 0 2px rgba(255,211,77,.20); } 50%{ box-shadow:inset 0 0 0 3px rgba(255,211,77,.8); } }
   .commitline b{ color:var(--gold); }
   .flavor{ margin-top:10px; font-size:13.5px; line-height:1.6; min-height:22px; }
   .flavor .q{ color:var(--gold); font-weight:700; }
@@ -67,7 +74,7 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><h1>⚽ 点球时刻 · 第三人称 v2</h1><a href="index.html">← 返回游戏</a></div>
+  <div class="top"><h1>⚽ 点球时刻 · 第三人称 v3</h1><a href="index.html">← 返回游戏</a></div>
   <div class="score">
     <div class="cell"><b id="shootStat">0/0</b><span>我主罚</span></div>
     <div class="cell"><b id="saveStat">0/0</b><span>我扑救（扑出）</span></div>
@@ -82,6 +89,7 @@
     <div class="ball ballS" id="ball"></div>
     <div class="aim" id="aim"></div>
     <div class="banner" id="banner"></div>
+    <div class="coach" id="coach" style="display:none"></div>
   </div>
 
   <div class="panel">
@@ -96,8 +104,8 @@
     <button class="main" id="actionBtn" disabled>先点球门选落点</button>
     <div class="flavor" id="flavor"></div>
   </div>
-  <div class="foot">第三人称点球原型 v2 · 主罚看门将重心、扑救读射手动作（有假动作）<br>
-  <button class="mini" id="resetBtn">清空战绩</button> <button class="mini" id="sndBtn">🔊 音效开</button></div>
+  <div class="foot">第三人称点球原型 v3 · 主罚看门将重心、扑救读射手动作（有假动作）<br>
+  <button class="mini" id="resetBtn">清空战绩</button> <button class="mini" id="guideSaveBtn">重看引导·扑救</button> <button class="mini" id="guideShootBtn">重看引导·主罚</button> <button class="mini" id="sndBtn">🔊 音效开</button></div>
 </div>
 
 <script>
@@ -140,7 +148,7 @@ let keeperFig = null, takerFig = null;
 let saveCommit = null;               // {third, power, label}
 let roundTimers = [];
 function later(fn, ms){ roundTimers.push(setTimeout(fn, ms)); }
-function clearTimers(){ roundTimers.forEach(clearTimeout); roundTimers = []; }
+function clearTimers(){ roundTimers.forEach(id => { clearTimeout(id); clearInterval(id); }); roundTimers = []; }
 function pick(a){ return a[Math.floor(Math.random() * a.length)]; }
 function goalRect(){ return goal.getBoundingClientRect(); }
 function sceneRect(){ return scene.getBoundingClientRect(); }
@@ -199,6 +207,7 @@ function setupShoot(){
   }
   $("riskLine").style.display = "flex"; $("commitLine").style.display = "none";
   const btn = $("actionBtn"); btn.disabled = true; btn.textContent = "先点球门选落点";
+  if(guideShoot){ goal.classList.add("guideGlow"); coach("① 先<b>点球门</b>任意位置——那就是你要打的落点，球门在发光的地方点就行。"); }
 }
 goal.addEventListener("click", ev => {
   if(mode !== "shoot" || busy || (phase !== "aim" && phase !== "power")) return;
@@ -209,6 +218,7 @@ goal.addEventListener("click", ev => {
   const zi = zoneInfo(aim.nx, aim.ny);
   $("zoneName").textContent = zi.name; $("riskPct").textContent = Math.round(zi.miss * 100) + "%";
   if(phase === "aim"){ const btn = $("actionBtn"); btn.disabled = false; btn.textContent = "助跑 →"; }
+  if(guideShoot) coach("② 落点选好了。点<b>「助跑 →」</b>，助跑途中盯门将重心、落点还能改；③ 指针进<b>绿区</b>的瞬间点「射门」。");
 });
 $("actionBtn").addEventListener("click", () => {
   if(mode !== "shoot" || busy) return;
@@ -219,6 +229,7 @@ $("actionBtn").addEventListener("click", () => {
     takerFig.style.transform = "translate(52px, -6px) scale(.94)";
     startBar();
   } else if(phase === "power" && aim){
+    if(guideShoot){ guideShoot = false; hideCoach(); goal.classList.remove("guideGlow"); }
     busy = true; phase = "done"; cancelAnimationFrame(barAnim);
     const exec = execOf(barPos), zi = zoneInfo(aim.nx, aim.ny);
     const third = aim.nx < .34 ? 0 : aim.nx > .66 ? 2 : 1;
@@ -262,6 +273,9 @@ $("actionBtn").addEventListener("click", () => {
 //  - flip: the lean flips at the swing — early lean lies, swing lean is true
 // Commit early = full power but you read the early tell; commit after the swing = true read, less power.
 let saveState = null;
+let guideShoot = true, guideSave = true;
+function coach(html){ const c = $("coach"); if(!c) return; c.innerHTML = '<span class="who">老陈</span>' + html; c.style.display = "block"; }
+function hideCoach(){ const c = $("coach"); if(c) c.style.display = "none"; }
 function setupSave(){
   goal.className = "goal back";
   ball.className = "ball ballK";
@@ -269,7 +283,7 @@ function setupSave(){
   takerFig = mkFig("shooterK", figSVG(TAKER_C, SKIN, HAIR, false));
   takerFig.style.transition = "transform .18s ease";
   ["0", "33.4%", "66.7%"].forEach((l, i) => {
-    const z = document.createElement("div"); z.className = "divezone"; z.style.left = l;
+    const z = document.createElement("div"); z.className = "divezone" + (guideSave ? " guideGlow" : ""); z.style.left = l;
     z.addEventListener("click", () => commitDive(i, z));
     scene.appendChild(z);
   });
@@ -295,7 +309,17 @@ function commitDive(third, zoneEl){
   $("commitLine").style.display = "block";
   $("commitLine").innerHTML = `已扑向<b>${["左", "中", "右"][third]}</b> · ${afterReveal ? "等摆腿后才动，看得准但力量打了折" : "提前预判，力量拉满——赌的就是这个方向"}`;
 }
+function gateKick(fn, earliest, deadline){
+  const iv = setInterval(() => {
+    const now = performance.now();
+    if(!saveState){ clearInterval(iv); return; }
+    if(saveState.committed && now >= earliest){ clearInterval(iv); fn(); }
+    else if(now >= deadline){ clearInterval(iv); fn(); }
+  }, 120);
+  roundTimers.push(iv);
+}
 function runSaveSequence(){
+  const guided = guideSave;
   // decide target (screen space: where the ball arrives for the keeper)
   const fav = cpuFav, rx = Math.random();
   const nx = rx < .46 ? (fav === 0 ? .10 + Math.random() * .16 : .74 + Math.random() * .16)
@@ -306,29 +330,33 @@ function runSaveSequence(){
   const fake = Math.random() < .35 ? pick(["stutter", "fakeSwing", "flip"]) : null;
   const trueLean = third === 1 ? 0 : third === 0 ? -1 : 1;
   const earlyLean = fake === "flip" ? -trueLean : trueLean;
-  const startSide = Math.random() < .5 ? -1 : 1;   // run-up origin offset (weak tell, ~coin flip)
-  saveState = { committed: null, kicked: false, revealAt: Infinity, target: { nx, ny, third }, fake };
+  const startSide = Math.random() < .5 ? -1 : 1;
   const T0 = performance.now();
-  // run-up: from offset toward the ball, lean builds
+  const runStart = guided ? 1700 : 800;            // prep beat: he places the ball and steps back — nothing to tap yet
+  const runDur = guided ? 1500 : 1250;
+  let swingAt = runStart + (guided ? 1250 : 620);  // run-up travel after prep
+  if(fake === "stutter") swingAt += guided ? 500 : 380;
+  saveState = { committed: null, kicked: false, revealAt: T0 + swingAt, target: { nx, ny, third }, fake, guided };
   takerFig.style.transform = `translate(${startSide * 30}px, 6px)`;
-  later(() => { takerFig.style.transition = "transform .95s cubic-bezier(.4,.1,.4,1)";
-    takerFig.style.transform = `translate(${earlyLean * 7}px, 0) rotate(${earlyLean * 7}deg) scale(1.06)`; }, 60);
-  let swingAt = 1080;
+  if(guided) coach("先别急——他在摆球、量步点。<b>这段时间什么都不用点</b>，就看他从哪一侧开始起跑。");
+  later(() => { takerFig.style.transition = `transform ${runDur}ms cubic-bezier(.4,.1,.4,1)`;
+    takerFig.style.transform = `translate(${earlyLean * 7}px, 0) rotate(${earlyLean * 7}deg) scale(1.06)`;
+    if(guided) coach("他动了！<b>盯他的身体往哪边斜</b>——斜向哪边，多半就往哪边打。先别急着扑，扑早了会被假动作锁死。"); }, runStart);
   if(fake === "stutter"){
-    later(() => { takerFig.style.transition = "transform .12s ease"; takerFig.style.transform = `translate(${earlyLean * 7}px, -2px) rotate(${earlyLean * 7}deg) scale(1.06)`; }, 560);
-    later(() => { takerFig.style.transform = `translate(${earlyLean * 8}px, 0) rotate(${earlyLean * 8}deg) scale(1.08)`; }, 860);
-    swingAt = 1330;
+    later(() => { takerFig.style.transition = "transform .12s ease"; takerFig.style.transform = `translate(${earlyLean * 7}px, -2px) rotate(${earlyLean * 7}deg) scale(1.06)`; }, runStart + runDur * .5);
+    later(() => { takerFig.style.transform = `translate(${earlyLean * 8}px, 0) rotate(${earlyLean * 8}deg) scale(1.08)`; }, runStart + runDur * .5 + 320);
   }
-  saveState.revealAt = T0 + swingAt;
   const doKick = (isReal) => {
     if(!isReal){ // dummy swing: leg goes, ball stays
       takerFig.style.transition = "transform .16s ease";
       takerFig.style.transform = `translate(${earlyLean * 9}px, 0) rotate(${earlyLean * 13}deg) scale(1.09)`;
       noise(0, .05, .12);
+      if(guided) coach("这下是<b>假摆腿</b>——球还没动！扑早了的人这会儿已经被锁在地上了。稳住，等他真摆腿。");
       return;
     }
     saveState.kicked = true;
     const leanNow = fake === "flip" ? trueLean : earlyLean;
+    if(guided && fake === "flip") coach("看见没——他<b>摆腿时突然变向</b>了！摆腿之前的倾斜是装的，这一下才是真的。");
     takerFig.style.transition = "transform .14s ease";
     takerFig.style.transform = `translate(${leanNow * 10}px, 0) rotate(${leanNow * 14}deg) scale(1.1)`;
     SFX.kick();
@@ -341,12 +369,14 @@ function runSaveSequence(){
   };
   if(fake === "fakeSwing"){
     later(() => doKick(false), swingAt);
-    later(() => doKick(true), swingAt + 330);
-    saveState.revealAt = T0 + swingAt + 330;   // truth only at the real swing
+    if(guided){ saveState.revealAt = T0 + swingAt + 800; gateKick(() => doKick(true), T0 + swingAt + 800, T0 + swingAt + 4200); }
+    else later(() => doKick(true), swingAt + 480);
+  } else if(guided){
+    later(() => coach("就是现在——他要摆腿了！<b>点画面左 / 中 / 右任意一侧</b>，把门将扑出去。"), Math.max(runStart + 400, swingAt - 420));
+    gateKick(() => doKick(true), T0 + swingAt, T0 + swingAt + 3800);
   } else {
     later(() => doKick(true), swingAt);
   }
-  // safety: if the player never commits, resolve happens in doKick via saveState.committed=null
 }
 function resolveSaveShot(){
   const { nx, ny, third } = saveState.target;
@@ -375,7 +405,9 @@ function resolveSaveShot(){
       $("flavor").innerHTML = `<span class="q">${how === "reach" ? "指尖蹭到——扑出去了！" : how === "stood" ? "他正打中路，你没动就对了。" : "神扑！方向、时机全读对了。"}</span>他打${["左", "中", "右"][third]}路${ny > .5 ? "低球" : "高球"}${fakeName ? `，还耍了「${fakeName}」` : ""}${c ? `；你${c.label}，${c.power < 1 ? "力量打折但方向没错" : "力量拉满"}` : ""}。`; }
     else { banner("球进了…", "#fff"); SFX.groan();
       $("flavor").innerHTML = `<span class="q">${how === "wrongway" ? "被骗了——他摆腿前的倾斜是假的。" : how === "beaten" ? "方向扑对了，但这球太刁、太快。" : "你没扑，他从容打进。"}</span>他实际打${["左", "中", "右"][third]}路${ny > .5 ? "低球" : "高球"}${fakeName ? `（假动作：${fakeName}）` : ""}。盯他<b>摆腿那一下</b>再动，看得最准。`; }
-    updStats(); endRound();
+    updStats();
+    if(saveState && saveState.guided){ guideSave = false; coach("记住三条就够了：①<b>摆球时不用点</b> ②<b>盯倾斜读方向</b> ③<b>摆腿那下才是真的</b>。下一轮起恢复正常速度，自己读。"); }
+    endRound();
   }, 380);
 }
 
@@ -388,6 +420,7 @@ function newRound(){
   aimEl.style.display = "none";
   $("banner").className = "banner"; $("banner").textContent = "";
   $("flavor").innerHTML = ""; $("commitLine").style.display = "none";
+  hideCoach(); goal.classList.remove("guideGlow");
   $("barWrap").style.display = "none"; $("zoneName").textContent = "未选择"; $("riskPct").textContent = "—";
   if(mode === "shoot"){
     $("modeTag").textContent = "我方点球 · 第三人称";
@@ -401,6 +434,8 @@ function newRound(){
   requestAnimationFrame(() => { ball.style.transition = "all .45s cubic-bezier(.25,.6,.35,1)"; });
   SFX.whistle(1);
 }
+$("guideSaveBtn").addEventListener("click", () => { guideSave = true; mode = "save"; newRound(); });
+$("guideShootBtn").addEventListener("click", () => { guideShoot = true; mode = "shoot"; newRound(); });
 $("resetBtn").addEventListener("click", () => { stats = { shoot: [0, 0], save: [0, 0] }; history = []; cpuSides = []; updStats(); newRound(); });
 $("sndBtn").addEventListener("click", e => { muted = !muted; e.target.textContent = muted ? "🔇 音效关" : "🔊 音效开"; if(!muted) SFX.whistle(1); });
 newRound(); updStats();
