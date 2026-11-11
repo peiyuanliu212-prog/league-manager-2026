@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>罚球时刻 · 第三人称原型 v1</title>
+<style>
+  :root{ --paper:#f4efe4; --ink:#2b2620; --line:#ddd2b8; --red:#b03a2e; --gold:#a87b1f; --green:#2e6b46; }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{ background:#e9e2cf; font-family:"PingFang SC","Microsoft YaHei",sans-serif; color:var(--ink); }
+  .wrap{ max-width:430px; margin:0 auto; background:var(--paper); min-height:100vh; padding:12px 12px 28px; }
+  .top{ display:flex; justify-content:space-between; align-items:center; }
+  .top h1{ font-size:17px; letter-spacing:1px; }
+  .top a{ font-size:12px; color:var(--gold); text-decoration:none; }
+  .score{ display:flex; gap:8px; margin-top:10px; }
+  .score .cell{ flex:1; background:#fffdf6; border:1px solid var(--line); border-radius:10px; padding:7px 10px; text-align:center; }
+  .score .cell b{ font-size:17px; display:block; }
+  .score .cell span{ font-size:11px; color:#8a8272; }
+  .modebar{ margin-top:10px; text-align:center; font-size:13px; }
+  .modebar .tag{ display:inline-block; padding:3px 12px; border-radius:999px; background:var(--ink); color:#f7f1de; font-size:12px; letter-spacing:2px; }
+  .modebar .who{ margin-top:5px; color:#6d6350; font-size:12px; }
+  .scene{ position:relative; margin-top:10px; height:340px; border-radius:14px; overflow:hidden; border:1px solid var(--line);
+    background:linear-gradient(#7d94a6 0 22%, #c8a06a 22% 30%, #bb8f57 30% 100%); }
+  .stand{ position:absolute; left:0; right:0; top:0; height:22%; opacity:.5;
+    background:repeating-linear-gradient(90deg,#5d7284 0 7px,#6d8397 7px 14px); }
+  .courtline{ position:absolute; left:8%; right:8%; bottom:16%; height:2px; background:rgba(255,255,255,.55); }
+  .board{ position:absolute; left:50%; top:9%; width:118px; height:74px; margin-left:-59px; background:rgba(255,253,246,.92);
+    border:3px solid #8a8272; border-radius:4px; z-index:2; }
+  .board::after{ content:""; position:absolute; left:50%; top:56%; width:44px; height:30px; margin-left:-22px; border:2.5px solid var(--red); border-radius:2px; }
+  .rim{ position:absolute; left:50%; top:calc(9% + 62px); width:52px; height:12px; margin-left:-26px; z-index:3;
+    border:3.5px solid #d3542e; border-radius:50%; background:rgba(255,255,255,.25); }
+  .net{ position:absolute; left:50%; top:calc(9% + 72px); width:40px; height:30px; margin-left:-20px; z-index:2; opacity:.75;
+    background:repeating-linear-gradient(90deg, rgba(255,255,255,.9) 0 2px, transparent 2px 9px); clip-path:polygon(0 0,100% 0,82% 100%,18% 100%); }
+  .fig{ position:absolute; z-index:4; transform-origin:50% 92%; pointer-events:none;
+    width:92px; height:164px; left:50%; bottom:2%; margin-left:-46px; transition:transform .35s ease; }
+  .ball{ position:absolute; border-radius:50%; z-index:5; width:27px; height:27px; pointer-events:none;
+    background:radial-gradient(circle at 36% 30%, #e89a5a 0 30%, #cf7434 55%, #a85424 100%);
+    box-shadow:inset 0 0 0 2px rgba(90,45,15,.45), 0 3px 5px rgba(0,0,0,.3); }
+  .banner{ position:absolute; left:50%; top:40%; transform:translate(-50%,-50%) scale(.8); z-index:8; font-size:32px; font-weight:800; letter-spacing:3px;
+    color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.25), 0 4px 14px rgba(0,0,0,.4); opacity:0; pointer-events:none; white-space:nowrap; }
+  .banner.show{ animation:bin .45s cubic-bezier(.2,1.4,.4,1) forwards; }
+  @keyframes bin{ to{ opacity:1; transform:translate(-50%,-50%) scale(1); } }
+  .coach{ position:absolute; left:10px; right:10px; bottom:10px; z-index:9; background:rgba(35,32,26,.93); color:#f7f1de; border-radius:10px; padding:9px 12px; font-size:13px; line-height:1.6; box-shadow:0 4px 14px rgba(0,0,0,.3); }
+  .coach b{ color:#ffd34d; }
+  .coach .who{ display:inline-block; background:#a87b1f; color:#fff; border-radius:4px; font-size:11px; padding:0 6px; margin-right:6px; }
+  .panel{ margin-top:12px; background:#fffdf6; border:1px solid var(--line); border-radius:12px; padding:12px; }
+  .hint{ font-size:13px; color:#6d6350; line-height:1.55; }
+  .hint b{ color:var(--ink); }
+  .barwrap{ margin-top:12px; }
+  .bar{ position:relative; height:20px; border-radius:10px; background:#e4d9c0; overflow:hidden; }
+  .seg{ position:absolute; top:0; bottom:0; }
+  .segL{ background:#c0392b; left:0; } .segG{ background:#2e6b46; } .segR{ background:#c0392b; right:0; }
+  .segMid{ position:absolute; top:0; bottom:0; background:#e6c65a; }
+  .marker{ position:absolute; top:0; bottom:0; width:5px; background:#fff; box-shadow:0 0 0 1.5px rgba(0,0,0,.45); left:0; display:none; }
+  .ghost{ position:absolute; top:-3px; bottom:-3px; width:3px; background:#274b8f; opacity:.85; display:none; }
+  .ghost::after{ content:"上球"; position:absolute; top:-14px; left:-9px; font-size:9px; color:#274b8f; white-space:nowrap; }
+  .barlabels{ display:flex; justify-content:space-between; font-size:10.5px; color:#8a8272; margin-top:3px; }
+  button.main{ width:100%; margin-top:12px; padding:15px; font-size:16px; letter-spacing:2px; border:none; border-radius:11px; background:var(--red); color:#fff; font-weight:700; cursor:pointer; user-select:none; touch-action:none; }
+  button.main:disabled{ background:#c9bfa5; }
+  button.main.holding{ background:#8e2f24; }
+  button.mini{ margin-top:10px; padding:7px 14px; font-size:12px; border-radius:999px; border:1px solid var(--line); background:#fffdf6; cursor:pointer; }
+  .flavor{ margin-top:10px; font-size:13.5px; line-height:1.6; min-height:22px; }
+  .flavor .q{ color:var(--gold); font-weight:700; }
+  .foot{ margin-top:14px; font-size:11px; color:#a2987f; text-align:center; line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><h1>🏀 罚球时刻 · 第三人称 v1</h1><a href="index.html">← 返回游戏</a></div>
+  <div class="score">
+    <div class="cell"><b id="makeStat">0/0</b><span>罚球命中</span></div>
+    <div class="cell"><b id="swishStat">0</b><span>空心入网</span></div>
+    <div class="cell"><b id="rhythmStat">0</b><span>节奏完美</span></div>
+  </div>
+  <div class="modebar"><span class="tag" id="modeTag">第 1 罚</span><div class="who" id="whoLine"></div></div>
+
+  <div class="scene" id="scene">
+    <div class="stand"></div>
+    <div class="board"></div>
+    <div class="rim" id="rim"></div>
+    <div class="net"></div>
+    <div class="courtline"></div>
+    <div id="figs"></div>
+    <div class="ball" id="ball"></div>
+    <div class="banner" id="banner"></div>
+    <div class="coach" id="coach" style="display:none"></div>
+  </div>
+
+  <div class="panel">
+    <div class="hint" id="mainHint"><b>按住</b>按钮开始举球，力度条会往上走——<b>绿区松手</b>就是完美出手。罚球拼的是节奏：下一球在和上一球几乎相同的位置松手，窗口会变宽。</div>
+    <div class="barwrap">
+      <div class="bar" id="bar">
+        <div class="seg segL" id="segL"></div><div class="segMid" id="segM1"></div><div class="seg segG" id="segG"></div><div class="segMid" id="segM2"></div><div class="seg segR" id="segR"></div>
+        <div class="ghost" id="ghost"></div><div class="marker" id="marker"></div>
+      </div>
+      <div class="barlabels"><span>短了</span><span>弱</span><span>完美出手</span><span>强</span><span>过了</span></div>
+    </div>
+    <button class="main" id="holdBtn" disabled>等他运球找节奏…</button>
+    <div class="flavor" id="flavor"></div>
+  </div>
+  <div class="foot">第三人称罚球原型 v1 · 按住蓄力、绿区松手、复刻节奏<br>
+  <button class="mini" id="resetBtn">清空战绩</button> <button class="mini" id="guideBtn">重看引导</button> <button class="mini" id="sndBtn">🔊 音效开</button></div>
+</div>
+
+<script>
+"use strict";
+// ---------- tiny synth ----------
+let AC = null, muted = false;
+function ac(){ if(!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if(AC.state === "suspended") AC.resume(); return AC; }
+function tone(f, t0, d, type, g){ if(muted) return; try{ const a = ac(), o = a.createOscillator(), v = a.createGain(); o.type = type || "sine"; o.frequency.value = f; v.gain.setValueAtTime(g || .12, a.currentTime + t0); v.gain.exponentialRampToValueAtTime(.001, a.currentTime + t0 + d); o.connect(v).connect(a.destination); o.start(a.currentTime + t0); o.stop(a.currentTime + t0 + d); }catch(e){} }
+function noise(t0, d, g, freq){ if(muted) return; try{ const a = ac(), len = a.sampleRate * d, buf = a.createBuffer(1, len, a.sampleRate), ch = buf.getChannelData(0); for(let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len); const src = a.createBufferSource(); src.buffer = buf; const v = a.createGain(); v.gain.value = g; const f = a.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = freq || 800; src.connect(f).connect(v).connect(a.destination); src.start(a.currentTime + t0); }catch(e){} }
+const SFX = { bounce(){ noise(0, .07, .3, 300); },
+  swish(){ noise(0, .28, .4, 1600); noise(.05, .22, .25, 900); },
+  clang(){ tone(175, 0, .22, "square", .10); tone(262, 0, .14, "square", .06); noise(0, .06, .2, 2400); },
+  cheer(){ noise(0, .8, .15, 700); tone(523, .05, .3, "triangle", .05); tone(659, .12, .3, "triangle", .05); },
+  groan(){ tone(196, 0, .5, "sawtooth", .04); tone(165, .1, .6, "sawtooth", .035); },
+  whistle(n){ for(let i = 0; i < (n || 1); i++) tone(2350, i * .22, .16, "square", .028); } };
+
+// ---------- figure ----------
+function figSVG(jersey, skin, hair){
+  return `<svg viewBox="0 0 64 118" width="100%" height="100%">
+    <circle cx="32" cy="13" r="10" fill="${hair}"/>
+    <path d="M32 23v33" stroke="${jersey}" stroke-width="15" stroke-linecap="round"/>
+    <path d="M25 30 L7 47 M39 30 L57 47" stroke="${skin}" stroke-width="7" stroke-linecap="round"/>
+    <path d="M34 54 L44 88 L46 108" stroke="${skin}" stroke-width="8" stroke-linecap="round" fill="none"/>
+    <path d="M29 54 L24 88 L22 108" stroke="${skin}" stroke-width="8" stroke-linecap="round" fill="none"/>
+    <path d="M21 26h22l-2.5 30h-17z" fill="${jersey}"/>
+    <circle cx="32" cy="40" r="6.5" fill="rgba(255,255,255,.55)"/>
+  </svg>`;
+}
+const $ = id => document.getElementById(id);
+const scene = $("scene"), ballEl = $("ball"), rimEl = $("rim"), btn = $("holdBtn");
+const SHOOTERS = ["库里", "杜兰特", "利拉德", "东契奇", "约基奇"];
+let attempt = 0, phase = "prep", holdStart = 0, sweepAnim = null, pos = 0;
+let center = 52, greenHalf = 6, midHalf = 12, keyBall = false, speedF = 1;
+let prevPos = null, guide = true;
+let stats = { make: 0, att: 0, swish: 0, rhythm: 0 };
+let timers = [];
+function later(fn, ms){ timers.push(setTimeout(fn, ms)); }
+function clearTimers(){ timers.forEach(id => { clearTimeout(id); clearInterval(id); }); timers = []; }
+function pick(a){ return a[Math.floor(Math.random() * a.length)]; }
+function coach(html){ const c = $("coach"); c.innerHTML = '<span class="who">老陈</span>' + html; c.style.display = "block"; }
+function hideCoach(){ $("coach").style.display = "none"; }
+function banner(txt, color){ const b = $("banner"); b.textContent = txt; b.style.color = color || "#fff"; b.className = "banner show"; }
+function updStats(){ $("makeStat").textContent = `${stats.make}/${stats.att}`;
+  $("swishStat").textContent = stats.swish; $("rhythmStat").textContent = stats.rhythm; }
+
+const fig = document.createElement("div"); fig.className = "fig"; fig.innerHTML = figSVG("#b03a2e", "#8a5a3b", "#2b2620"); $("figs").appendChild(fig);
+
+function scenePt(el){ const sr = scene.getBoundingClientRect(), r = el.getBoundingClientRect();
+  return { x: r.left - sr.left + r.width / 2, y: r.top - sr.top + r.height / 2, w: r.width }; }
+function ballTo(x, y){ ballEl.style.left = (x - 13) + "px"; ballEl.style.top = (y - 13) + "px"; }
+function handPos(){ const sr = scene.getBoundingClientRect(); return { x: sr.width / 2 + 24, y: sr.height * .80 }; }
+
+function layoutBar(){
+  const g0 = center - greenHalf, g1 = center + greenHalf, m0 = center - midHalf, m1 = center + midHalf;
+  $("segL").style.width = m0 + "%";
+  $("segM1").style.left = m0 + "%"; $("segM1").style.width = (g0 - m0) + "%";
+  $("segG").style.left = g0 + "%"; $("segG").style.width = (g1 - g0) + "%";
+  $("segM2").style.left = g1 + "%"; $("segM2").style.width = (m1 - g1) + "%";
+  $("segR").style.width = (100 - m1) + "%";
+  if(prevPos != null){ const gh = $("ghost"); gh.style.left = prevPos + "%"; gh.style.display = "block"; }
+  else $("ghost").style.display = "none";
+}
+
+function newAttempt(){
+  clearTimers(); cancelAnimationFrame(sweepAnim);
+  attempt++; phase = "prep"; pos = 0;
+  keyBall = attempt % 3 === 0;
+  center = keyBall ? 52 + (Math.random() < .5 ? -4 : 4) : 52;
+  greenHalf = keyBall ? 4.2 : 6; midHalf = keyBall ? 8.5 : 12;
+  speedF = keyBall ? 1.18 : 1;
+  layoutBar();
+  $("marker").style.display = "none";
+  $("banner").className = "banner"; $("flavor").innerHTML = "";
+  $("modeTag").textContent = keyBall ? `第 ${attempt} 罚 · 关键球` : `第 ${attempt} 罚`;
+  $("whoLine").textContent = keyBall ? "还剩 3.2 秒，落后 1 分——这球罚进就反超，全场都站着" : `罚球手：${pick(SHOOTERS)} · 站上罚球线`;
+  btn.disabled = true; btn.textContent = "等他运球找节奏…"; btn.classList.remove("holding");
+  fig.style.transform = "translateY(0)";
+  // prep routine: two dribbles, then hands up — input only after the routine
+  const hp = handPos();
+  ballTo(hp.x, hp.y - 26);
+  const dribble = (t, down) => later(() => { ballEl.style.transition = "top .16s ease-in"; ballTo(hp.x, down ? hp.y + 16 : hp.y - 26); if(down) SFX.bounce(); }, t);
+  dribble(150, true); dribble(330, false); dribble(520, true); dribble(700, false);
+  later(() => { phase = "ready"; btn.disabled = false; btn.textContent = "按住开始投篮（别松手）";
+    if(guide && attempt === 1) coach("先看他运两下球稳住节奏——这是准备时间，<b>什么都不用点</b>。等按钮亮了再<b>按住</b>。"); }, 950);
+}
+function startHold(){
+  if(phase !== "ready") return;
+  phase = "holding"; holdStart = performance.now();
+  btn.textContent = "盯着绿区…松手出手！"; btn.classList.add("holding");
+  fig.style.transform = "translateY(-5px)";
+  const hp = handPos(); ballEl.style.transition = "top .3s ease"; ballTo(hp.x - 6, hp.y - 52);
+  $("marker").style.display = "block";
+  if(guide && attempt === 1) coach("条子往上走了——<b>指针进绿区的瞬间松手</b>，那就是完美出手点。");
+  const step = () => { pos = Math.min(100, (performance.now() - holdStart) / 9.5 * speedF);
+    $("marker").style.left = `calc(${pos}% - 2px)`; if(phase === "holding") sweepAnim = requestAnimationFrame(step); };
+  sweepAnim = requestAnimationFrame(step);
+}
+function release(){
+  if(phase !== "holding") return;
+  phase = "flight"; cancelAnimationFrame(sweepAnim);
+  btn.disabled = true; btn.classList.remove("holding"); btn.textContent = "出手了…";
+  fig.style.transform = "translateY(-9px)"; later(() => fig.style.transform = "translateY(0)", 420);
+  const rhythm = prevPos != null && Math.abs(pos - prevPos) <= 3;
+  const w = rhythm ? 4 : 0;
+  const d = Math.abs(pos - center);
+  let res;
+  if(d <= greenHalf + w) res = "swish";
+  else if(d <= midHalf + w) res = Math.random() < .85 ? "in" : "rim";
+  else if(d <= midHalf + 8 + w) res = Math.random() < .22 ? "in" : "rim";
+  else res = pos < center ? "short" : "long";
+  if(res === "long" && d > 30) res = "air";
+  if(rhythm) stats.rhythm++;
+  stats.att++; if(res === "swish" || res === "in") stats.make++; if(res === "swish") stats.swish++;
+  flyBall(res);
+  prevPos = pos;
+  later(() => {
+    const posTxt = `出手点 ${Math.round(pos)}${prevPos != null && rhythm ? " · 和上一球几乎同点" : ""}`;
+    if(res === "swish"){ banner("空心入网！", "#ffd34d"); SFX.swish(); SFX.cheer();
+      $("flavor").innerHTML = `<span class="q">${rhythm ? "节奏完美——和上一球同一个出手点，窗口都给你让宽了。" : pick(["唰——空心！这弧线教科书。", "空心入网，手感滚烫。"])}</span>${posTxt}。`; }
+    else if(res === "in"){ banner("罚进！", "#ffd34d"); SFX.clang(); SFX.swish(); SFX.cheer();
+      $("flavor").innerHTML = `<span class="q">${pick(["颠了两下，还是进去了。", "擦筐而入，运气也是实力。"])}</span>${posTxt}${rhythm ? "，节奏稳住了" : ""}。`; }
+    else if(res === "rim"){ banner("砸筐了…", "#fff"); SFX.clang(); SFX.groan();
+      $("flavor").innerHTML = `<span class="q">${pos < center ? "稍微短了点，砸在前筐弹出。" : "稍微大了点，砸在后筐弹出。"}</span>${posTxt}——离绿区就差一口气。`; }
+    else if(res === "short"){ banner("短了！", "#fff"); SFX.clang(); SFX.groan();
+      $("flavor").innerHTML = `<span class="q">松手太早，球没够到——砸前筐沿掉下来。</span>${posTxt}，下次多按一会儿。`; }
+    else if(res === "long"){ banner("过了！", "#fff"); SFX.clang(); SFX.groan();
+      $("flavor").innerHTML = `<span class="q">按太久了，球砸在后筐上沿飞出去。</span>${posTxt}，劲使大了。`; }
+    else { banner("三不沾…", "#fff"); SFX.groan();
+      $("flavor").innerHTML = `<span class="q">这球直接飞过了篮板——全场都愣了。</span>${posTxt}，绿区在中间，别走到极端。`; }
+    if(guide && attempt === 1){ guide = false; coach("记住两条：①<b>绿区松手</b> ②<b>每球照着上一球的位置松手</b>——节奏一稳，窗口自己变宽。关键球每三罚来一次，绿区会变窄、还挪位置，盯紧了。"); }
+    updStats();
+    later(newAttempt, 1900);
+  }, 700);
+}
+function flyBall(res){
+  const hp = handPos(), start = { x: hp.x - 6, y: hp.y - 52 };
+  const rp = scenePt(rimEl);
+  let end = { x: rp.x, y: rp.y }, apex = rp.y - 118, after = null;
+  if(res === "swish"){ after = { x: rp.x, y: rp.y + 52 }; }
+  else if(res === "in"){ end = { x: rp.x - 12, y: rp.y - 4 }; after = { x: rp.x, y: rp.y + 52 }; }
+  else if(res === "rim"){ end = { x: pos < center ? rp.x - 20 : rp.x + 20, y: rp.y - 2 }; after = { x: end.x + (pos < center ? -34 : 34), y: rp.y + 130 }; }
+  else if(res === "short"){ end = { x: rp.x - 24, y: rp.y + 2 }; apex = rp.y - 84; after = { x: rp.x - 30, y: rp.y + 140 }; }
+  else if(res === "long"){ end = { x: rp.x + 24, y: rp.y - 2 }; apex = rp.y - 128; after = { x: rp.x + 44, y: rp.y + 120 }; }
+  else { end = { x: rp.x + 66, y: rp.y - 30 }; apex = rp.y - 140; after = { x: rp.x + 84, y: rp.y + 150 }; }
+  ballEl.style.transition = "none";
+  const t0 = performance.now(), dur = 560;
+  const stepFn = () => { const t = Math.min(1, (performance.now() - t0) / dur);
+    const x = start.x + (end.x - start.x) * t;
+    const y = (1 - t) * (1 - t) * start.y + 2 * (1 - t) * t * apex + t * t * end.y;
+    ballTo(x, y);
+    if(t < 1) requestAnimationFrame(stepFn);
+    else if(after){ const t1 = performance.now();
+      const drop = () => { const u = Math.min(1, (performance.now() - t1) / 260);
+        ballTo(end.x + (after.x - end.x) * u, end.y + (after.y - end.y) * u * u);
+        if(u < 1) requestAnimationFrame(drop); };
+      drop(); } };
+  requestAnimationFrame(stepFn);
+}
+btn.addEventListener("pointerdown", e => { e.preventDefault(); startHold(); });
+window.addEventListener("pointerup", () => release());
+btn.addEventListener("pointerleave", () => release());
+scene.addEventListener("pointerdown", () => startHold());
+$("resetBtn").addEventListener("click", () => { stats = { make: 0, att: 0, swish: 0, rhythm: 0 }; prevPos = null; attempt = 0; updStats(); newAttempt(); });
+$("guideBtn").addEventListener("click", () => { guide = true; attempt = 0; prevPos = null; newAttempt(); });
+$("sndBtn").addEventListener("click", e => { muted = !muted; e.target.textContent = muted ? "🔇 音效关" : "🔊 音效开"; if(!muted) SFX.whistle(1); });
+newAttempt(); updStats();
+</script>
+</body>
+</html>

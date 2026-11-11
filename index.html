@@ -362,7 +362,7 @@
     <div id="matchHead"></div>
     <div class="row" style="margin:8px 0">
       <button class="mini" id="matchSpeed" onclick="matchToggleSpeed()">倍速 ×1</button>
-      <button class="mini ghost" onclick="matchSkip()">跳过并结算</button>
+      <button class="mini ghost" id="skipBtn" onclick="matchSkip()">跳过并结算</button>
     </div>
     <canvas id="matchPitch" width="680" height="400" style="width:100%;display:block;border-radius:12px;margin:4px 0"></canvas>
     <div id="liveBar"></div>
@@ -3507,6 +3507,7 @@ function openLiveMatch(frTier, dayOverride){
 function segBounds(L){ return L.sportId === "basketball" ? [0, 10, 20, 30, 40] : [0, 15, 30, 45, 60, 75, 90]; }
 function renderMatchHead(){
   const L = LIVE; if(!L) return;
+  const skb = $("#skipBtn"); if(skb) skb.textContent = skipIsFree() ? "跳过并结算（首场免费）" : "看广告跳过并结算";
   const el = $("#matchHead"); if(!el) return;
   const avgSt = L.onPitch.length ? Math.round(L.onPitch.reduce((t,x)=>{ const es = engStamOf(x.pid); if(es != null) return t + es; const ps = mock.state.pstat[x.pid]; return t + (ps ? ps.stamina : 100) - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 40 : 90)); }, 0) / L.onPitch.length) : 100;
   const popMy = L._pm != null && L._pm !== L.my, popOp = L._po != null && L._po !== L.oppScore;
@@ -3963,7 +3964,16 @@ function liveSubs(){ const L = LIVE; if(!L || L.settled) return; if(L.paused){ t
   const p = $("#livePanel"); if(p) p.innerHTML += `<button style="width:100%;margin-top:6px" onclick="closeLivePanel()">不换了 · 继续比赛</button>`; }
 function closeLivePanel(){ const p = $("#livePanel"); if(p) p.innerHTML = ""; SUB_LIVE = false; if(HT_OUT){ HT_OUT = null; toast("这次换人已取消"); } const L = LIVE; if(L && !L.settled){ L.paused = false; renderLiveBar(); if(L.kick) L.kick(); } }
 window.liveSetMent = liveSetMent; window.liveToggleInstr = liveToggleInstr; window.liveSubs = liveSubs; window.closeLivePanel = closeLivePanel;
-function matchSkip(){ const L = LIVE; if(!L || L.settled || !L.S) return; L._skip = true; if(L.timer) clearTimeout(L.timer); closeNode(); L.paused = false; L.nodesPending = false;
+function skipIsFree(){ try{ return Object.keys(mock.state.played || {}).length === 0; }catch(e){ return false; } }
+async function matchSkip(){ const L = LIVE; if(!L || L.settled || !L.S) return;
+  if(!skipIsFree()){
+    toast("跳过比赛要先看一段广告…");
+    let okAd = false;
+    try{ okAd = await watchRenameAd(); }catch(e){ okAd = false; }
+    if(!okAd){ toast("广告没看完，未跳过——比赛继续"); return; }
+    if(LIVE !== L || L.settled || !L.S) return;
+  }
+  L._skip = true; if(L.timer) clearTimeout(L.timer); closeNode(); L.paused = false; L.nodesPending = false;
   const S = L.S; let guard = S.totalTicks * 3 + 3000;
   while(!S.over && guard-- > 0){ if(S.deadBall){ simAutoResolve(); continue; } SIMCORE.stepSim(S); }
   simDrainEvents(); simFinishToSettle(); }
