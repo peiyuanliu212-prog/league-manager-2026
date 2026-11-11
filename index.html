@@ -1663,7 +1663,7 @@ function simSubstitute(S, side, outPid, inn){
   const idx = S.players.findIndex(p=>p.side === side && p.pid === outPid && !p.out);
   if(idx < 0) return false;
   const o = S.players[idx];
-  const np = { side, pid: inn.pid, name: inn.name, group: inn.group, skill: inn.skill, isGK: inn.group === "GK",
+  const np = { side, pid: inn.pid, name: inn.name, group: o.group, skill: inn.skill, isGK: o.isGK,
     x: o.x, y: o.y, vx: 0, vy: 0, home: o.home, tx: o.x, ty: o.y, state: "hold", cool: 0, tackCool: 0, dist: 0, stam: 1, mark: -1, supportSpot: null, out: false, speedMul: o.speedMul || 1 };
   S.players[idx] = np;
   if(S.ball.owner === idx) S.ball.owner = idx;
@@ -1728,6 +1728,11 @@ function anchorTarget(S, p){
   const ballShift = (S.ball.x - 50) * .16;
   let tx = p.home.x + ballShift + P.line * dir * (p.isGK ? .15 : 1);
   let ty = p.home.y + (S.ball.y - 32) * .08 + (P.wide && (p.group === "WG" || p.group === "分卫" || p.group === "小前锋") ? (p.home.y < 32 ? -4 : 4) : 0);
+  // back line holds the edge of the box: anchors never retreat onto the goal line (live marking/chasing still can)
+  if(S.sport === "football" && !p.isGK){
+    const depth = (p.group === "DF") ? 12.5 : 6;
+    tx = p.side ? Math.min(tx, 100 - depth) : Math.max(tx, depth);
+  }
   return { x: clamp(tx, 2, 98), y: clamp(ty, 3, 61) };
 }
 /* ---------------- football ---------------- */
@@ -2396,8 +2401,8 @@ function simSkillRaw(base, group, sportId, key){
 function simSkillFor(p, sportId, group){ return simSkillRaw(effBase(p), group || slotGroupOf(p, sportId), sportId, p.pid); }
 function simPlayerObj(pid, sportId, group){ const p = findPlayer(pid); if(!p) return null; return { pid, name: p.name, group: group || slotGroupOf(p, sportId), skill: simSkillFor(p, sportId, group) }; }
 function simMyTeam(sportId, starters){
-  const players = starters.map(x=>{ const p = findPlayer(x.pid); return { pid: x.pid, name: p ? p.name : x.pid, group: slotGroupOf(p, sportId), skill: simSkillFor(p, sportId) }; });
-  return { formation: starters.map(x=>{ const p = findPlayer(x.pid); return slotGroupOf(p, sportId); }), players };
+  const players = starters.map(x=>{ const p = findPlayer(x.pid); return { pid: x.pid, name: p ? p.name : x.pid, group: x.slot, skill: simSkillFor(p, sportId) }; });
+  return { formation: starters.map(x=>x.slot), players };
 }
 function simOppTeam(sportId, oppName, form){
   const pow = (SPORT_PACKS[sportId].opp() || {})[oppName] || 88;
@@ -2616,11 +2621,13 @@ function htTactics(){ const p = $("#htPanel"); if(!p) return; const cur = mock.s
   p.innerHTML = `<div class="tiers" style="grid-template-columns:repeat(5,1fr);margin-top:8px">${MENTALITIES.map(m=>`<button class="${cur.mentality === m.id ? "" : "ghost"}" onclick="htSetMent('${m.id}')">${m.name}</button>`).join("")}</div><div class="hint">${MENTALITIES.map(m=>m.name + "：" + m.desc).join("；")}</div>`; }
 function htSetMent(id){ mock.state.tprof[LIVE.sportId].mentality = id; mock.save(); if(LIVE && LIVE.S) SIMCORE.setSimTactics(LIVE.S, 0, id, Object.assign({}, mock.state.tprof[LIVE.sportId].instr || {})); pushLine(LIVE.minute, `中场变阵：改打「${(MENTALITIES.find(m=>m.id===id) || {}).name}」。`, "chance"); htDone(); }
 function htSubs(p){ p = p || $("#htPanel"); if(!p || !LIVE) return; const L = LIVE;
-  p.innerHTML = `<div class="hint" style="margin-top:8px">先点要换下的，再点替补席的（剩余换人 ${L.subsLeft} 次）</div>` +
-    L.onPitch.map(x=>{ const pl = findPlayer(x.pid); const ps = mock.state.pstat[x.pid]; return `<button class="mini" style="margin:2px" onclick="htPickOut('${x.pid}')">${pl ? pl.name : x.pid}（体${ps ? Math.round(ps.stamina - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 48 : 90))) : 100}）</button>`; }).join("") +
+  p.innerHTML = `<div class="hint" id="subHint" style="margin-top:8px">${HT_OUT ? `已选换下：<b>${(findPlayer(HT_OUT) || {}).name || HT_OUT}</b> —— 再点下方任意一名替补，立即完成换人` : `先点要换下的，再点替补席的（剩余换人 ${L.subsLeft} 次）`}</div>` +
+    L.onPitch.map(x=>{ const pl = findPlayer(x.pid); const ps = mock.state.pstat[x.pid]; return `<button class="mini" style="margin:2px${x.pid === HT_OUT ? ";background:#a83226;color:#fff;border-color:#a83226" : ""}" onclick="htPickOut('${x.pid}')">${pl ? pl.name : x.pid}（体${ps ? Math.round(ps.stamina - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 48 : 90))) : 100}）</button>`; }).join("") +
     `<div style="margin-top:4px">` + L.bench.map(pid=>{ const pl = findPlayer(pid); return `<button class="mini ghost" style="margin:2px" onclick="htPickIn('${pid}')">${pl ? pl.name : pid}（${pl ? effBase(pl) : ""}）</button>`; }).join("") + `</div>`; }
 let HT_OUT = null;
-function htPickOut(pid){ HT_OUT = pid; toast("已选换下：" + ((findPlayer(pid) || {}).name || pid) + "，再点一名替补"); }
+function htPickOut(pid){ HT_OUT = pid; toast("已选换下：" + ((findPlayer(pid) || {}).name || pid) + "，再点一名替补");
+  document.querySelectorAll("button[onclick^='htPickOut']").forEach(b=>{ const sel = b.getAttribute("onclick").includes("'" + pid + "'"); b.style.background = sel ? "#a83226" : ""; b.style.color = sel ? "#fff" : ""; b.style.borderColor = sel ? "#a83226" : ""; });
+  const hint = $("#subHint"); if(hint) hint.innerHTML = `已选换下：<b>${((findPlayer(pid) || {}).name || pid)}</b> —— 再点下方任意一名替补，立即完成换人`; }
 function htPickIn(pid){ const L = LIVE; if(!L || !HT_OUT){ toast("先点要换下的人"); return; } if(L.subsLeft <= 0){ toast("换人名额用完了"); return; }
   if(!simApplySub(HT_OUT, pid, false)){ toast("换人没成，再试一次"); return; }
   HT_OUT = null; if(SUB_LIVE){ closeLivePanel(); } else { htDone(); } }
@@ -2639,8 +2646,8 @@ function liveSetMent(id){ const L = LIVE; if(!L) return; mock.state.tprof[L.spor
 function liveToggleInstr(id){ const L = LIVE; if(!L) return; const tp = mock.state.tprof[L.sportId]; if(!tp.instr) tp.instr = {}; tp.instr[id] = !tp.instr[id]; mock.save(); if(L.S) SIMCORE.setSimTactics(L.S, 0, tp.mentality, Object.assign({}, tp.instr)); const d = INSTRUCTIONS[L.sportId].find(x=>x.id === id); pushLine(L.minute, `临场指令：「${d ? d.name : id}」${tp.instr[id] ? "开启" : "关闭"}——场上跑法马上跟着变。`, "chance"); renderLiveBar(); toast(`指令「${d ? d.name : id}」已${tp.instr[id] ? "开启" : "关闭"}，即刻生效`); }
 function liveSubs(){ const L = LIVE; if(!L || L.settled) return; if(L.paused){ toast("先处理完当前事件再换人"); return; } if(L.subsLeft <= 0){ toast("换人名额用完了"); return; }
   SUB_LIVE = true; L.paused = true; htSubs($("#livePanel"));
-  const p = $("#livePanel"); if(p) p.innerHTML += `<button style="width:100%;margin-top:6px" onclick="closeLivePanel()">完成换人 · 继续比赛</button>`; }
-function closeLivePanel(){ const p = $("#livePanel"); if(p) p.innerHTML = ""; SUB_LIVE = false; const L = LIVE; if(L && !L.settled){ L.paused = false; renderLiveBar(); if(L.kick) L.kick(); } }
+  const p = $("#livePanel"); if(p) p.innerHTML += `<button style="width:100%;margin-top:6px" onclick="closeLivePanel()">不换了 · 继续比赛</button>`; }
+function closeLivePanel(){ const p = $("#livePanel"); if(p) p.innerHTML = ""; SUB_LIVE = false; if(HT_OUT){ HT_OUT = null; toast("这次换人已取消"); } const L = LIVE; if(L && !L.settled){ L.paused = false; renderLiveBar(); if(L.kick) L.kick(); } }
 window.liveSetMent = liveSetMent; window.liveToggleInstr = liveToggleInstr; window.liveSubs = liveSubs; window.closeLivePanel = closeLivePanel;
 function matchSkip(){ const L = LIVE; if(!L || L.settled || !L.S) return; L._skip = true; if(L.timer) clearTimeout(L.timer); closeNode(); L.paused = false; L.nodesPending = false;
   const S = L.S; let guard = S.totalTicks * 3 + 3000;
@@ -2745,8 +2752,8 @@ function pitchDraw(ctx, W, H, L){
       ctx.strokeRect(sx ? W - 14 - W * .16 : 14, H * .28, W * .16, H * .44); } }
   else { for(const sx of [0, 1]){ const bx = sx ? W - 14 - W * .13 : 14; ctx.strokeRect(bx, H * .24, W * .13, H * .52); ctx.strokeRect(sx ? W - 14 - W * .05 : 14, H * .38, W * .05, H * .24); } }
   const dot = (d, fill)=>{ ctx.beginPath(); ctx.arc(d.x * W, d.y * H, 9, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = "#fffdf7"; ctx.stroke(); };
-  PD.away.forEach(d=>dot(d, "#2f5d8a"));
-  PD.dots.forEach(d=>dot(d, "#a83226"));
+  PD.away.forEach((d, i)=>dot(d, i === 0 && !isB ? "#58b368" : "#2f5d8a"));
+  PD.dots.forEach((d, i)=>dot(d, i === 0 && !isB ? "#e9b949" : "#a83226"));
   { const bx = PD.ball.x * W, by = PD.ball.y * H;
     if(isB){ ctx.beginPath(); ctx.arc(bx, by, 6.2, 0, Math.PI * 2); ctx.fillStyle = "#d97b2f"; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = "#7a3f14"; ctx.stroke();
       ctx.beginPath(); ctx.moveTo(bx - 6.2, by); ctx.lineTo(bx + 6.2, by); ctx.moveTo(bx, by - 6.2); ctx.lineTo(bx, by + 6.2); ctx.stroke();
