@@ -618,6 +618,8 @@ function ensureMatchState(){
   if(!s.coach) s.coach = { xp:0, skills:{}, staff:{} };
   if(!s.daily) s.daily = {};
   if(!s.matchMeta) s.matchMeta = {};
+  if(!s.growth) s.growth = {};
+  if(!s.played) s.played = {};
   s.schemaV = 3;
 }
 function sportOfPlayer(p){ if(!p) return "football"; if(p.sport) return p.sport; return p.pid && p.pid[0]==="B" ? "basketball" : "football"; }
@@ -4552,11 +4554,13 @@ function showSignReveal(p){
   <button style="width:100%;margin-top:12px" onclick="document.querySelector('#signModal').classList.add('hidden')">欢迎来到${mock.state.clubName || "俱乐部"}</button></div>`;
   m.classList.remove("hidden");
 }
-function scoutReveal(pid){
+async function scoutReveal(pid){
   ensureV2State(); const s = mock.state, today = beijingDateStr();
   if(s.scoutAdDay !== today){ s.scoutAdDay = today; s.scoutAdCount = 0; }
   if((s.scoutAdCount || 0) >= 2){ toast("今天的提前揭晓次数用完了（2/2）"); return; }
-  if(inShell){ toast("壳内广告位已留好，上线接平台激励视频后生效"); return; }
+  let okAd = false;
+  try{ okAd = await watchRenameAd(); }catch(e){ okAd = false; }
+  if(!okAd){ toast("广告没看完，这次不算"); return; }
   const sc = s.scout[pid]; if(!sc || sc.stage >= 3) return;
   s.scoutAdCount = (s.scoutAdCount || 0) + 1; sc.stage = 3; sc.t = Date.now();
   mock.save(); toast("提前揭晓：真实能力已出，可以向对方询价了"); render();
@@ -4630,7 +4634,9 @@ $("#adBtn").onclick = async () => {
   const dayKey = new Date(Date.now()+8*3600*1000).toISOString().slice(0,10);
   if(mock.state.adDay!==dayKey){ mock.state.adDay=dayKey; mock.state.adCount=0; }
   if(mock.state.adCount>=3){ toast("今天的加速次数用完了（3/3）"); return; }
-  if(inShell){ toast("壳内广告位已留好，上线接平台激励视频后生效"); return; }
+  let okAd = false;
+  try{ okAd = await watchRenameAd(); }catch(e){ okAd = false; }
+  if(!okAd){ toast("广告没看完，这次不算"); return; }
   mock.state.adCount+=1; mock.state.balance+=120; ensureV2State(); mock.state.buckets.commercial+=120; mock.save();
   toast(`补给到账 +120 资金（今日 ${mock.state.adCount}/3）`); render();
 };
