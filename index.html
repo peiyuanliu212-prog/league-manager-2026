@@ -17,13 +17,15 @@
   .funds small { color:var(--dim); font-weight:400; font-size:11px; display:block; text-align:right; font-family:-apple-system,"PingFang SC",sans-serif; }
   section { padding:16px 16px 6px; }
   h2 { font-size:15px; color:var(--ink); margin-bottom:10px; font-weight:800; letter-spacing:1px; border-left:4px solid var(--acc); padding-left:8px; position:relative; }
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px; box-shadow:0 1px 2px rgba(80,64,30,.06); }
+  .card { background-color:var(--panel); background-image:radial-gradient(rgba(122,96,32,.055) 1px, transparent 1.1px); background-size:7px 7px; border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px; box-shadow:0 1px 2px rgba(80,64,30,.07), 0 8px 16px -10px rgba(80,64,30,.22); }
   .row { display:flex; justify-content:space-between; align-items:center; gap:8px; }
   .pname { font-weight:700; font-size:15px; }
   .pmeta { color:var(--dim); font-size:12px; margin-top:2px; line-height:1.5; }
   .ab { font-weight:800; font-size:23px; font-family:Georgia,"Times New Roman",serif; color:var(--ink); padding:0 2px; }
   .ab small { font-family:-apple-system,"PingFang SC",sans-serif; }
-  button { background:var(--acc); color:#fff; border:none; border-radius:8px; padding:9px 14px; font-size:14px; font-weight:700; cursor:pointer; }
+  button { background:var(--acc); color:#fff; border:none; border-radius:8px; padding:9px 14px; font-size:14px; font-weight:700; cursor:pointer; transition:transform .1s ease, filter .1s ease; }
+  button:active { transform:scale(.97); }
+  button:disabled:active { transform:none; }
   button.ghost { background:var(--panel); color:var(--ink); border:1px solid var(--line); }
   button:disabled { opacity:.45; }
   button.mini { background:var(--panel); color:var(--ink); border:1px solid var(--line); padding:6px 10px; font-size:12px; font-weight:600; }
@@ -69,6 +71,15 @@
   .vs .vnum { font-size:34px; font-weight:800; font-family:Georgia,serif; line-height:1.1; }
   .vs .vlab { font-size:12px; color:var(--dim); margin-top:2px; }
   .vs .vmid { font-size:14px; font-weight:800; color:var(--acc); letter-spacing:1px; line-height:1.5; }
+  .vsbadge { display:flex; align-items:center; justify-content:center; width:40px; height:40px; margin:5px auto 0; border-radius:50%; background:var(--acc); color:#fff; font-size:15px; font-weight:800; letter-spacing:1px; border:2px solid #f7efdb; box-shadow:0 2px 6px rgba(120,40,20,.35); }
+  .pstrip { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-top:10px; padding-top:9px; border-top:1px dashed var(--line); font-size:12px; color:var(--dim); }
+  .pstrip b { color:var(--ink); font-size:13.5px; }
+  .mcard { position:relative; overflow:hidden; }
+  .mcard .band { position:absolute; top:0; left:0; right:0; height:4px; }
+  .bust { flex:0 0 48px; width:48px; height:48px; border-radius:9px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(80,64,30,.15); }
+  .bust svg { display:block; }
+  .tabbtn .ic svg { width:23px; height:23px; display:block; }
+  .tabbtn .ic { filter:none; }
 
   .tag { font-size:11px; padding:2px 7px; border-radius:99px; border:1px solid var(--line); color:var(--dim); background:var(--panel); }
   .tag.away { color:var(--acc); border-color:var(--acc); font-weight:600; }
@@ -281,11 +292,11 @@
 </div>
 <footer>离线产出由平台权威时钟结算 · 资金每小时 60（在线 100 的 60%）</footer>
 <nav id="tabbar">
-  <button class="tabbtn on" data-tab="league"><span class="ic">🏆</span>联赛<span class="tabbadge" id="bdLeague" style="display:none"></span></button>
-  <button class="tabbtn" data-tab="squad"><span class="ic">👥</span>阵容</button>
-  <button class="tabbtn" data-tab="market"><span class="ic">🧾</span>市场</button>
-  <button class="tabbtn" data-tab="scout"><span class="ic">🔭</span>球探</button>
-  <button class="tabbtn" data-tab="club"><span class="ic">🏛</span>俱乐部<span class="tabbadge" id="bdClub" style="display:none"></span></button>
+  <button class="tabbtn on" data-tab="league"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v4.5a4 4 0 0 1-8 0V4z"/><path d="M8 5.5H5a3 3 0 0 0 3.2 3M16 5.5h3a3 3 0 0 1-3.2 3"/><path d="M12 12.5V16"/><path d="M8.5 20h7M12 16v4"/></svg></span>联赛<span class="tabbadge" id="bdLeague" style="display:none"></span></button>
+  <button class="tabbtn" data-tab="squad"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 12h17"/><circle cx="12" cy="16.8" r="1.15" fill="currentColor" stroke="none"/><circle cx="7.6" cy="14" r="1.15" fill="currentColor" stroke="none"/><circle cx="16.4" cy="14" r="1.15" fill="currentColor" stroke="none"/><circle cx="9.5" cy="8.3" r="1.15" fill="currentColor" stroke="none"/><circle cx="14.5" cy="8.3" r="1.15" fill="currentColor" stroke="none"/></svg></span>阵容</button>
+  <button class="tabbtn" data-tab="market"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 4.5h7l8 8-7 7-8-8z"/><circle cx="9" cy="9" r="1.5"/></svg></span>市场</button>
+  <button class="tabbtn" data-tab="scout"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 15.2 15.5 4.5l4 4L8.8 19.2z"/><path d="M9.5 13.5 6 20M13 16l1.5 4.5"/></svg></span>球探</button>
+  <button class="tabbtn" data-tab="club"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 9.5 12 4l8 5.5"/><path d="M6.3 10v6.5M12 10v6.5M17.7 10v6.5"/><path d="M4 20h16M5 16.5h14"/></svg></span>俱乐部<span class="tabbadge" id="bdClub" style="display:none"></span></button>
 </nav>
 
 
@@ -723,6 +734,14 @@ function sportTerms(){ return curSport().terms || {}; }
 function teamPower(){ return teamPowerFor(curSport()); }
 function findPlayer(pid){ return PLAYERS.find(x=>x.pid===pid) || BPLAYERS.find(x=>x.pid===pid) || (mock.state.customPlayers||[]).find(x=>x.pid===pid) || P1_PLAYERS.find(x=>x.pid===pid) || P3_PLAYERS.find(x=>x.pid===pid); }
 function tierColor(v){ return v>=90?"#a83226":v>=87?"#6d4fa1":v>=83?"#2f5d8a":v>=79?"#2e6b46":"#8a8272"; }
+const JERSEYS = { gk:{ c:"#2e6b46", pat:"" }, df:{ c:"#2f5d8a", pat:"stripes" }, mf:{ c:"#c9962e", pat:"hoop" }, fw:{ c:"#a83226", pat:"sash" }, G:{ c:"#2f5d8a", pat:"hoop" }, F:{ c:"#c9962e", pat:"sash" }, C:{ c:"#a83226", pat:"stripes" } };
+function posGroupOf(p){ const q = (p && p.pos) || ""; if(q === "GK") return "gk"; if(["DF","CB","LB","RB"].includes(q)) return "df"; if(["DM","MF","CM","AM","LM","RM"].includes(q)) return "mf"; if(["PG","SG"].includes(q)) return "G"; if(["SF","PF"].includes(q)) return "F"; if(q === "C") return "C"; return "fw"; }
+function bustSVG(p){ const J = JERSEYS[posGroupOf(p)] || JERSEYS.fw; const cid = "bc" + String(p.pid || "x").replace(/[^a-zA-Z0-9]/g, ""); let pat = "";
+  if(J.pat === "stripes") pat = '<path d="M18 29v17M30 29v17" stroke="rgba(255,255,255,.5)" stroke-width="3"/>';
+  else if(J.pat === "hoop") pat = '<path d="M6 38h36" stroke="rgba(255,255,255,.5)" stroke-width="3"/>';
+  else if(J.pat === "sash") pat = '<path d="M10 32l28 13" stroke="rgba(255,255,255,.55)" stroke-width="3.5"/>';
+  return `<svg viewBox="0 0 48 48" width="48" height="48" aria-hidden="true"><rect width="48" height="48" fill="#f1e9d6"/><clipPath id="${cid}"><path d="M8 45c1.6-9.5 7.4-14 16-14s14.4 4.5 16 14z"/></clipPath><circle cx="24" cy="16.5" r="7.6" fill="#3a352b"/><path d="M8 45c1.6-9.5 7.4-14 16-14s14.4 4.5 16 14z" fill="${J.c}"/><g clip-path="url(#${cid})">${pat}</g><path d="M20.5 31.5l3.5 3.5 3.5-3.5" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="1.6"/></svg>`; }
+function posterStrip(sportId){ try{ const t = mock.state.table && mock.state.table[sportId]; if(!t || !t.rows || !Object.keys(t.rounds || {}).length) return ""; const rows = tableSorted(sportId); const mr = rows.find(r=>r.club === "__ME__"); if(!mr) return ""; return `<div class="pstrip"><span>联赛第 <b>${myRank(sportId)}</b> / 16 名</span><span>积分 <b>${mr.pts || 0}</b></span><span>战绩 <b>${mr.w || 0}胜${sportId === "basketball" ? "" : (mr.d || 0) + "平"}${mr.l || 0}负</b></span><span>净胜球 <b>${(mr.gf || 0) - (mr.ga || 0)}</b></span></div>`; }catch(e){ return ""; } }
 function playerCard(p){
   const away = awayMap.get(p.pid);
   const g = mock.state.growth[p.pid]||0;
@@ -1295,7 +1314,7 @@ function renderMarket(){
       for(const p of stars){
         const price = signPrice(p) * V2_CFG.starMul; const afford = (mock.state.balance||0) >= price;
         const rowEl = document.createElement("div"); rowEl.className = "row"; rowEl.style.marginTop = "8px";
-        rowEl.innerHTML = `<div class="ovr sm" style="background:${tierColor(p.ability)}"><b>${p.ability}</b><small>${p.pos}</small></div><div style="flex:1;min-width:0"><span class="pname">${p.name}</span><div class="pmeta">${p.pos} · 能力 ${p.ability} · 日薪 ${wageOf(p)}</div></div><button ${afford?"":"disabled"}>竞签 ${price} 资金</button>`;
+        rowEl.innerHTML = `<div class="ovr" style="background:${tierColor(p.ability)}"><b>${p.ability}</b><small>${p.pos}</small></div><div class="bust">${bustSVG(p)}</div><div style="flex:1;min-width:0"><span class="pname">${p.name}</span><div class="pmeta">${p.pos} · 能力 ${p.ability} · 日薪 ${wageOf(p)}</div></div><button ${afford?"":"disabled"}>竞签 ${price} 资金</button>`;
         const sb = rowEl.querySelector("button"); if(sb) sb.onclick = ()=>signPlayer(p, price);
         head.appendChild(rowEl);
       }
@@ -1306,7 +1325,8 @@ function renderMarket(){
   for(const p of free.slice(0, 12)){
     const price = effSignPrice(p); const afford = (mock.state.balance||0) >= price;
     const el = document.createElement("div"); el.className = "card";
-    el.innerHTML = `<div class="row">${marketAbilityText(p).includes("约")?'<div class="ovr sm" style="background:#8a8272"><b>?</b><small>'+p.pos+'</small></div>':'<div class="ovr sm" style="background:'+tierColor(p.ability)+'"><b>'+p.ability+'</b><small>'+p.pos+'</small></div>'}<div style="flex:1;min-width:0"><span class="pname">${p.name}</span><div class="pmeta">${p.pos} · ${marketAbilityText(p)} · 日薪 ${wageOf(p)} · 自由球员</div></div><button ${afford?"":"disabled"}>签约 ${price} 资金</button></div>`;
+    el.className = "card mcard";
+    el.innerHTML = `<div class="band" style="background:${tierColor(p.ability)}"></div><div class="row" style="margin-top:2px">${marketAbilityText(p).includes("约")?'<div class="ovr" style="background:#8a8272"><b>?</b><small>'+p.pos+'</small></div>':'<div class="ovr" style="background:'+tierColor(p.ability)+'"><b>'+p.ability+'</b><small>'+p.pos+'</small></div>'}<div class="bust">${bustSVG(p)}</div><div style="flex:1;min-width:0"><span class="pname">${p.name}</span><div class="pmeta">${p.pos} · ${marketAbilityText(p)} · 日薪 ${wageOf(p)} · 自由球员</div></div><button ${afford?"":"disabled"}>签约 ${price} 资金</button></div>`;
     const btn = el.querySelector("button");
     if(btn) btn.onclick = ()=>signPlayer(p);
     const sb2 = document.createElement("button"); sb2.className = "mini"; sb2.style.marginTop = "8px"; sb2.textContent = "球探考察";
@@ -4301,7 +4321,7 @@ async function render(){
   const omL = oppMentalityFor(spL.id, dayN, opp), mentL = mentalityOf(spL.id), cdL = counterDelta(mentL.style, omL.style);
   const insNames = INSTRUCTIONS[spL.id].filter(d=>mock.state.tprof[spL.id].instr && mock.state.tprof[spL.id].instr[d.id]).map(d=>d.name).join("、") || "无";
   const metaL = mock.state.matchMeta && mock.state.matchMeta[spL.id + ":" + dayN];
-  lc.innerHTML = `<div class="vs"><div class="side"><div class="vnum">${teamPower()}</div><div class="vlab">${$("#clubName").textContent||"我方"} · 我方战力</div></div><div class="vmid">第 ${dayN} 轮 · ${dayN % 2 === 1 ? "🏠 主场" : "✈ 客场"}<br>VS</div><div class="side"><div class="vnum" style="color:var(--bad)">${spL.opp()[opp]}</div><div class="vlab">${opp} · 对手强度</div></div></div>` + previewHTML(spL, opp, dayN) +
+  lc.innerHTML = `<div class="vs"><div class="side"><div class="vnum">${teamPower()}</div><div class="vlab">${$("#clubName").textContent||"我方"} · 我方战力</div></div><div class="vmid">第 ${dayN} 轮 · ${dayN % 2 === 1 ? "🏠 主场" : "✈ 客场"}<div class="vsbadge">VS</div></div><div class="side"><div class="vnum" style="color:var(--bad)">${spL.opp()[opp]}</div><div class="vlab">${opp} · 对手强度</div></div></div>${posterStrip(spL.id)}` + previewHTML(spL, opp, dayN) +
     (played ? `<div style="margin-top:10px"><span class="tag back">${played}</span> <span class="hint">本轮已赛，明天再战</span>${metaL ? `<div class="hint" style="margin-top:6px">复盘：进球 ${metaL.scorers && metaL.scorers.length ? metaL.scorers.join("、") : "—"} · 本方「${metaL.mentality}」对对手「${metaL.oppMentality}」</div>` : ""}</div>`
     : `<div class="hint" style="margin-top:8px">赛前情报：${opp} 偏「${omL.name}」打法（${omL.desc}）。我方「${mentL.name}」＋指令【${insNames}】${cdL > 0 ? "，风格克制对方（+" + cdL + "）" : cdL < 0 ? "，风格被对方克制（" + cdL + "），去阵容页换档还来得及" : ""}。</div><div style="margin-top:10px"><button id="playBtn" style="width:100%;padding:12px;font-size:15px">进入直播间 · 打这场</button></div>`)
     + (mock.state.log.length ? `<div class="hint">${mock.state.log.slice(-3).join("<br>")}</div>` : "");
