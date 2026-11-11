@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>点球时刻 · 第一视角原型</title>
+<title>点球时刻 · 第三人称原型 v2</title>
 <style>
   :root{ --paper:#f4efe4; --ink:#2b2620; --line:#ddd2b8; --red:#b03a2e; --gold:#a87b1f; --green:#2e6b46; }
   *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -19,30 +19,33 @@
   .modebar{ margin-top:10px; text-align:center; font-size:13px; }
   .modebar .tag{ display:inline-block; padding:3px 12px; border-radius:999px; background:var(--ink); color:#f7f1de; font-size:12px; letter-spacing:2px; }
   .modebar .who{ margin-top:5px; color:#6d6350; font-size:12px; }
-  /* scene */
-  .scene{ position:relative; margin-top:10px; height:330px; border-radius:14px; overflow:hidden; border:1px solid var(--line);
-    background:linear-gradient(#7d94a6 0 26%, #8fae7e 26% 30%, #6f9a5f 30% 100%); }
-  .stand{ position:absolute; left:0; right:0; top:0; height:26%; opacity:.5;
+  .scene{ position:relative; margin-top:10px; height:340px; border-radius:14px; overflow:hidden; border:1px solid var(--line);
+    background:linear-gradient(#7d94a6 0 24%, #8fae7e 24% 29%, #6f9a5f 29% 100%); }
+  .stand{ position:absolute; left:0; right:0; top:0; height:24%; opacity:.5;
     background:repeating-linear-gradient(90deg,#5d7284 0 7px,#6d8397 7px 14px); }
-  .goal{ position:absolute; left:7%; right:7%; top:11%; height:56%; border:5px solid #fdfdf8; border-bottom:none; border-radius:4px 4px 0 0;
-    background:repeating-linear-gradient(0deg, rgba(255,255,255,.20) 0 2px, transparent 2px 16px), repeating-linear-gradient(90deg, rgba(255,255,255,.20) 0 2px, transparent 2px 16px); cursor:crosshair; }
-  .goal .post{ position:absolute; bottom:-4px; left:0; right:0; height:4px; background:rgba(253,253,248,.0); }
-  .zone{ position:absolute; border:1.5px dashed rgba(255,255,255,0); border-radius:6px; cursor:pointer; }
-  .zone.sel{ border-color:#ffd34d; background:rgba(255,211,77,.18); }
-  .keeper{ position:absolute; left:50%; bottom:31%; width:64px; height:118px; margin-left:-32px; transition:transform .48s cubic-bezier(.2,.7,.3,1); transform-origin:50% 85%; z-index:3; }
-  .ball{ position:absolute; left:50%; bottom:4.5%; width:30px; height:30px; margin-left:-15px; border-radius:50%; z-index:4;
+  .goal{ position:absolute; left:7%; right:7%; top:10%; height:55%; border:5px solid #fdfdf8; border-bottom:none; border-radius:4px 4px 0 0;
+    background:repeating-linear-gradient(0deg, rgba(255,255,255,.20) 0 2px, transparent 2px 16px), repeating-linear-gradient(90deg, rgba(255,255,255,.20) 0 2px, transparent 2px 16px); }
+  .goal.back{ left:16%; right:16%; top:34%; height:44%; }
+  .fig{ position:absolute; z-index:3; transform-origin:50% 92%; pointer-events:none; }
+  .keeperS{ width:56px; height:104px; left:50%; bottom:33%; margin-left:-28px; transition:transform .48s cubic-bezier(.2,.7,.3,1), left .3s ease; }
+  .keeperK{ width:96px; height:172px; left:50%; bottom:2%; margin-left:-48px; transition:transform .42s cubic-bezier(.2,.7,.3,1); z-index:5; }
+  .takerS{ width:86px; height:150px; left:50%; bottom:1%; margin-left:-86px; z-index:4; transition:transform .5s cubic-bezier(.3,.6,.4,1); }
+  .shooterK{ width:54px; height:100px; left:50%; bottom:56%; margin-left:-27px; z-index:3; }
+  .ball{ position:absolute; border-radius:50%; z-index:4;
     background:radial-gradient(circle at 35% 32%, #ffffff 0 34%, #d9d9d9 35% 52%, #2b2620 53% 60%, #f2f2f2 61% 100%);
-    box-shadow:0 3px 5px rgba(0,0,0,.35); transition:all .5s cubic-bezier(.25,.6,.35,1); }
-  .spot{ position:absolute; left:50%; bottom:6.2%; width:8px; height:3px; margin-left:-4px; background:rgba(255,255,255,.85); border-radius:50%; }
-  .aim{ position:absolute; width:26px; height:26px; margin:-13px 0 0 -13px; border:2.5px solid #ffd34d; border-radius:50%; z-index:5; pointer-events:none; display:none;
+    box-shadow:0 3px 5px rgba(0,0,0,.35); }
+  .ballS{ width:26px; height:26px; left:50%; bottom:7.5%; margin-left:-30px; }
+  .ballK{ width:15px; height:15px; left:50%; bottom:56.5%; margin-left:-7px; }
+  .spot{ position:absolute; background:rgba(255,255,255,.85); border-radius:50%; }
+  .aim{ position:absolute; width:26px; height:26px; margin:-13px 0 0 -13px; border:2.5px solid #ffd34d; border-radius:50%; z-index:6; pointer-events:none; display:none;
     box-shadow:0 0 0 2px rgba(0,0,0,.25), inset 0 0 0 2px rgba(0,0,0,.15); }
   .aim::after{ content:""; position:absolute; left:50%; top:50%; width:4px; height:4px; margin:-2px; background:#ffd34d; border-radius:50%; }
-  .savehint{ position:absolute; left:0; right:0; bottom:31%; text-align:center; color:#fff; font-size:12px; text-shadow:0 1px 3px rgba(0,0,0,.5); z-index:2; pointer-events:none; }
-  .banner{ position:absolute; left:50%; top:38%; transform:translate(-50%,-50%) scale(.8); z-index:6; font-size:34px; font-weight:800; letter-spacing:4px;
+  .divezone{ position:absolute; top:30%; bottom:0; width:33.4%; z-index:7; cursor:pointer; }
+  .divezone.sel{ background:rgba(255,211,77,.13); box-shadow:inset 0 0 0 2px rgba(255,211,77,.55); }
+  .banner{ position:absolute; left:50%; top:36%; transform:translate(-50%,-50%) scale(.8); z-index:8; font-size:34px; font-weight:800; letter-spacing:4px;
     color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.25), 0 4px 14px rgba(0,0,0,.4); opacity:0; pointer-events:none; white-space:nowrap; }
   .banner.show{ animation:bin .45s cubic-bezier(.2,1.4,.4,1) forwards; }
   @keyframes bin{ to{ opacity:1; transform:translate(-50%,-50%) scale(1); } }
-  /* controls */
   .panel{ margin-top:12px; background:#fffdf6; border:1px solid var(--line); border-radius:12px; padding:12px; }
   .hint{ font-size:13px; color:#6d6350; line-height:1.55; }
   .hint b{ color:var(--ink); }
@@ -55,6 +58,8 @@
   button.main{ width:100%; margin-top:12px; padding:13px; font-size:16px; letter-spacing:3px; border:none; border-radius:11px; background:var(--red); color:#fff; font-weight:700; cursor:pointer; }
   button.main:disabled{ background:#c9bfa5; }
   button.mini{ margin-top:10px; padding:7px 14px; font-size:12px; border-radius:999px; border:1px solid var(--line); background:#fffdf6; cursor:pointer; }
+  .commitline{ margin-top:8px; font-size:12.5px; color:#6d6350; }
+  .commitline b{ color:var(--gold); }
   .flavor{ margin-top:10px; font-size:13.5px; line-height:1.6; min-height:22px; }
   .flavor .q{ color:var(--gold); font-weight:700; }
   .foot{ margin-top:14px; font-size:11px; color:#a2987f; text-align:center; line-height:1.6; }
@@ -62,7 +67,7 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><h1>⚽ 点球时刻 · 原型</h1><a href="index.html">← 返回游戏</a></div>
+  <div class="top"><h1>⚽ 点球时刻 · 第三人称 v2</h1><a href="index.html">← 返回游戏</a></div>
   <div class="score">
     <div class="cell"><b id="shootStat">0/0</b><span>我主罚</span></div>
     <div class="cell"><b id="saveStat">0/0</b><span>我扑救（扑出）</span></div>
@@ -73,32 +78,25 @@
   <div class="scene" id="scene">
     <div class="stand"></div>
     <div class="goal" id="goal"></div>
-    <svg class="keeper" id="keeper" viewBox="0 0 64 118">
-      <circle cx="32" cy="14" r="10" fill="#3a352b"/>
-      <path d="M32 24v34" stroke="#3a352b" stroke-width="9" stroke-linecap="round"/>
-      <path d="M30 30 L6 44 M34 30 L58 44" stroke="#3a352b" stroke-width="7" stroke-linecap="round"/>
-      <path d="M30 56 L22 96 M34 56 L43 96" stroke="#3a352b" stroke-width="8" stroke-linecap="round"/>
-      <path d="M20 32h24l-3 26H23z" fill="#b03a2e"/>
-    </svg>
-    <div class="savehint" id="saveHint" style="display:none">点选一个区域，赌他射那边</div>
-    <div class="spot"></div>
-    <div class="ball" id="ball"></div>
+    <div id="figs"></div>
+    <div class="ball ballS" id="ball"></div>
     <div class="aim" id="aim"></div>
     <div class="banner" id="banner"></div>
   </div>
 
-  <div class="panel" id="shootPanel">
-    <div class="hint" id="shootHint">第一步：<b>点球门</b>选落点。越靠死角越难扑，但打飞的风险也越大。</div>
-    <div class="riskline"><span>落点：<span class="rk" id="zoneName">未选择</span></span><span>打偏风险：<span class="rk" id="riskPct">—</span></span></div>
+  <div class="panel">
+    <div class="hint" id="mainHint"></div>
+    <div class="riskline" id="riskLine"><span>落点：<span class="rk" id="zoneName">未选择</span></span><span>打偏风险：<span class="rk" id="riskPct">—</span></span></div>
     <div class="barwrap" id="barWrap" style="display:none">
-      <div class="hint">第二步：等指针进<b>绿区</b>时点「射门！」——绿区是完美发力，红区容易打飞。</div>
+      <div class="hint">他开始助跑了——指针进<b>绿区</b>的瞬间点「射门！」完成摆腿发力。助跑途中可以<b>改落点</b>（再点球门即可）。</div>
       <div class="bar"><div class="marker" id="marker"></div></div>
       <div class="barlabels"><span>发力过猛</span><span>一般</span><span>完美</span><span>一般</span><span>发力过猛</span></div>
     </div>
+    <div class="commitline" id="commitLine" style="display:none"></div>
     <button class="main" id="actionBtn" disabled>先点球门选落点</button>
     <div class="flavor" id="flavor"></div>
   </div>
-  <div class="foot">第一视角点球原型 · 攻守轮换验手感用，数值未定版（目标：会玩的主罚转化率 ≈75%）<br>
+  <div class="foot">第三人称点球原型 v2 · 主罚看门将重心、扑救读射手动作（有假动作）<br>
   <button class="mini" id="resetBtn">清空战绩</button> <button class="mini" id="sndBtn">🔊 音效开</button></div>
 </div>
 
@@ -114,24 +112,39 @@ const SFX = { kick(){ noise(0, .12, .5); tone(90, 0, .12, "sine", .25); },
   groan(){ tone(196, 0, .5, "sawtooth", .045); tone(165, .1, .6, "sawtooth", .04); noise(0, .5, .05); },
   whistle(n){ for(let i = 0; i < (n || 1); i++) tone(2350, i * .22, .16, "square", .028); } };
 
+// ---------- figures (inline SVG) ----------
+function figSVG(jersey, skin, hair, back){
+  return `<svg viewBox="0 0 64 118" width="100%" height="100%">
+    <circle cx="32" cy="13" r="10" fill="${hair}"/>
+    <path d="M32 23v33" stroke="${jersey}" stroke-width="15" stroke-linecap="round"/>
+    <path d="M25 30 L7 47 M39 30 L57 47" stroke="${skin}" stroke-width="7" stroke-linecap="round"/>
+    <g class="kickleg"><path d="M34 54 L44 88 L46 108" stroke="${skin}" stroke-width="8" stroke-linecap="round" fill="none"/></g>
+    <path d="M29 54 L24 88 L22 108" stroke="${skin}" stroke-width="8" stroke-linecap="round" fill="none"/>
+    <path d="M21 26h22l-2.5 30h-17z" fill="${jersey}"/>
+    ${back ? '<circle cx="32" cy="40" r="6.5" fill="rgba(255,255,255,.55)"/>' : ''}
+  </svg>`;
+}
+const KEEPER_C = "#274b8f", TAKER_C = "#b03a2e", SKIN = "#8a5a3b", SKIN2 = "#c98d64", HAIR = "#2b2620";
+
 // ---------- state ----------
 const SHOOTERS = ["梅西", "C罗", "姆巴佩", "哈兰德", "凯恩", "萨拉赫"];
 const KEEPERS = ["库尔图瓦", "多纳鲁马", "阿利松", "奥布拉克"];
 const $ = id => document.getElementById(id);
-const goal = $("goal"), scene = $("scene"), ball = $("ball"), keeperEl = $("keeper"), aimEl = $("aim");
-let mode = "shoot";               // shoot | save
-let phase = "aim";                // aim | power | done
-let aim = null;                   // {nx, ny, x, y} in scene coords for ball flight
-let savePick = null;              // {c, r}
-let barAnim = null, barPos = 0, barDir = 1;
-let stats = { shoot: [0, 0], save: [0, 0] };   // [success, total]
-let history = [];                 // shooter thirds history (for keeper reads)
-let cpuFav = Math.random() < .5 ? 0 : 2, cpuSides = [];
-let busy = false;
-
+const scene = $("scene"), goal = $("goal"), ball = $("ball"), figs = $("figs"), aimEl = $("aim");
+let mode = "shoot", busy = false, phase = "aim";
+let aim = null, barAnim = null, barPos = 0, barDir = 1;
+let stats = { shoot: [0, 0], save: [0, 0] };
+let history = [], cpuSides = [], cpuFav = Math.random() < .5 ? 0 : 2;
+let keeperEdge = -1;                 // shoot mode: keeper early lean (-1 none, 0 left, 2 right)
+let keeperFig = null, takerFig = null;
+let saveCommit = null;               // {third, power, label}
+let roundTimers = [];
+function later(fn, ms){ roundTimers.push(setTimeout(fn, ms)); }
+function clearTimers(){ roundTimers.forEach(clearTimeout); roundTimers = []; }
+function pick(a){ return a[Math.floor(Math.random() * a.length)]; }
 function goalRect(){ return goal.getBoundingClientRect(); }
 function sceneRect(){ return scene.getBoundingClientRect(); }
-function pick(a){ return a[Math.floor(Math.random() * a.length)]; }
+function mkFig(cls, html){ const d = document.createElement("div"); d.className = "fig " + cls; d.innerHTML = html; figs.appendChild(d); return d; }
 
 function zoneInfo(nx, ny){
   const edge = Math.min(nx, 1 - nx), top = ny;
@@ -144,68 +157,26 @@ function zoneInfo(nx, ny){
   else if(top < .28){ name = "上角"; miss = .085; }
   return { name, miss, corner: corner || dead, dead };
 }
-
-function newRound(){
-  busy = false; aim = null; savePick = null; phase = "aim";
-  ball.style.transition = "none"; ball.style.left = "50%"; ball.style.bottom = "4.5%"; ball.style.width = "30px"; ball.style.height = "30px"; ball.style.opacity = 1;
-  keeperEl.style.transition = "none"; keeperEl.style.transform = "translate(0,0) rotate(0deg)";
-  aimEl.style.display = "none";
-  document.querySelectorAll(".zone").forEach(z => z.remove());
-  $("banner").className = "banner"; $("banner").textContent = "";
-  $("flavor").innerHTML = "";
-  $("barWrap").style.display = "none";
-  const btn = $("actionBtn");
-  if(mode === "shoot"){
-    $("modeTag").textContent = "我方点球";
-    $("whoLine").textContent = `主罚：${pick(SHOOTERS)} · 门将：${pick(KEEPERS)}`;
-    $("saveHint").style.display = "none";
-    $("shootHint").innerHTML = "第一步：<b>点球门</b>选落点。越靠死角越难扑，但打飞的风险也越大。";
-    $("zoneName").textContent = "未选择"; $("riskPct").textContent = "—";
-    btn.disabled = true; btn.textContent = "先点球门选落点";
-  } else {
-    $("modeTag").textContent = "对方点球 · 你是门将";
-    $("whoLine").textContent = `主罚：${pick(SHOOTERS)} · 你站在门线上`;
-    $("saveHint").style.display = "block";
-    const tell = cpuSides.length >= 2 && cpuSides[cpuSides.length - 1] === cpuSides[cpuSides.length - 2] && cpuSides[cpuSides.length - 1] !== 1 ? `（球探小声说：他已经连打两次${cpuSides[cpuSides.length - 1] === 0 ? "左" : "右"}侧了）` : "";
-    $("shootHint").innerHTML = "对方助跑了——<b>点选一个区域</b>赌他射那边，选好自动扑出。九宫格全凭预判。" + tell;
-    $("zoneName").textContent = "未选择"; $("riskPct").textContent = "—";
-    btn.disabled = true; btn.textContent = "先选扑救区域";
-    buildZones();
-  }
-  requestAnimationFrame(() => { ball.style.transition = "all .5s cubic-bezier(.25,.6,.35,1)"; keeperEl.style.transition = "transform .48s cubic-bezier(.2,.7,.3,1)"; });
-  SFX.whistle(1);
+function banner(txt, color){ const b = $("banner"); b.textContent = txt; b.style.color = color || "#fff"; b.className = "banner show"; }
+function updStats(){
+  $("shootStat").textContent = `${stats.shoot[0]}/${stats.shoot[1]}`;
+  $("saveStat").textContent = `${stats.save[0]}/${stats.save[1]}`;
+  $("convRate").textContent = stats.shoot[1] ? Math.round(stats.shoot[0] / stats.shoot[1] * 100) + "%" : "—";
 }
+function endRound(){ setTimeout(() => { mode = mode === "shoot" ? "save" : "shoot"; newRound(); }, 2200); }
 
-function buildZones(){
-  const gr = goalRect(), sr = sceneRect();
-  for(let r = 0; r < 3; r++) for(let c = 0; c < 3; c++){
-    const z = document.createElement("div"); z.className = "zone";
-    z.style.left = (gr.left - sr.left + gr.width * c / 3 + 3) + "px";
-    z.style.top = (gr.top - sr.top + gr.height * r / 3 + 3) + "px";
-    z.style.width = (gr.width / 3 - 6) + "px"; z.style.height = (gr.height / 3 - 6) + "px";
-    z.onclick = ev => { ev.stopPropagation(); if(busy || mode !== "save") return;
-      document.querySelectorAll(".zone").forEach(x => x.classList.remove("sel")); z.classList.add("sel");
-      savePick = { c, r }; $("zoneName").textContent = ["左", "中", "右"][c] + ["上", "中", "下"][r];
-      resolveSave();
-    };
-    scene.appendChild(z);
-  }
+// ================= SHOOT MODE (third person, behind the taker) =================
+function keeperPickThird(){
+  const w = [1.15, 0.7, 1.1];
+  if(history.length){ const last = history[history.length - 1]; w[last] += .55;
+    if(history.length >= 2 && history[history.length - 2] === last) w[last] += .5; }
+  const t = w[0] + w[1] + w[2]; let r = Math.random() * t;
+  for(let i = 0; i < 3; i++){ r -= w[i]; if(r <= 0) return i; } return 1;
 }
-
-goal.addEventListener("click", ev => {
-  if(mode !== "shoot" || busy || phase !== "aim") return;
-  const gr = goalRect(), sr = sceneRect();
-  const nx = (ev.clientX - gr.left) / gr.width, ny = (ev.clientY - gr.top) / gr.height;
-  aim = { nx: Math.min(.98, Math.max(.02, nx)), ny: Math.min(.97, Math.max(.03, ny)),
-          x: ev.clientX - sr.left, y: ev.clientY - sr.top };
-  aimEl.style.left = aim.x + "px"; aimEl.style.top = aim.y + "px"; aimEl.style.display = "block";
-  const zi = zoneInfo(aim.nx, aim.ny);
-  $("zoneName").textContent = zi.name; $("riskPct").textContent = Math.round(zi.miss * 100) + "%";
-  $("barWrap").style.display = "block";
-  const btn = $("actionBtn"); btn.disabled = false; btn.textContent = "射门！";
-  phase = "power"; startBar();
-});
-
+function diveKeeperS(third, high){
+  const dx = [-105, 0, 105][third], rot = [-30, 0, 30][third], dy = high ? -14 : 4;
+  keeperFig.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
+}
 function startBar(){
   cancelAnimationFrame(barAnim); barPos = 0; barDir = 1;
   const step = () => { barPos += barDir * 2.45; if(barPos >= 100){ barPos = 100; barDir = -1; } if(barPos <= 0){ barPos = 0; barDir = 1; }
@@ -214,94 +185,224 @@ function startBar(){
 }
 function execOf(pos){ if(pos >= 44 && pos <= 56) return "perfect"; if(pos >= 30 && pos <= 70) return "good"; return "poor"; }
 
-function keeperPickThird(){
-  const w = [1.15, 0.7, 1.1];
-  if(history.length){ const last = history[history.length - 1]; w[last] += .55;
-    if(history.length >= 2 && history[history.length - 2] === last) w[last] += .5; }
-  const t = w[0] + w[1] + w[2]; let r = Math.random() * t;
-  for(let i = 0; i < 3; i++){ r -= w[i]; if(r <= 0) return i; } return 1;
+function setupShoot(){
+  goal.className = "goal";
+  ball.className = "ball ballS";
+  keeperFig = mkFig("keeperS", figSVG(KEEPER_C, SKIN2, HAIR, false));
+  takerFig = mkFig("takerS", figSVG(TAKER_C, SKIN, HAIR, true));
+  keeperEdge = Math.random() < .42 ? (Math.random() < .5 ? 0 : 2) : -1;
+  if(keeperEdge >= 0){
+    keeperFig.style.left = `calc(50% + ${keeperEdge === 0 ? -20 : 20}px)`;
+    $("mainHint").innerHTML = `你站在他身后看得很清楚：<b>门将的重心已经在往${keeperEdge === 0 ? "左" : "右"}侧压了</b>——打反侧是空门，打同侧就是往他怀里送。先点球门选落点，再点「助跑」。`;
+  } else {
+    $("mainHint").innerHTML = "你站在主罚者身后。先<b>点球门</b>选落点，再点「助跑」——助跑途中还能改落点，指针进绿区点「射门」发力。";
+  }
+  $("riskLine").style.display = "flex"; $("commitLine").style.display = "none";
+  const btn = $("actionBtn"); btn.disabled = true; btn.textContent = "先点球门选落点";
 }
-function diveKeeper(third, high){
-  const dx = [-118, 0, 118][third], rot = [-30, 0, 30][third], dy = high ? -16 : 4;
-  keeperEl.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
-}
-function flyBall(x, y, scale){
-  const sr = sceneRect();
-  ball.style.left = x + "px"; ball.style.top = y + "px"; ball.style.bottom = "auto";
-  ball.style.width = (30 * (scale || .62)) + "px"; ball.style.height = (30 * (scale || .62)) + "px";
-  ball.style.marginLeft = (-15 * (scale || .62)) + "px";
-}
-function banner(txt, color){ const b = $("banner"); b.textContent = txt; b.style.color = color || "#fff"; b.className = "banner show"; }
-function updStats(){
-  $("shootStat").textContent = `${stats.shoot[0]}/${stats.shoot[1]}`;
-  $("saveStat").textContent = `${stats.save[0]}/${stats.save[1]}`;
-  $("convRate").textContent = stats.shoot[1] ? Math.round(stats.shoot[0] / stats.shoot[1] * 100) + "%" : "—";
-}
-function endRound(){ busy = true; phase = "done"; setTimeout(() => { mode = mode === "shoot" ? "save" : "shoot"; newRound(); }, 2100); }
-
+goal.addEventListener("click", ev => {
+  if(mode !== "shoot" || busy || (phase !== "aim" && phase !== "power")) return;
+  const gr = goalRect(), sr = sceneRect();
+  const nx = (ev.clientX - gr.left) / gr.width, ny = (ev.clientY - gr.top) / gr.height;
+  aim = { nx: Math.min(.98, Math.max(.02, nx)), ny: Math.min(.97, Math.max(.03, ny)), x: ev.clientX - sr.left, y: ev.clientY - sr.top };
+  aimEl.style.left = aim.x + "px"; aimEl.style.top = aim.y + "px"; aimEl.style.display = "block";
+  const zi = zoneInfo(aim.nx, aim.ny);
+  $("zoneName").textContent = zi.name; $("riskPct").textContent = Math.round(zi.miss * 100) + "%";
+  if(phase === "aim"){ const btn = $("actionBtn"); btn.disabled = false; btn.textContent = "助跑 →"; }
+});
 $("actionBtn").addEventListener("click", () => {
-  if(mode !== "shoot" || phase !== "power" || !aim || busy) return;
-  busy = true; phase = "done"; cancelAnimationFrame(barAnim);
-  const exec = execOf(barPos), zi = zoneInfo(aim.nx, aim.ny);
-  const third = aim.nx < .34 ? 0 : aim.nx > .66 ? 2 : 1;
-  history.push(third); if(history.length > 5) history.shift();
-  const kThird = keeperPickThird();
-  SFX.kick();
-  flyBall(aim.x, aim.y); diveKeeper(kThird, aim.ny < .4);
-  stats.shoot[1]++;
-  const missP = zi.miss * (exec === "perfect" ? .5 : exec === "good" ? 1 : 2.1);
-  let res;
-  if(Math.random() < missP) res = "miss";
-  else if(kThird === third){ const gp = exec === "perfect" ? (zi.corner ? .78 : .62) : exec === "good" ? .35 : .12; res = Math.random() < gp ? "goal" : "saved"; }
-  else if(zi.dead && Math.random() < .10) res = "post";
-  else res = "goal";
-  setTimeout(() => {
-    if(res === "goal"){ stats.shoot[0]++; banner("进球！", "#ffd34d"); SFX.cheer();
-      $("flavor").innerHTML = `<span class="q">${pick(["死角入网，门将鞭长莫及。", "稳稳罚进，门将判断对了也够不着。", "球进了！看台炸了。"])}</span>发力评级：${exec === "perfect" ? "完美" : exec === "good" ? "一般" : "勉强"} · 落点「${zi.name}」`; }
-    else if(res === "saved"){ banner("被扑出！", "#fff"); SFX.groan();
-      $("flavor").innerHTML = `<span class="q">${pick(["门将神扑！他读穿了你的落点。", "扑出去了……就差一点角度。", "太正了，被门将没收。"])}</span>门将扑向了${["左", "中", "右"][kThird]}路——${exec === "poor" ? "而且你这脚发力也飘了。" : "下次换个边或者再刁一点。"}`; }
-    else if(res === "post"){ banner("中柱了！", "#fff"); SFX.groan();
-      $("flavor").innerHTML = `<span class="q">砰——砸在立柱上弹出去！</span>门将已经扑错了方向，就差这一根立柱的距离。死角的代价，就是这么薄。`; }
-    else { banner("打偏了！", "#fff"); SFX.groan();
-      $("flavor").innerHTML = `<span class="q">${pick(["擦柱而出！死角虽好，容错太低。", "打飞了——发力没压住。", "偏出立柱，全场一声叹息。"])}</span>落点「${zi.name}」的打偏风险本就有 ${Math.round(zi.miss * 100)}%，${exec === "poor" ? "加上发力失控，" : ""}这次没兜住。`; }
-    updStats(); endRound();
-  }, 480);
+  if(mode !== "shoot" || busy) return;
+  if(phase === "aim" && aim){
+    phase = "power";
+    $("barWrap").style.display = "block";
+    $("actionBtn").textContent = "射门！";
+    takerFig.style.transform = "translate(52px, -6px) scale(.94)";
+    startBar();
+  } else if(phase === "power" && aim){
+    busy = true; phase = "done"; cancelAnimationFrame(barAnim);
+    const exec = execOf(barPos), zi = zoneInfo(aim.nx, aim.ny);
+    const third = aim.nx < .34 ? 0 : aim.nx > .66 ? 2 : 1;
+    history.push(third); if(history.length > 5) history.shift();
+    let kThird, edged = false;
+    if(keeperEdge >= 0 && third === keeperEdge){ kThird = third; edged = true; }
+    else if(keeperEdge >= 0){ kThird = keeperEdge; }
+    else kThird = keeperPickThird();
+    SFX.kick();
+    takerFig.style.transform = "translate(58px, -4px) scale(.94) rotate(-4deg)";
+    const gr = goalRect(), sr = sceneRect();
+    ball.style.transition = "all .45s cubic-bezier(.25,.6,.35,1)";
+    ball.style.left = aim.x + "px"; ball.style.top = aim.y + "px"; ball.style.bottom = "auto";
+    ball.style.width = "15px"; ball.style.height = "15px"; ball.style.marginLeft = "-7px";
+    diveKeeperS(kThird, aim.ny < .4);
+    stats.shoot[1]++;
+    const missP = zi.miss * (exec === "perfect" ? .5 : exec === "good" ? 1 : 2.1);
+    let res;
+    if(Math.random() < missP) res = "miss";
+    else if(kThird === third){ const gp = (exec === "perfect" ? (zi.corner ? .78 : .62) : exec === "good" ? .35 : .12) + (edged ? .12 : 0); res = Math.random() < Math.min(.9, gp) ? "goal" : "saved"; }
+    else if(zi.dead && Math.random() < .10) res = "post";
+    else res = "goal";
+    later(() => {
+      if(res === "goal"){ stats.shoot[0]++; banner("进球！", "#ffd34d"); SFX.cheer();
+        $("flavor").innerHTML = `<span class="q">${edged ? "他压错了——你打了反侧，空门。" : pick(["死角入网，门将鞭长莫及。", "球进了！看台炸了。", "稳稳罚进。"])}</span>发力：${exec === "perfect" ? "完美" : exec === "good" ? "一般" : "勉强"} · 落点「${zi.name}」`; }
+      else if(res === "saved"){ banner("被扑出！", "#fff"); SFX.groan();
+        $("flavor").innerHTML = `<span class="q">${edged ? "往他压的那侧送——正中下怀，被没收了。" : pick(["门将神扑！他读穿了你的落点。", "扑出去了……就差一点角度。"])}</span>${exec === "poor" ? "而且你这脚发力也飘了。" : "下次助跑里换个落点，或者打他压错的反侧。"}`; }
+      else if(res === "post"){ banner("中柱了！", "#fff"); SFX.groan();
+        $("flavor").innerHTML = `<span class="q">砰——砸在立柱上弹出去！</span>门将已经扑错方向了，就差一根立柱的距离。`; }
+      else { banner("打偏了！", "#fff"); SFX.groan();
+        $("flavor").innerHTML = `<span class="q">${pick(["擦柱而出！死角虽好，容错太低。", "打飞了——发力没压住。", "偏出立柱，全场一声叹息。"])}</span>落点「${zi.name}」本身就有 ${Math.round(zi.miss * 100)}% 的打偏风险。`; }
+      updStats(); endRound();
+    }, 470);
+  }
 });
 
-function resolveSave(){
-  if(busy || !savePick) return; busy = true;
-  // CPU shooter: has a favorite side per stretch — watch for the tell
-  const fav = cpuFav; const rx = Math.random();
-  const nx = rx < .46 ? (fav === 0 ? .08 + Math.random() * .18 : .74 + Math.random() * .18)
-           : rx < .76 ? (fav === 0 ? .74 + Math.random() * .18 : .08 + Math.random() * .18)
-           : .38 + Math.random() * .24;
-  const ny = Math.random() < .58 ? .68 + Math.random() * .24 : .10 + Math.random() * .30;
-  const gr = goalRect(), sr = sceneRect();
-  const tx = gr.left - sr.left + nx * gr.width, ty = gr.top - sr.top + ny * gr.height;
-  diveKeeper(savePick.c, savePick.r === 0);
-  SFX.kick(); flyBall(tx, ty);
+// ================= SAVE MODE (third person, behind your keeper) =================
+// Tells: run-up side + body lean are the early read. 35% of rounds carry a feint:
+//  - stutter: he checks his run mid-way (nerve test only)
+//  - fakeSwing: first leg swing is a dummy — diving on it locks you, then he really shoots
+//  - flip: the lean flips at the swing — early lean lies, swing lean is true
+// Commit early = full power but you read the early tell; commit after the swing = true read, less power.
+let saveState = null;
+function setupSave(){
+  goal.className = "goal back";
+  ball.className = "ball ballK";
+  keeperFig = mkFig("keeperK", figSVG(KEEPER_C, SKIN2, HAIR, true));
+  takerFig = mkFig("shooterK", figSVG(TAKER_C, SKIN, HAIR, false));
+  takerFig.style.transition = "transform .18s ease";
+  ["0", "33.4%", "66.7%"].forEach((l, i) => {
+    const z = document.createElement("div"); z.className = "divezone"; z.style.left = l;
+    z.addEventListener("click", () => commitDive(i, z));
+    scene.appendChild(z);
+  });
+  const tell = cpuSides.length >= 2 && cpuSides[cpuSides.length - 1] === cpuSides[cpuSides.length - 2] && cpuSides[cpuSides.length - 1] !== 1
+    ? `球探还提醒：他已经连打两次${cpuSides[cpuSides.length - 1] === 0 ? "左" : "右"}侧了。` : "";
+  $("mainHint").innerHTML = `你站在自家门将身后，看对面助跑：<b>起跑侧和身体倾斜是预判线索，但小心假动作</b>（顿步、假摆腿、临射变向）。点左/中/右任意一侧扑救——<b>扑得越早力量越足，越晚看得越准</b>。${tell}`;
+  $("riskLine").style.display = "none";
+  const btn = $("actionBtn"); btn.disabled = true; btn.textContent = "看他助跑…（点画面左/中/右扑救）";
+  runSaveSequence();
+}
+function diveKeeperK(third, high){
+  const dx = [-118, 0, 118][third], rot = [-26, 0, 26][third], dy = high ? -12 : 6;
+  keeperFig.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
+}
+function commitDive(third, zoneEl){
+  if(mode !== "save" || !saveState || saveState.committed || saveState.kicked) return;
+  const now = performance.now();
+  const afterReveal = now >= saveState.revealAt;
+  saveState.committed = { third, power: afterReveal ? .82 : 1, label: afterReveal ? "看准了再扑" : "提前预判" };
+  document.querySelectorAll(".divezone").forEach(z => z.classList.remove("sel"));
+  if(zoneEl) zoneEl.classList.add("sel");
+  diveKeeperK(third, false);
+  $("commitLine").style.display = "block";
+  $("commitLine").innerHTML = `已扑向<b>${["左", "中", "右"][third]}</b> · ${afterReveal ? "等摆腿后才动，看得准但力量打了折" : "提前预判，力量拉满——赌的就是这个方向"}`;
+}
+function runSaveSequence(){
+  // decide target (screen space: where the ball arrives for the keeper)
+  const fav = cpuFav, rx = Math.random();
+  const nx = rx < .46 ? (fav === 0 ? .10 + Math.random() * .16 : .74 + Math.random() * .16)
+           : rx < .76 ? (fav === 0 ? .74 + Math.random() * .16 : .10 + Math.random() * .16)
+           : .40 + Math.random() * .20;
+  const ny = Math.random() < .58 ? .66 + Math.random() * .24 : .14 + Math.random() * .26;
+  const third = nx < .34 ? 0 : nx > .66 ? 2 : 1;
+  const fake = Math.random() < .35 ? pick(["stutter", "fakeSwing", "flip"]) : null;
+  const trueLean = third === 1 ? 0 : third === 0 ? -1 : 1;
+  const earlyLean = fake === "flip" ? -trueLean : trueLean;
+  const startSide = Math.random() < .5 ? -1 : 1;   // run-up origin offset (weak tell, ~coin flip)
+  saveState = { committed: null, kicked: false, revealAt: Infinity, target: { nx, ny, third }, fake };
+  const T0 = performance.now();
+  // run-up: from offset toward the ball, lean builds
+  takerFig.style.transform = `translate(${startSide * 30}px, 6px)`;
+  later(() => { takerFig.style.transition = "transform .95s cubic-bezier(.4,.1,.4,1)";
+    takerFig.style.transform = `translate(${earlyLean * 7}px, 0) rotate(${earlyLean * 7}deg) scale(1.06)`; }, 60);
+  let swingAt = 1080;
+  if(fake === "stutter"){
+    later(() => { takerFig.style.transition = "transform .12s ease"; takerFig.style.transform = `translate(${earlyLean * 7}px, -2px) rotate(${earlyLean * 7}deg) scale(1.06)`; }, 560);
+    later(() => { takerFig.style.transform = `translate(${earlyLean * 8}px, 0) rotate(${earlyLean * 8}deg) scale(1.08)`; }, 860);
+    swingAt = 1330;
+  }
+  saveState.revealAt = T0 + swingAt;
+  const doKick = (isReal) => {
+    if(!isReal){ // dummy swing: leg goes, ball stays
+      takerFig.style.transition = "transform .16s ease";
+      takerFig.style.transform = `translate(${earlyLean * 9}px, 0) rotate(${earlyLean * 13}deg) scale(1.09)`;
+      noise(0, .05, .12);
+      return;
+    }
+    saveState.kicked = true;
+    const leanNow = fake === "flip" ? trueLean : earlyLean;
+    takerFig.style.transition = "transform .14s ease";
+    takerFig.style.transform = `translate(${leanNow * 10}px, 0) rotate(${leanNow * 14}deg) scale(1.1)`;
+    SFX.kick();
+    const gr = goalRect(), sr = sceneRect();
+    const tx = gr.left - sr.left + nx * gr.width, ty = gr.top - sr.top + ny * gr.height;
+    ball.style.transition = "all .34s cubic-bezier(.3,.5,.4,1)";
+    ball.style.left = tx + "px"; ball.style.top = ty + "px"; ball.style.bottom = "auto";
+    ball.style.width = "34px"; ball.style.height = "34px"; ball.style.marginLeft = "-17px";
+    resolveSaveShot();
+  };
+  if(fake === "fakeSwing"){
+    later(() => doKick(false), swingAt);
+    later(() => doKick(true), swingAt + 330);
+    saveState.revealAt = T0 + swingAt + 330;   // truth only at the real swing
+  } else {
+    later(() => doKick(true), swingAt);
+  }
+  // safety: if the player never commits, resolve happens in doKick via saveState.committed=null
+}
+function resolveSaveShot(){
+  const { nx, ny, third } = saveState.target;
   stats.save[1]++;
-  const cpuMiss = Math.random() < .13; cpuSides.push(nx < .34 ? 0 : nx > .66 ? 2 : 1); if(cpuSides.length > 6) cpuSides.shift(); if(stats.save[1] % 5 === 4) cpuFav = Math.random() < .5 ? 0 : 2;
-  const zx = (savePick.c + .5) / 3, zy = (savePick.r + .5) / 3;
-  const d = Math.hypot(nx - zx, (ny - zy) * 1.15);
-  let saved = false;
-  if(!cpuMiss) saved = Math.random() < (d < .20 ? .85 : d < .36 ? .45 : d < .48 ? .12 : .02);
-  setTimeout(() => {
-    if(cpuMiss){ banner("他打偏了！", "#ffd34d"); SFX.cheer(); stats.save[0]++;
-      $("flavor").innerHTML = `<span class="q">对方自己罚丢了——</span>压力太大，球偏出立柱。这一分算你扑救成功。`; }
+  cpuSides.push(third); if(cpuSides.length > 6) cpuSides.shift();
+  if(stats.save[1] % 5 === 4) cpuFav = Math.random() < .5 ? 0 : 2;
+  const c = saveState.committed;
+  const cpuMiss = Math.random() < .11;
+  let saved = false, how = "";
+  if(cpuMiss){ saved = true; how = "miss"; }
+  else if(!c){ saved = third === 1 && Math.random() < .30; how = saved ? "stood" : "nocommit"; }
+  else {
+    if(c.third !== third && saveState.fake === "fakeSwing" && c.power === 1){ /* fooled by dummy: locked early */ }
+    const zx = (c.third + .5) / 3, zy = ny < .45 ? .22 : .78;
+    const d = Math.hypot(nx - zx, (ny - zy) * 1.05);
+    const base = d < .20 ? .85 : d < .36 ? .45 : d < .48 ? .12 : .02;
+    saved = Math.random() < base * c.power;
+    how = saved ? (d < .20 ? "read" : "reach") : (c.third === third ? "beaten" : "wrongway");
+    if(c.third === third && !saved) diveKeeperK(c.third, ny < .45); // correct side, beaten by placement — show the reach
+  }
+  const fakeName = { stutter: "顿步", fakeSwing: "假摆腿", flip: "临射变向" }[saveState.fake] || "";
+  later(() => {
+    if(how === "miss"){ banner("他打偏了！", "#ffd34d"); SFX.cheer(); stats.save[0]++;
+      $("flavor").innerHTML = `<span class="q">对方自己罚丢了。</span>${fakeName ? `这球带了「${fakeName}」，` : ""}压力之下脚法变形，偏出立柱。`; }
     else if(saved){ banner("扑出去了！", "#ffd34d"); SFX.cheer(); stats.save[0]++;
-      $("flavor").innerHTML = d < .20
-        ? `<span class="q">${pick(["神扑！你完全猜对了方向。", "单掌托出！预判满分。", "扑到了！全场起立。"])}</span>他打的是${nx < .34 ? "左" : nx > .66 ? "右" : "中"}路${ny > .5 ? "低球" : "高球"}，正落在你的区域里。`
-        : `<span class="q">指尖蹭到——扑出去了！</span>他打${nx < .34 ? "左" : nx > .66 ? "右" : "中"}路${ny > .5 ? "低球" : "高球"}，不在你扑的正中，但你手长，擦着边给他捅了出去。`; }
+      $("flavor").innerHTML = `<span class="q">${how === "reach" ? "指尖蹭到——扑出去了！" : how === "stood" ? "他正打中路，你没动就对了。" : "神扑！方向、时机全读对了。"}</span>他打${["左", "中", "右"][third]}路${ny > .5 ? "低球" : "高球"}${fakeName ? `，还耍了「${fakeName}」` : ""}${c ? `；你${c.label}，${c.power < 1 ? "力量打折但方向没错" : "力量拉满"}` : ""}。`; }
     else { banner("球进了…", "#fff"); SFX.groan();
-      $("flavor").innerHTML = `<span class="q">${pick(["他打了另一边，你扑反了。", "角度太刁，鞭长莫及。", "被骗了重心——他顿了一下才射。"])}</span>他实际打的是${nx < .34 ? "左" : nx > .66 ? "右" : "中"}路${ny > .5 ? "低球" : "高球"}，你选的是${["左", "中", "右"][savePick.c]}${["上", "中", "下"][savePick.r]}。`; }
+      $("flavor").innerHTML = `<span class="q">${how === "wrongway" ? "被骗了——他摆腿前的倾斜是假的。" : how === "beaten" ? "方向扑对了，但这球太刁、太快。" : "你没扑，他从容打进。"}</span>他实际打${["左", "中", "右"][third]}路${ny > .5 ? "低球" : "高球"}${fakeName ? `（假动作：${fakeName}）` : ""}。盯他<b>摆腿那一下</b>再动，看得最准。`; }
     updStats(); endRound();
-  }, 500);
+  }, 380);
 }
 
-$("resetBtn").addEventListener("click", () => { stats = { shoot: [0, 0], save: [0, 0] }; history = []; updStats(); newRound(); });
+// ================= round scaffolding =================
+function newRound(){
+  clearTimers(); cancelAnimationFrame(barAnim);
+  busy = false; aim = null; saveCommit = null; saveState = null; phase = "aim";
+  figs.innerHTML = ""; document.querySelectorAll(".divezone").forEach(z => z.remove());
+  ball.style.transition = "none"; ball.style.left = ""; ball.style.top = ""; ball.style.bottom = ""; ball.style.width = ""; ball.style.height = ""; ball.style.marginLeft = "";
+  aimEl.style.display = "none";
+  $("banner").className = "banner"; $("banner").textContent = "";
+  $("flavor").innerHTML = ""; $("commitLine").style.display = "none";
+  $("barWrap").style.display = "none"; $("zoneName").textContent = "未选择"; $("riskPct").textContent = "—";
+  if(mode === "shoot"){
+    $("modeTag").textContent = "我方点球 · 第三人称";
+    $("whoLine").textContent = `主罚：${pick(SHOOTERS)} · 门将：${pick(KEEPERS)}`;
+    setupShoot();
+  } else {
+    $("modeTag").textContent = "对方点球 · 你是门将";
+    $("whoLine").textContent = `主罚：${pick(SHOOTERS)} · 你站在门将身后`;
+    setupSave();
+  }
+  requestAnimationFrame(() => { ball.style.transition = "all .45s cubic-bezier(.25,.6,.35,1)"; });
+  SFX.whistle(1);
+}
+$("resetBtn").addEventListener("click", () => { stats = { shoot: [0, 0], save: [0, 0] }; history = []; cpuSides = []; updStats(); newRound(); });
 $("sndBtn").addEventListener("click", e => { muted = !muted; e.target.textContent = muted ? "🔇 音效关" : "🔊 音效开"; if(!muted) SFX.whistle(1); });
-window.addEventListener("resize", () => { if(mode === "save" && phase === "aim") newRound(); });
 newRound(); updStats();
 </script>
 </body>
