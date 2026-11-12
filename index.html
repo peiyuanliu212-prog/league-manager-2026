@@ -4583,7 +4583,7 @@ function renderMatchGate(){
   const ment = mentalityOf(P.sportId), om = oppMentalityFor(P.sportId, P.dayN, P.opp), cd = counterDelta(ment.style, om.style);
   const lowSt = P.clean.starters.map(x => findPlayer(x.pid)).filter(p => { const ps = p && mock.state.pstat[p.pid]; return p && ps && ps.stamina < MATCH_CFG.tiredLine; });
   const head = $("#matchHead");
-  if(head) head.innerHTML = `<div class="bcb"><div class="bcteam"><span class="bcbadge my">${(mock.state.clubName || "我").slice(0, 1)}</span><span class="bcname">${mock.state.clubName || "我方"}</span></div><div class="bcscore"><b style="font-size:19px">VS</b></div><div class="bcteam r"><span class="bcname">${P.opp}</span><span class="bcbadge op">${(P.opp || "敌").slice(0, 1)}</span></div></div><div class="bcmeta"><span class="hint">赛前准备 · 还没有开球</span><span class="hint">第 ${P.dayN} 轮</span></div>`;
+  if(head) head.innerHTML = `<div class="bcb"><div class="bcteam"><span class="bcbadge my">${esc((mock.state.clubName || "我").slice(0, 1))}</span><span class="bcname">${esc(mock.state.clubName || "我方")}</span></div><div class="bcscore"><b style="font-size:19px">VS</b></div><div class="bcteam r"><span class="bcname">${P.opp}</span><span class="bcbadge op">${(P.opp || "敌").slice(0, 1)}</span></div></div><div class="bcmeta"><span class="hint">赛前准备 · 还没有开球</span><span class="hint">第 ${P.dayN} 轮</span></div>`;
   const tk = $("#matchTicker"); if(tk) tk.innerHTML = "";
   const lb = $("#liveBar"); if(lb) lb.innerHTML = "";
   const lp = $("#livePanel"); if(lp) lp.innerHTML = "";
@@ -4650,7 +4650,7 @@ function renderMatchHead(){
   const avgSt = L.onPitch.length ? Math.round(L.onPitch.reduce((t,x)=>{ const es = engStamOf(x.pid); if(es != null) return t + es; const ps = mock.state.pstat[x.pid]; return t + (ps ? ps.stamina : 100) - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 40 : 90)); }, 0) / L.onPitch.length) : 100;
   const popMy = L._pm != null && L._pm !== L.my, popOp = L._po != null && L._po !== L.oppScore;
   L._pm = L.my; L._po = L.oppScore;
-  el.innerHTML = `<div class="bcb"><div class="bcteam"><span class="bcbadge my">${(mock.state.clubName || "我").slice(0, 1)}</span><span class="bcname">${mock.state.clubName || "我方"}</span></div><div class="bcscore"><b class="${popMy ? "pop" : ""}">${L.my}</b><span class="bcsep">:</span><b class="${popOp ? "pop" : ""}">${L.oppScore}</b></div><div class="bcteam r"><span class="bcname">${L.opp}</span><span class="bcbadge op">${(L.opp || "敌").slice(0, 1)}</span></div></div>
+  el.innerHTML = `<div class="bcb"><div class="bcteam"><span class="bcbadge my">${esc((mock.state.clubName || "我").slice(0, 1))}</span><span class="bcname">${esc(mock.state.clubName || "我方")}</span></div><div class="bcscore"><b class="${popMy ? "pop" : ""}">${L.my}</b><span class="bcsep">:</span><b class="${popOp ? "pop" : ""}">${L.oppScore}</b></div><div class="bcteam r"><span class="bcname">${L.opp}</span><span class="bcbadge op">${(L.opp || "敌").slice(0, 1)}</span></div></div>
   <div class="bcmeta"><span class="hint">第${L.dayN}轮 · ${L.minute}′ · ${mentalityOf(L.sportId).name}打法${L.sportId === "football" ? ' · 黄牌 ' + (L.yc || 0) + ' · 红牌 ' + (L.rc || 0) : ''}</span><span class="hint">对方 ${L.oppMent.name}</span></div>
   <div style="margin-top:6px"><div class="hint">全队体能 ${Math.max(5, avgSt)}%</div><div style="height:7px;background:#e7ddc6;border-radius:4px"><div style="height:100%;width:${Math.max(5, avgSt)}%;background:${avgSt < 40 ? "#c0392b" : "#2e6b46"};border-radius:4px;transition:width .4s"></div></div></div>`;
 }
@@ -4783,7 +4783,7 @@ function simLineFor(ev){
     case "intercept": return throttled(150) ? null : { min, kind: "", text: `${ev.p ? ev.p.name : "队员"} 中途断下传球，球权转换。` };
     case "steal": return throttled(150) ? null : { min, kind: "", text: `${ev.p ? ev.p.name : "队员"} 直接抢断！` };
     case "tackle": return throttled(170) ? null : { min, kind: "", text: `${ev.p ? ev.p.name : "后卫"} 干净利落地把球断下。` };
-    case "pass": return throttled(200) ? null : { min, kind: "", text: mine ? `${ev.from ? ev.from.name : ""} 把球分给 ${ev.to ? ev.to.name : ""}，${mock.state.clubName || "我方"}继续组织进攻。` : `对方连续传递组织进攻。` };
+    case "pass": return throttled(200) ? null : { min, kind: "", text: mine ? `${ev.from ? ev.from.name : ""} 把球分给 ${ev.to ? ev.to.name : ""}，${esc(mock.state.clubName || "我方")}继续组织进攻。` : `对方连续传递组织进攻。` };
     case "card": if(mine) LIVE.yc = (LIVE.yc || 0) + 1; return { min, kind: "card", text: ev.yellow2 ? `第二张黄牌！${ev.p ? ev.p.name : "球员"}累积两黄——` : `黄牌——${ev.p ? ev.p.name : "球员"} 战术犯规，裁判出示黄牌。` };
     case "foul": return throttled(200) ? null : { min, kind: "", text: `犯规——${ev.p ? ev.p.name : "球员"} 动作过大，裁判吹停比赛。` };
     case "corner": return throttled(300) ? null : { min, kind: "", text: mine ? "我方获得角球机会。" : "对方获得角球。" };
@@ -5899,7 +5899,7 @@ function renderTable(){
   const rows = tableSorted(sportId), isB = sportId === "basketball";
   el.innerHTML = `<div class="card" style="margin-top:10px"><div class="pname">联赛积分榜（${isB ? "篮球" : "足球"}）</div>
   <table class="ttable"><tr><th>#</th><th style="text-align:left">球队</th><th>赛</th><th>胜</th><th>${isB ? "负" : "平"}</th><th>${isB ? "" : "负"}</th><th>${isB ? "得分" : "进:失"}</th><th>分</th></tr>
-  ${rows.map((r, i)=>`<tr class="${r.club === "__ME__" ? "me" : ""}"><td>${i + 1}</td><td style="text-align:left">${r.club === "__ME__" ? (mock.state.clubName || "我方") : r.club}</td><td>${r.p}</td><td>${r.w}</td><td>${isB ? r.l : r.d}</td><td>${isB ? "" : r.l}</td><td>${isB ? r.gf : r.gf + ":" + r.ga}</td><td><b>${r.pts}</b></td></tr>`).join("")}
+  ${rows.map((r, i)=>`<tr class="${r.club === "__ME__" ? "me" : ""}"><td>${i + 1}</td><td style="text-align:left">${r.club === "__ME__" ? esc(mock.state.clubName || "我方") : r.club}</td><td>${r.p}</td><td>${r.w}</td><td>${isB ? r.l : r.d}</td><td>${isB ? "" : r.l}</td><td>${isB ? r.gf : r.gf + ":" + r.ga}</td><td><b>${r.pts}</b></td></tr>`).join("")}
   </table><div class="hint">每轮全部 8 场比赛同步模拟；同分先比净胜球。老存档的积分榜自本版本首场比赛起记。</div></div>`;
 }
 
@@ -6030,7 +6030,7 @@ function showSignReveal(p){
   <div class="ovr" style="background:${tierColor(gv)};margin:10px auto;width:88px;height:100px"><b style="font-size:30px">${gv}</b><small>${p.pos}</small></div>
   <div class="pname" style="font-size:19px">${p.name}</div>
   <div class="pmeta">${p.pos}${p.club ? " · 原俱乐部 " + p.club : ""} · 日薪 ${wageOf(p)} · ${starText(p)}</div>
-  <button style="width:100%;margin-top:12px" onclick="document.querySelector('#signModal').classList.add('hidden')">欢迎来到${mock.state.clubName || "俱乐部"}</button></div>`;
+  <button style="width:100%;margin-top:12px" onclick="document.querySelector('#signModal').classList.add('hidden')">欢迎来到${esc(mock.state.clubName || "俱乐部")}</button></div>`;
   m.classList.remove("hidden");
 }
 async function scoutReveal(pid){
@@ -6079,7 +6079,7 @@ async function render(){
   const omL = oppMentalityFor(spL.id, dayN, opp), mentL = mentalityOf(spL.id), cdL = counterDelta(mentL.style, omL.style);
   const insNames = INSTRUCTIONS[spL.id].filter(d=>mock.state.tprof[spL.id].instr && mock.state.tprof[spL.id].instr[d.id]).map(d=>d.name).join("、") || "无";
   const metaL = mock.state.matchMeta && mock.state.matchMeta[spL.id + ":" + dayN];
-  lc.innerHTML = `<div class="vs"><div class="side"><div class="vnum">${teamPower()}</div><div class="vlab">${$("#clubName").textContent||"我方"} · 我方战力</div></div><div class="vmid">第 ${dayN} 轮 · ${dayN % 2 === 1 ? "🏠 主场" : "✈ 客场"}<div class="vsbadge">VS</div></div><div class="side"><div class="vnum" style="color:var(--bad)">${spL.opp()[opp]}</div><div class="vlab">${opp} · 对手强度</div></div></div>${posterStrip(spL.id)}` + previewHTML(spL, opp, dayN) +
+  lc.innerHTML = `<div class="vs"><div class="side"><div class="vnum">${teamPower()}</div><div class="vlab">${esc($("#clubName").textContent||"我方")} · 我方战力</div></div><div class="vmid">第 ${dayN} 轮 · ${dayN % 2 === 1 ? "🏠 主场" : "✈ 客场"}<div class="vsbadge">VS</div></div><div class="side"><div class="vnum" style="color:var(--bad)">${spL.opp()[opp]}</div><div class="vlab">${opp} · 对手强度</div></div></div>${posterStrip(spL.id)}` + previewHTML(spL, opp, dayN) +
     (played ? `<div style="margin-top:10px"><span class="tag back">${played}</span> <span class="hint">本轮已赛，明天再战</span>${metaL ? `<div class="hint" style="margin-top:6px">复盘：进球 ${metaL.scorers && metaL.scorers.length ? metaL.scorers.join("、") : "—"} · 本方「${metaL.mentality}」对对手「${metaL.oppMentality}」</div>` : ""}</div>`
     : `<div class="hint" style="margin-top:8px">赛前情报：${opp} 偏「${omL.name}」打法（${omL.desc}）。我方「${mentL.name}」＋指令【${insNames}】${cdL > 0 ? "，风格克制对方（+" + cdL + "）" : cdL < 0 ? "，风格被对方克制（" + cdL + "），去阵容页换档还来得及" : ""}。</div><div style="margin-top:10px"><button id="playBtn" style="width:100%;padding:12px;font-size:15px">进入直播间 · 打这场</button></div>`)
     + (mock.state.log.length ? `<div class="hint">${mock.state.log.slice(-3).join("<br>")}</div>` : "");
@@ -6434,7 +6434,7 @@ async function renderBootSlots(){
   box.innerHTML = '<div class="hint" style="text-align:left;margin-bottom:6px">选择存档（点空档 = 在该档新开一局）</div>' + slots.map(x=>{
     bootMetas[x.slot] = x.meta || null;
     const m = x.meta;
-    const meta = m ? ((m.clubName || "未命名俱乐部") + " · 资金 " + m.balance + " · 已赛 " + m.played + " 场") : "空档";
+    const meta = m ? (esc(m.clubName || "未命名俱乐部") + " · 资金 " + m.balance + " · 已赛 " + m.played + " 场") : "空档";
     const sel = x.slot === bootPick;
     return '<div data-bootslot="' + x.slot + '" style="display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--panel);border:' + (sel ? "2px solid var(--acc)" : "1px solid var(--line)") + ';border-radius:10px;padding:8px 12px;margin-bottom:6px;cursor:pointer;text-align:left"><div><div class="pname" style="font-size:14px">存档 ' + x.slot + (x.slot === act && m ? ' <span class="hint">（当前）</span>' : "") + '</div><div class="pmeta">' + meta + '</div></div>' + (sel ? '<span class="tag back">已选</span>' : "") + '</div>';
   }).join("");
