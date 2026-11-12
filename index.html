@@ -770,6 +770,9 @@ function ensureV2State(){
   if(s.devSession === undefined) s.devSession = null;
   if(!s.devProgress) s.devProgress = {};
   if(!s.gear) s.gear = { owned:{}, freeDay:0, paidDay:0, paidCount:0, lastPack:null };
+  if(s.videoRoom === undefined) s.videoRoom = null;
+  if(s.travel === undefined) s.travel = null;
+  if(s.surprise === undefined) s.surprise = null;
 }
 function settleWages(){
   ensureV2State();
@@ -1403,6 +1406,33 @@ function renderEvents(){
       el.appendChild(acard);
     }
   }
+  const vr = s.founded ? videoOfToday() : null;
+  if(vr){
+    const vdef = VIDEO_OPTS.find(x=>x.id === vr.pick);
+    any = true;
+    const vcard = document.createElement("div"); vcard.className = "card";
+    if(!vr.pick){
+      vcard.innerHTML = `<div class="pname">🎬 录像分析室</div><div class="pmeta">视频组把昨天的比赛和下个对手的录像都备好了，今天看哪一盘？</div><div class="tiers" style="grid-template-columns:1fr 1fr 1fr">${VIDEO_OPTS.map((o, i)=>`<button onclick="pickVideo(${i})">${o.label}<br><span class="hint">${o.id === "personal" ? "随机一名球员 · 发展进度 +20" : fxText(o.fx)}</span></button>`).join("")}</div>`;
+    } else {
+      vcard.innerHTML = `<div class="pname">🎬 录像分析室</div><div class="pmeta">今日已看：${vdef ? vdef.label : ""}。${vdef && vdef.result ? vdef.result : ""}${vr.pid ? "个人课对象：" + ((findPlayer(vr.pid) || {}).name || "") + "，发展进度 +20。" : ""}</div>`;
+    }
+    el.appendChild(vcard);
+  }
+  const spx = s.founded ? surpriseOfToday() : null;
+  if(spx){
+    const sdef = SURPRISES.find(x=>x.id === spx.id);
+    if(sdef){
+      any = true;
+      const scard = document.createElement("div"); scard.className = "card";
+      if(!spx.done){
+        scard.innerHTML = `<div class="pname">⚡ 今日突发 · ${sdef.tag}</div><div class="pmeta"><b>${sdef.title}</b>——${sdef.body}</div><div class="tiers"><button onclick="pickSurprise('a')">${sdef.a.label}<br><span class="hint">${fxText(sdef.a.fx)}</span></button><button class="ghost" onclick="pickSurprise('b')">${sdef.b.label}<br><span class="hint">${fxText(sdef.b.fx)}</span></button></div>`;
+      } else {
+        const sopt = sdef[spx.pick];
+        scard.innerHTML = `<div class="pname">⚡ 今日突发 · ${sdef.tag}</div><div class="pmeta"><b>${sdef.title}</b>——已处理：${sopt ? sopt.label : ""}。${sopt ? sopt.result : ""}</div>`;
+      }
+      el.appendChild(scard);
+    }
+  }
   if(s.founded && packActive("2026-11-19") && !s.p1Seen){
     any = true;
     const card = document.createElement("div"); card.className = "card";
@@ -1830,6 +1860,18 @@ const DAILY_CHOICES = [
   { id:"captain-bday", tag:"更衣室", title:"老队长的生日", body:"今天老队长三十岁，几个年轻球员攒着想给他一个惊喜。",
     a:{ label:"全队聚餐", fx:{ funds:-28, staminaAll:3, rep:2 }, result:"一顿饭吃得更衣室笑声不断，第二天训练都带着劲儿。" },
     b:{ label:"简单表示", fx:{ coachXp:8 }, result:"送了块蛋糕就散了，队长说这样就挺好，别耽误训练。" } },
+  { id:"medical-check", tag:"医疗室", title:"全队体检排期", body:"队医把年度体检排期表递上来：赛季中做要占大半天，拖到赛季后又怕带伤过冬。",
+    a:{ label:"现在就做", fx:{ funds:-30, staminaAll:5 }, result:"体检全员过关，队医把两名球员的负荷表悄悄调低了。" },
+    b:{ label:"赛季后再说", fx:{ coachXp:12 }, result:"排期表压回抽屉，队医在门口站了半分钟才走。" } },
+  { id:"social-duty", tag:"社媒", title:"官方账号值班", body:"运营问今天的社媒发什么：更衣室花絮点击高但怕泄密，赛前海报稳妥又怕没流量。",
+    a:{ label:"发花絮，拉热度", fx:{ rep:6, funds:10 }, result:"花絮点赞破了队史纪录，赞助商的标识也跟着露了脸。" },
+    b:{ label:"发海报，稳妥", fx:{ rep:3, coachXp:8 }, result:"海报四平八稳，运营说下次想试试凌晨发帖玄学。" } },
+  { id:"academy-trial", tag:"青训", title:"梯队公开试训", body:"青训营周末办公开试训，来了六十多个孩子，总监问一队教练组要不要去站台。",
+    a:{ label:"去站台，挑苗子", fx:{ coachXp:25, staminaAll:-2 }, result:"有个穿旧球鞋的孩子连过三人，当场被记进了小本本。" },
+    b:{ label:"梯队自己办", fx:{ funds:15 }, result:"试训报名费覆盖了场地钱，青训总监发来一水儿感谢。" } },
+  { id:"matchday-rehearsal", tag:"比赛日", title:"主场流程彩排", body:"下个主场有转播商进场，运营想把开场、灯光、DJ 流程完整彩排一遍。",
+    a:{ label:"全流程彩排", fx:{ funds:-25, rep:5 }, result:"彩排揪出三个流程漏洞，转播商负责人点了点头。" },
+    b:{ label:"照旧，不折腾", fx:{ coachXp:10 }, result:"省下的半天全给了战术课，就是开场那天 DJ 放错了一首歌。" } },
 ];
 function choiceOfToday(){
   const s = mock.state; if(!s.founded) return null;
@@ -1900,6 +1942,12 @@ function todayItems(){
   const af2 = affairOfToday();
   items.push({ label:"🏢 每日集团事务", done: !!(af2 && af2.done), go:"affair" });
   if(typeof gearActive === "function" && gearActive()){ const gs2 = gearState(); items.push({ label:"🎁 装备包（今日免费包）", done: gs2.freeDay === d, go:"gear" }); }
+  const trI = (typeof travelOfToday === "function") ? travelOfToday() : null;
+  if(trI) items.push({ label:"🚌 客场出行清单", done: !!trI.claimed, go:"choice" });
+  const vrI = (typeof videoOfToday === "function") ? videoOfToday() : null;
+  if(vrI) items.push({ label:"🎬 录像分析室", done: !!vrI.pick, go:"video" });
+  const spI = (typeof surpriseOfToday === "function") ? surpriseOfToday() : null;
+  if(spI) items.push({ label:"⚡ 今日突发待处理", done: !!spI.done, go:"affair" });
   return items;
 }
 function todayGo(go){
@@ -1909,6 +1957,7 @@ function todayGo(go){
   if(go === "choice"){ const el = $("#todaySlot"); if(el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   if(go === "affair"){ switchTab("club"); const el = $("#eventList"); if(el) setTimeout(()=>el.scrollIntoView({ behavior:"smooth", block:"center" }), 60); return; }
   if(go === "gear"){ switchTab("club"); const el = $("#gearBody"); if(el) setTimeout(()=>el.scrollIntoView({ behavior:"smooth", block:"center" }), 60); return; }
+  if(go === "video"){ switchTab("club"); const el = $("#eventList"); if(el) setTimeout(()=>el.scrollIntoView({ behavior:"smooth", block:"center" }), 60); return; }
   switchTab(go);
 }
 function fxText(fx){
@@ -1943,6 +1992,13 @@ function renderToday(){
     h += `</div>`;
   }
   /* morning check (v41 wave1) */
+  const tr = (typeof travelOfToday === "function") ? travelOfToday() : null;
+  if(tr){
+    h += `<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><span class="pname">🚌 客场出行清单</span><div class="pmeta" style="margin:2px 0 6px">今天是客场轮，后勤三件事逐项勾完有奖励。</div>`;
+    h += TRAVEL_ITEMS.map(x => `<div class="row" style="margin-top:4px"><span class="pmeta">${tr.checks[x.id] ? "✅" : "⬜"} ${x.label} · ${x.desc}</span><button class="mini ${tr.checks[x.id] ? "ghost" : ""}" onclick="toggleTravel('${x.id}')">${tr.claimed ? "已就绪" : tr.checks[x.id] ? "取消" : "勾上"}</button></div>`).join("");
+    if(tr.claimed) h += `<div class="hint" style="margin-top:4px">全部就绪，奖励已发：全队体能 +2 · 声望 +1。</div>`;
+    h += `</div>`;
+  }
   const mc = morningOfToday();
   if(mc){
     const ro = morningReadout();
@@ -2036,6 +2092,15 @@ const POST_CHOICES = [
   { id:"pm-store", when:"mixed", tag:"商业", title:"商店补货日", body:"赢球那队的球衣断货了，输球那队的还堆在库房。",
     a:{ label:"紧急补货，趁热打铁", fx:{ funds:55, rep:-1 }, result:"补货三天售罄，排队的人里有人嘀咕「赢球才补货」。" },
     b:{ label:"两边同价，慢慢卖", fx:{ rep:4, funds:15 }, result:"不偏不倚，球迷说这家俱乐部「有里有面」。" } },
+  { id:"pw-airport", when:"win", tag:"球迷", title:"球迷自发接机", body:"航班刚落地，出口黑压压一片——几百名球迷自发来接机，还拉了横幅。",
+    a:{ label:"停下来合影签名", fx:{ rep:8, staminaAll:-3 }, result:"在机场多留了四十分钟，第二天训练全队都带着笑。" },
+    b:{ label:"挥手致谢走快速通道", fx:{ rep:4, coachXp:8 }, result:"横幅上写着「下一场继续」，队长把照片设成了手机壁纸。" } },
+  { id:"pl-leak", when:"lose", tag:"突发", title:"更衣室漏水了", body:"输球回更衣室，天花板正滴水，装备间泡了一半——今晚必须拿个处理方案。",
+    a:{ label:"连夜抢修，俱乐部出钱", fx:{ funds:-35, staminaAll:3 }, result:"抢修到凌晨三点，第二天更衣室焕然一新，因祸得福。" },
+    b:{ label:"先拿桶接着，明天再说", fx:{ rep:-3, coachXp:10 }, result:"滴水声陪了一夜，教练组索性在漏水声里把复盘会开完了。" } },
+  { id:"pm-banners", when:"mixed", tag:"突发", title:"横幅标语之争", body:"赢球那队被客队球迷横幅挑衅，输球那队的主场又挂出了回敬横幅，两边都等俱乐部表态。",
+    a:{ label:"各打五十大板，都撤下", fx:{ rep:5, coachXp:8 }, result:"声明措辞滴水不漏，两家球迷群难得同时点了个赞。" },
+    b:{ label:"只护自家球迷", fx:{ rep:7, funds:-15 }, result:"自家看台士气大振，联盟的警告信也跟着到了。" } },
 ];
 function postResultCtx(){
   const s = mock.state, d = seasonDayN();
@@ -2108,6 +2173,31 @@ const AFFAIRS = [
       { label:"俱乐部全包", fx:{ funds:-45, rep:8 }, result:"十辆大巴凌晨列队出发的照片，成了本赛季的名场面。" },
       { label:"补贴一半，球迷AA", fx:{ funds:-20, rep:5 }, result:"报名半小时满员，球迷会长说这个分寸最舒服。" },
       { label:"改办线上看球趴", fx:{ funds:10, rep:3 }, result:"主场大屏前聚了上千人，烧烤摊老板笑开了花。" } ] },
+  { id:"af-activation", tag:"商务", title:"赞助激活日", body:"赞助商的激活日到了：要占一堂训练课拍广告，交付规格白纸黑字写在合同里。",
+    opts:[
+      { label:"全队出镜拍满", fx:{ funds:85, staminaAll:-4 }, result:"广告拍了一整天，赞助商满意得当场谈起了续约。" },
+      { label:"派三名代表", fx:{ funds:40, rep:3 }, result:"主力照常训练，代表们拍完还赶上了晚餐。" },
+      { label:"改成线上直播带货", fx:{ funds:55, rep:-2 }, result:"销量不错，就是队长对着镜头喊「家人们」被剪成了表情包。" } ] },
+  { id:"af-compliance", tag:"合规", title:"工资帽合规自查", body:"联盟发来通知：本月工资结构自查表要在截止日前交，财务已经熬了两个通宵。",
+    opts:[
+      { label:"请外部审计过一遍", fx:{ funds:-35, rep:4 }, result:"审计报告干净漂亮，联盟回了句「规范」。" },
+      { label:"内部自查按时交", fx:{ coachXp:12 }, result:"自查表赶在截止前交了，财务说下次能不能提前一周通知。" },
+      { label:"顺手优化合同结构", fx:{ funds:25, coachXp:10 }, result:"几份合同的奖金条款一挪，工资帽空间腾出了一小块。" } ] },
+  { id:"af-kitroom", tag:"装备间", title:"装备房升级申请", body:"装备经理递了申请：洗烘设备老化，球衣周转已经开始排队了。",
+    opts:[
+      { label:"批，全套换新", fx:{ funds:-50, staminaAll:3 }, result:"新设备到位，装备间第一次有了烘干后的太阳味。" },
+      { label:"先修不换", fx:{ funds:-15 }, result:"老师傅把老机器敲好了，说还能再战两年。" },
+      { label:"驳回，预算优先", fx:{ rep:-2, coachXp:8 }, result:"装备经理叹了口气，把排班表又加密了一格。" } ] },
+  { id:"af-settle", tag:"球员生活", title:"新援安顿计划", body:"刚签下的新援拖家带口，租房、孩子入学、语言课都还没着落。",
+    opts:[
+      { label:"俱乐部全包安顿", fx:{ funds:-40, rep:6, staminaAll:2 }, result:"安顿得妥妥帖帖，新援在采访里说「这儿像家」。" },
+      { label:"老队员结对帮带", fx:{ rep:4, coachXp:10 }, result:"队长带着跑了三天手续，更衣室多了个新饭搭子。" },
+      { label:"发安顿手册自理", fx:{ funds:10 }, result:"手册倒是省钱，就是新援第一周迟到了两次。" } ] },
+  { id:"af-openday", tag:"社区", title:"开放训练日", body:"社区学校想带孩子们来看一堂公开训练，顺便办个小签名会。",
+    opts:[
+      { label:"大办，签名会拉满", fx:{ funds:-20, rep:9 }, result:"孩子们举着自制海报齐声喊口号，照片上了区报。" },
+      { label:"小范围开放", fx:{ rep:5 }, result:"来了两个班，训练没受影响，气氛刚刚好。" },
+      { label:"改送球票答谢", fx:{ funds:-10, rep:3 }, result:"送了三十张球票，学校回赠了一面锦旗。" } ] },
 ];
 function affairOfToday(){
   const s = mock.state; if(!s.founded) return null;
@@ -2170,6 +2260,7 @@ function devFocusName(focus){
   const isB = curSport().id === "basketball";
   return focus === "atk" ? (isB ? "投篮专项" : "射门专项") : focus === "def" ? (isB ? "防守脚步" : "防守站位") : "体能专项";
 }
+function addDevProgress(pid, amt){ const s = mock.state; s.devProgress[pid] = (s.devProgress[pid] || 0) + amt; if(s.devProgress[pid] >= 100){ s.devProgress[pid] -= 100; s.growth[pid] = (s.growth[pid] || 0) + 1; s.output = (s.output || 0) + 10; return true; } return false; }
 function pickDev(pid, focus){
   const s = mock.state; ensureV2State();
   const d = seasonDayN();
@@ -2177,10 +2268,8 @@ function pickDev(pid, focus){
   const p = findPlayer(pid); if(!p) return;
   if(!isSigned(p) || !isArrived(p) || awayMap.get(pid) || isInjured(pid)){ toast("这名球员今天上不了课"); return; }
   const focusName = devFocusName(focus), ps = pstatOf(pid);
-  if(focus === "fit"){ ps.stamina = Math.min(100, ps.stamina + 6); s.devProgress[pid] = (s.devProgress[pid] || 0) + 20; }
-  else { ps.stamina = Math.max(5, ps.stamina - 8); s.devProgress[pid] = (s.devProgress[pid] || 0) + 34; }
-  let converted = false;
-  if(s.devProgress[pid] >= 100){ s.devProgress[pid] -= 100; s.growth[pid] = (s.growth[pid] || 0) + 1; s.output = (s.output || 0) + 10; converted = true; }
+  if(focus === "fit") ps.stamina = Math.min(100, ps.stamina + 6); else ps.stamina = Math.max(5, ps.stamina - 8);
+  const converted = addDevProgress(pid, focus === "fit" ? 20 : 34);
   s.coach.xp = (s.coach.xp || 0) + 5;
   s.devSession = { day: d, pid, focus, focusName, converted };
   s.log.push(`个人发展课：${p.name}「${focusName}」进度 ${s.devProgress[pid]}/100${converted ? "，能力 +1" : ""}。`);
@@ -2204,6 +2293,103 @@ function renderDevSession(){
   const opts = elig.map(p => `<option value="${p.pid}">${p.name} · 能力 ${p.ability + (s.growth[p.pid] || 0)} · 体能 ${s.pstat[p.pid] ? s.pstat[p.pid].stamina : 100} · 进度 ${s.devProgress[p.pid] || 0}/100</option>`).join("");
   el.innerHTML = `<div class="card"><div class="pname">🏋 个人发展课 <span class="hint">每天给一名球员开小灶，进度攒满 100 → 能力 +1</span></div><div class="row" style="margin-top:8px"><select id="devPick" style="flex:1;min-width:0;padding:8px;border-radius:8px;border:1px solid var(--line);background:#fffdf6">${opts}</select></div><div class="tiers" style="margin-top:8px;grid-template-columns:1fr 1fr 1fr"><button onclick="pickDevUI('atk')">${devFocusName("atk")}<br><span class="hint">进度 +34 · 体能 −8</span></button><button onclick="pickDevUI('def')">${devFocusName("def")}<br><span class="hint">进度 +34 · 体能 −8</span></button><button onclick="pickDevUI('fit')">体能专项<br><span class="hint">进度 +20 · 体能 +6</span></button></div></div>`;
 }
+
+/* ================= v43 真实日常第二波：录像室 / 客场出行清单 ================= */
+const VIDEO_OPTS = [
+  { id: "review", label: "剪辑复盘", fx: { coachXp: 20 }, result: "昨天的失误镜头剪成 12 条短片，早餐会上一条一条过。" },
+  { id: "personal", label: "个人录像课", fx: {}, result: "" },
+  { id: "scout", label: "买对手侦察报告", fx: { funds: -20, coachXp: 30 }, result: "数据公司连夜发来报告：对手的定位球套路标了红。" },
+];
+function videoOfToday(){
+  const s = mock.state; if(!s.founded) return null;
+  const day = seasonDayN();
+  if(s.videoRoom && s.videoRoom.day === day) return s.videoRoom;
+  s.videoRoom = { day, pick: null, pid: null };
+  return s.videoRoom;
+}
+function pickVideo(i){
+  const s = mock.state, vr = videoOfToday(); if(!vr || vr.pick) return;
+  const opt = VIDEO_OPTS[i]; if(!opt) return;
+  applyChoiceFx(opt.fx);
+  let extra = "";
+  if(opt.id === "personal"){
+    ensureV2State();
+    const elig = [];
+    for(const sp of Object.values(SPORT_PACKS)) for(const p of sp.players()) if(isSigned(p) && isArrived(p) && !awayMap.get(p.pid) && !isInjured(p.pid)) elig.push(p);
+    for(const p of (s.customPlayers || [])) if(isSigned(p) && isArrived(p) && !awayMap.get(p.pid) && !isInjured(p.pid)) elig.push(p);
+    if(elig.length){
+      const p = elig[Math.floor(Math.random() * elig.length)];
+      const conv = addDevProgress(p.pid, 20);
+      vr.pid = p.pid;
+      extra = p.name + " 上了个人录像课，发展进度 +20（现 " + s.devProgress[p.pid] + "/100）" + (conv ? "，进度满格，能力 +1、产出 +10！" : "。");
+    } else extra = "今天没人能来上个人课，录像室改放了经典比赛集锦。";
+  }
+  vr.pick = opt.id;
+  s.log.push("录像室「" + opt.label + "」。" + extra);
+  mock.save(); render();
+  toast("录像室：" + opt.label);
+}
+window.pickVideo = pickVideo;
+const TRAVEL_ITEMS = [
+  { id: "kit", label: "装备装箱", desc: "球衣两套 · 球鞋 · 医疗包" },
+  { id: "docs", label: "名单与证件", desc: "大名单 · 证件 · 注册文件" },
+  { id: "meal", label: "餐食与住宿", desc: "客场餐食预订 · 酒店大巴" },
+];
+function travelOfToday(){
+  const s = mock.state; if(!s.founded) return null;
+  const day = seasonDayN(); if(day % 2 === 1) return null;
+  if(s.travel && s.travel.day === day) return s.travel;
+  s.travel = { day, checks: {}, claimed: false };
+  return s.travel;
+}
+function toggleTravel(id){
+  const s = mock.state, tr = travelOfToday(); if(!tr || tr.claimed) return;
+  tr.checks[id] = !tr.checks[id];
+  if(TRAVEL_ITEMS.every(x => tr.checks[x.id])){
+    tr.claimed = true;
+    applyChoiceFx({ staminaAll: 2, rep: 1 });
+    s.log.push("客场出行清单全勾完：装备、名单、餐食就绪，全队体能 +2、声望 +1。");
+    toast("出行就绪！全队体能 +2 · 声望 +1");
+  }
+  mock.save(); render();
+}
+window.toggleTravel = toggleTravel;
+
+/* ================= v43 真实日常第三波：突发池 ================= */
+const SURPRISES = [
+  { id:"sp-weather", tag:"天气", title:"暴雨突袭训练场", body:"下午的训练刚开场，暴雨把场地浇成了水塘，今天这堂训练课肯定是练不成了。",
+    a:{ label:"改室内战术课", fx:{ coachXp:18 }, result:"投影幕拉上，一堂录像课听得比平时还认真。" },
+    b:{ label:"雨中加练，难得的机会", fx:{ staminaAll:-4, coachXp:25 }, result:"全队在雨里滑铲传球，笑声比雨声大——队医在场边直摇头。" } },
+  { id:"sp-flight", tag:"交通", title:"航班延误四小时", body:"去客场的航班延误，候机厅里全队席地而坐，对手的比赛直播正好在播。",
+    a:{ label:"就地开分析会", fx:{ coachXp:20 }, result:"候机厅的白板被借了过来，四小时一点没浪费。" },
+    b:{ label:"放假自由活动", fx:{ staminaAll:3, rep:-1 }, result:"有人补觉有人逛免税店，登机时全队精神头都不错。" } },
+  { id:"sp-flood", tag:"场地", title:"主场草皮积水", body:"夜里一场大雨，主场草皮一角积水，养护组问要不要申请延期。",
+    a:{ label:"连夜抽水抢修", fx:{ funds:-25, rep:3 }, result:"养护组干了整夜，比赛当天草皮平整如新。" },
+    b:{ label:"申请延期一天", fx:{ rep:-4, coachXp:12 }, result:"延期批了，教练组多了半天备战时间，球迷那边得挨几句骂。" } },
+  { id:"sp-viral", tag:"社媒", title:"训练视频意外走红", body:"一段训练花絮视频被传上网，一夜之间播放量破了百万，运营的电话被打爆。",
+    a:{ label:"顺势开官方征集", fx:{ rep:8, funds:15 }, result:"官方账号涨粉两万，赞助商连夜把露出费谈高了。" },
+    b:{ label:"低调处理，保护球员", fx:{ coachXp:10 }, result:"热度退得很快，更衣室里只多了一句「网红」的玩笑。" } },
+];
+function surpriseOfToday(){
+  const s = mock.state; if(!s.founded) return null;
+  const day = seasonDayN();
+  if(s.surprise && s.surprise.day === day) return s.surprise;
+  if(hashN(beijingDateStr() + "|" + (s.clubName || "")) % 3 !== 0) return null;
+  const def = SURPRISES[(day * 3 + 1) % SURPRISES.length];
+  s.surprise = { day, id: def.id, done: false, pick: null };
+  return s.surprise;
+}
+function pickSurprise(which){
+  const s = mock.state, sp2 = surpriseOfToday(); if(!sp2 || sp2.done) return;
+  const def = SURPRISES.find(x => x.id === sp2.id); if(!def) return;
+  const opt = def[which]; if(!opt) return;
+  applyChoiceFx(opt.fx);
+  sp2.done = true; sp2.pick = which;
+  s.log.push("突发「" + def.title + "」：" + opt.label + "。");
+  mock.save(); render();
+  toast("突发处理：" + opt.label);
+}
+window.pickSurprise = pickSurprise;
 
 /* ================= v42 装备包副线（张弛提案）：收藏/开包/双加成 ================= */
 const GEAR_CFG = { cost: 220, perPack: 3, paidPerDay: 3, powerCap: 5, incomeCap: 25, unlockDay: 3 };
@@ -4308,6 +4494,12 @@ function cockpitTodos(dayN){
   if(mcT && !mcT.pick) list.push({ u: 2, label: "🌅 今日晨检还没做", act: "choice" });
   if(!(s.devSession && s.devSession.day === dayN)) list.push({ u: 3, label: "🏋 今日个人发展课还没上", act: "squad" });
   if(typeof gearActive === "function" && gearActive() && gearState().freeDay !== dayN) list.push({ u: 2, label: "🎁 今日免费装备包还没开", act: "gear" });
+  const spC = (typeof surpriseOfToday === "function") ? surpriseOfToday() : null;
+  if(spC && !spC.done) list.push({ u: 2, label: "⚡ 今日突发待处理", act: "affair" });
+  const vrC = (typeof videoOfToday === "function") ? videoOfToday() : null;
+  if(vrC && !vrC.pick) list.push({ u: 3, label: "🎬 录像室还没看", act: "video" });
+  const trC = (typeof travelOfToday === "function") ? travelOfToday() : null;
+  if(trC && !trC.claimed) list.push({ u: 3, label: "🚌 客场出行清单没勾完", act: "choice" });
   const pcT = (typeof postChoiceOfToday === "function") ? postChoiceOfToday() : null;
   if(pcT && !pcT.done) list.push({ u: 2, label: "🎙 赛后抉择待拍板", act: "choice" });
   const afT = (typeof affairOfToday === "function") ? affairOfToday() : null;
@@ -4319,6 +4511,7 @@ function cockpitGo(act){
   if(act === "returns"){ switchTab("league"); const el = $("#pendingList"); if(el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 60); return; }
   if(act === "club"){ switchTab("club"); return; }
   if(act === "gear"){ switchTab("club"); const el = $("#gearBody"); if(el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 60); return; }
+  if(act === "video"){ switchTab("club"); const el = $("#eventList"); if(el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 60); return; }
   if(act === "squad"){ switchTab("squad"); return; }
   if(act === "market"){ switchTab("market"); return; }
   if(act === "choice"){ switchTab("league"); const el = $("#todaySlot"); if(el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 60); return; }
