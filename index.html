@@ -4581,6 +4581,28 @@ function openLiveMatch(frTier, dayOverride){
   renderMatchGate();
   tourHook("play");
 }
+function renderGatePitch(){
+  const P = PENDING_MATCH; if(!P) return;
+  const cv = $("#matchPitch"); if(!cv) return;
+  const groups = P.clean.starters.map(x=>{ const p = findPlayer(x.pid); return p ? slotGroupOf(p, P.sportId) : "MF"; });
+  const awayGroups = P.sportId === "basketball" ? ["控卫","分卫","小前锋","大前锋","中锋"] : ["GK","DF","DF","DF","DF","MF","MF","MF","WG","ST","ST"];
+  const mk = (arr, mirror)=>pitchBasePos(P.sportId, arr, mirror).map(b=>({ bx: b.bx, by: b.by, x: b.bx, y: b.by }));
+  PD.dots = mk(groups, false);
+  PD.away = mk(awayGroups, true);
+  PD.ball = { x: .5, y: .5 }; PD.poss = "my"; PD.possT = 0; PD.flash = null; PD.flow = null; PD.carrier = null; PD.carrierName = null; PD.atkHalf = 0; PD.t = 0;
+  PD.cw = P.sportId === "basketball" ? 94 : 100; PD.ch = P.sportId === "basketball" ? 50 : 64;
+  try{ pitchDraw(cv.getContext("2d"), cv.width, cv.height, { sportId: P.sportId, minute: 0, my: 0, oppScore: 0, opp: P.opp, paused: true, settled: false, speed: 1, oppForm: null }); }catch(e){}
+}
+function renderGateBar(){
+  const P = PENDING_MATCH; if(!P) return;
+  const el = $("#liveBar"); if(!el) return;
+  const tp = mock.state.tprof[P.sportId]; if(!tp){ el.innerHTML = ""; return; }
+  el.innerHTML = `<div style="opacity:.55;pointer-events:none"><div class="lvcap">临场心态（开球后可用）</div><div class="lvment">` +
+    MENTALITIES.map(m=>`<button class="mini ${tp.mentality === m.id ? "" : "ghost"}" ${tp.mentality === m.id ? 'style="background:#a83226;color:#fff;border-color:#a83226"' : ""} disabled>${m.name}</button>`).join("") +
+    `</div><div class="lvcap">附加指令（可多开）</div><div class="lvinst">` +
+    INSTRUCTIONS[P.sportId].map(d=>`<button class="mini ${tp.instr && tp.instr[d.id] ? "" : "ghost"}" ${tp.instr && tp.instr[d.id] ? 'style="background:#2e6b46;color:#fff;border-color:#2e6b46"' : ""} disabled>${d.name}</button>`).join("") +
+    `</div><div class="lvops"><button class="mini ghost" disabled>换人（剩 3）</button>${P.sportId === "basketball" ? `<button class="mini ghost" disabled>叫暂停</button>` : ""}</div></div>`;
+}
 function renderMatchGate(){
   const P = PENDING_MATCH; if(!P) return;
   const sp = SPORT_PACKS[P.sportId];
@@ -4589,10 +4611,12 @@ function renderMatchGate(){
   const head = $("#matchHead");
   if(head) head.innerHTML = `<div class="bcb"><div class="bcteam"><span class="bcbadge my">${esc((mock.state.clubName || "我").slice(0, 1))}</span><span class="bcname">${esc(mock.state.clubName || "我方")}</span></div><div class="bcscore"><b style="font-size:19px">VS</b></div><div class="bcteam r"><span class="bcname">${P.opp}</span><span class="bcbadge op">${(P.opp || "敌").slice(0, 1)}</span></div></div><div class="bcmeta"><span class="hint">赛前准备 · 还没有开球</span><span class="hint">第 ${P.dayN} 轮</span></div>`;
   const tk = $("#matchTicker"); if(tk) tk.innerHTML = "";
-  const lb = $("#liveBar"); if(lb) lb.innerHTML = "";
+  renderGateBar();
   const lp = $("#livePanel"); if(lp) lp.innerHTML = "";
-  const msr = $("#matchSpeed"); if(msr && msr.parentElement) msr.parentElement.style.display = "none";
-  const mp = $("#matchPitch"); if(mp) mp.style.display = "none";
+  const msr = $("#matchSpeed"); if(msr && msr.parentElement){ msr.parentElement.style.display = ""; msr.parentElement.style.pointerEvents = "none"; msr.parentElement.style.opacity = ".45"; }
+  const mp = $("#matchPitch"); if(mp) mp.style.display = "";
+  renderGatePitch();
+  const mn0 = $("#matchNode"); if(mn0) mn0.style.position = "static";
   const kind = P.frTier ? "热身赛" : P.dayOverride ? "补赛" : "正赛";
   const fm = P.frTier ? friendlyModOf(P.dayN) : null;
   const node = $("#matchNode");
@@ -4632,9 +4656,9 @@ function startLiveMatch(){
   if(F.injury || Math.random() < injP) LIVE.forceQueue.push({ type: "injury" });
   if(!frTier && !F.duel && Math.random() < 0.65) LIVE.forceQueue.push({ type: "duel" });
   $("#matchModal").classList.remove("hidden"); BGM.pause(); SFX.whistle(1); SFX.crowd(true);
-  const mn = $("#matchNode"); if(mn) mn.innerHTML = "";
+  const mn = $("#matchNode"); if(mn){ mn.innerHTML = ""; mn.style.position = ""; }
   const ms = $("#matchSpeed"); if(ms) ms.textContent = "倍速 ×1";
-  const _msr = $("#matchSpeed"); if(_msr && _msr.parentElement) _msr.parentElement.style.display = "";
+  const _msr = $("#matchSpeed"); if(_msr && _msr.parentElement){ _msr.parentElement.style.display = ""; _msr.parentElement.style.pointerEvents = ""; _msr.parentElement.style.opacity = ""; }
   const _mp = $("#matchPitch"); if(_mp) _mp.style.display = "";
   renderMatchHead(); renderMatchTicker(); pitchStart(); simDriveStart();
   tourHook("start");
@@ -6161,13 +6185,13 @@ const TOUR_STEPS = [
   { id:"welcome", title:"欢迎上任！先用一分钟学会打比赛", body:"我是领队老陈。你同时管<b>足球队＋篮球队</b>，每天各打一场正赛。接下来跟着高亮走，重点是比赛，其它最后巡一圈。随时能跳过，之后在「俱乐部 → 经理台」能重看。" },
   { id:"card", tab:"league", target:() => $("#leagueCard"), title:"第一步：看懂今天的比赛卡", body:"开赛前先看三样：<b>双方战力</b>（差太多先回阵容页调阵型）、<b>赛前情报</b>（克制对方有加成）、<b>本场奖金</b>（赢 80 平 30，全队工资靠它）。" },
   { id:"play", tab:"league", target:() => $("#playBtn"), action:"play", title:"点这里进直播间（不会直接开赛）", body:"点它先进<b>赛前准备页</b>，不会立刻开球。误点零损失：退出不看广告、不耗场次，放心点。" },
-  { id:"brief1", target:() => $("#matchNode .nodebox"), noring:true, title:"开球前先认：比分牌和体能条", body:"开球后最上方是<b>比分牌</b>：比分、分钟、心态、牌，还有一条<b>全队体能条</b>。体能见底，球员变慢还容易受伤——那就是换人信号。" },
-  { id:"brief2", target:() => $("#matchNode .nodebox"), noring:true, title:"开球前先认：倍速和跳过", body:"右上角<b>倍速</b> ×1/×3 只改观看速度，不改结果。没时间就<b>跳过并结算</b>：首场免费，之后要看一条广告，没看完不结算、也不惩罚。" },
-  { id:"brief3", target:() => $("#matchNode .nodebox"), noring:true, title:"开球前先认：指挥台和关键时刻", body:"<b>临场指挥台</b>能真改比赛：心态五档、附加指令、换人 3 次，篮球还能暂停。<b>关键时刻</b>（点球、伤退、中场调整）会暂停等你拍板，不会偷跑。" },
-  { id:"start", target:() => $("#startMatchBtn"), action:"start", title:"这才是「开始比赛」按钮", body:"最后确认三件事：实力对比、打法克制、首发体能（低于 40 先轮休）。点它才正式开球——开球后我先退场，这场你专心指挥，赛后再见。" },
+  { id:"brief1", target:() => $("#matchHead"), title:"先认：比分牌就在最上面", body:"你已经站在直播间里了（还没开球）。最上面这块就是<b>比分牌</b>：比分、分钟、心态、牌，开球后下面还会挂一条<b>全队体能条</b>——见底就是换人信号。" },
+  { id:"brief2", target:() => $("#matchSpeed").parentElement, title:"先认：倍速和跳过（现在是灰的）", body:"球场上方这排：<b>倍速</b> ×1/×3 只改观看速度不改结果；<b>跳过并结算</b>首场免费、之后看一条广告。现在还没开球，它们是灰的，点不动。" },
+  { id:"brief3", target:() => $("#liveBar"), title:"先认：球场下面是指挥台", body:"球场下面这排就是<b>临场指挥台</b>：心态五档、附加指令、换人 3 次，篮球还能暂停——开球后全部点亮，能真改比赛。<b>关键时刻</b>（点球、伤退）会暂停等你拍板。" },
+  { id:"start", target:() => $("#startMatchBtn"), action:"start", title:"开始比赛在球场下面", body:"按钮上方那张小卡是最后确认：实力对比、打法克制、首发体能（低于 40 先轮休）。点它才正式开球——开球后我先退场，这场你专心指挥，赛后再见。" },
   { id:"settle", target:() => $("#matchNode"), action:"close", title:"全场结束：结算看四样", body:"<b>声望、比赛奖金、教练经验、本场之星</b>。还能生成战报海报发群里晒。看完点「完成」。" },
   { id:"arrange", tab:"squad", target:() => document.querySelector("#squadList .card"), title:"打完别散场：派人出去成长", body:"点球员卡下方的时长按钮派人：<b>2 分钟加练</b>马上回，2/4/8/22 小时越久产出越高，<b>早归有加成</b>。关掉游戏也在练。" },
-  { id:"claim", tab:"league", target:() => $("#todaySlot"), title:"迎接归队：回来的仪式感", body:"球员到点后联赛页上方出现「已归队」卡，点<b>「迎接归队」</b>领产出，还有一笔践约加成。睡前派长档，明早回来迎接最值。" },
+  { id:"claim", tab:"league", target:() => document.querySelector("#pendingList .card") || $("#pendingList"), title:"迎接归队：回来的仪式感", body:"球员到点后，联赛页的<b>归队区</b>（就在比赛卡下面）会出现带「已归队」的卡，点<b>「迎接归队」</b>领产出，还有一笔践约加成。现在还没人回来，这块先空着——睡前派长档，明早回来迎接最值。" },
   { id:"tactics", tab:"squad", target:() => $("#tacticsSlot"), title:"战术区：阵型＋心态＋指令", body:"阵型定人数、心态定攻守、指令是细节开关。记住：<b>风格克制比硬堆战力划算</b>，打强队摆防守偷分是真赢法。" },
   { id:"market", tab:"market", target:() => document.querySelector("#marketList .card") || $("#marketList"), title:"签约市场：先看工资再签人", body:"签人先看<b>日薪</b>：全队工资每天从资金扣，占收入<b>超 70% 就危险</b>（俱乐部页财务能看）。第 7 天开巨星指定窗口。" },
   { id:"club", tab:"club", target:() => $("#deskCard"), title:"俱乐部页：后勤总部＋经理台", body:"迷路就来这页：设施、教练技能、装备收藏馆、海报中心、<b>存档</b>（云短码换设备取回）都在这。经理台里能重看这份引导。" },
