@@ -395,6 +395,10 @@
     <div id="coachBody" style="margin-top:6px"></div>
   </div>
   <div class="card">
+    <div class="pname">装备收藏馆</div>
+    <div id="gearBody" style="margin-top:6px"></div>
+  </div>
+  <div class="card">
     <div class="pname">经理台</div>
     <div class="pmeta" style="margin:4px 0 8px">新手任务、离线规则、把俱乐部递出去，都在这里。</div>
     <div class="quickgrid">
@@ -739,7 +743,7 @@ function teamPowerFor(sp){
     if(wsum >= Math.min(sp.powerN, mine.length)) val = sum / wsum;
   }
   if(val === null){ const sorted = mine.map(p=>effBase(p)).sort((a,b)=>b-a); const n = Math.min(sp.powerN, sorted.length); val = sorted.slice(0,n).reduce((a,b)=>a+b,0)/n; }
-  return Math.round(val) + (s.moraleBoost||0);
+  return Math.round(val * (typeof gearPowerMul === "function" ? gearPowerMul() : 1)) + (s.moraleBoost||0);
 }
 
 function ensureV2State(){
@@ -765,6 +769,7 @@ function ensureV2State(){
   if(s.morningCheck === undefined) s.morningCheck = null;
   if(s.devSession === undefined) s.devSession = null;
   if(!s.devProgress) s.devProgress = {};
+  if(!s.gear) s.gear = { owned:{}, freeDay:0, paidDay:0, paidCount:0, lastPack:null };
 }
 function settleWages(){
   ensureV2State();
@@ -955,14 +960,19 @@ function fmtDur(ms){ const m=Math.floor(ms/60000); if(m<60) return m+" 分钟"; 
 async function doSettle(showSheet){
   const r = await api("/api/settle", { trigger:"login" });
   if(!r.ok){ if(showSheet) toast("结算失败："+(r.code||"")); return; }
-  if(r.totalFunds){ ensureV2State(); mock.state.buckets.commercial += r.totalFunds; mock.save(); }
+  let gearBonus = 0, gearInc = 0;
+  if(r.totalFunds){ ensureV2State(); mock.state.buckets.commercial += r.totalFunds;
+    gearInc = (typeof gearSums === "function") ? gearSums().income : 0;
+    if(gearInc > 0){ gearBonus = Math.floor(r.totalFunds * gearInc / 100); if(gearBonus > 0){ mock.state.balance += gearBonus; mock.state.buckets.commercial += gearBonus; } }
+    mock.save(); }
   if(showSheet && (r.elapsedMs>=60000 || r.totalFunds>0)){
     const s=$("#settleSheet");
     s.innerHTML = `<h2 style="color:var(--ink);font-size:16px;">欢迎回来，经理</h2>
       <div class="hint">你离开了 ${fmtDur(r.elapsedMs)}，球队一直在运转。</div>
-      <div style="text-align:center;padding:14px 0;"><div class="big">+${r.totalFunds}</div><div class="hint">本次到账资金</div></div>
+      <div style="text-align:center;padding:14px 0;"><div class="big">+${r.totalFunds + gearBonus}</div><div class="hint">本次到账资金</div></div>
       <div class="kv"><span>离线产出（60/小时）</span><b>+${r.fundsGain}</b></div>
       ${r.earlyBonus?`<div class="kv"><span>早归加成（仓满前回来）</span><b>+${r.earlyBonus}</b></div>`:""}
+      ${gearBonus?`<div class="kv"><span>主场收藏加成（收益 +${gearInc}%）</span><b>+${gearBonus}</b></div>`:""}
       ${r.cappedFunds?`<div class="kv"><span class="loss">仓储已满溢出损失</span><b class="loss">-${r.cappedFunds}</b></div><div class="hint">仓储 ${r.capacityTier} 小时档已满。扩到 12 小时档能少损失一些（赛季第 3 天解锁）。</div>`:""}
       ${(window.__awayNames && window.__awayNames.length) ? `<div class="kv"><span>在外成长中</span><b>${window.__awayNames.join("、")}</b></div><div class="hint">他们的归队倒计时一直在走，到点回联赛页迎接。</div>` : ""}
       <div class="hint" style="margin-top:8px">结算由平台权威时钟执行：重复进入、刷新或断线重连，不会重复领取，也不会漏算。</div>
@@ -1734,7 +1744,8 @@ function matchRatings(L){
     def = groupAvgEff(on, ["GK","DF"], L.sportId) * 0.6 + groupAvgEff(on, ["MF"], L.sportId) * 0.4; }
   const tprof = mock.state.tprof[L.sportId];
   const fam = Math.min((tprof.fam && tprof.fam[tprof.mentality]) || 0, MATCH_CFG.famMaxUse) * MATCH_CFG.famPerUse;
-  return { atk: atk + fam, def: def + fam, all: allEff };
+  const gMul = typeof gearPowerMul === "function" ? gearPowerMul() : 1;
+  return { atk: (atk + fam) * gMul, def: (def + fam) * gMul, all: allEff };
 }
 function instrFactor(L, which){
   const sp = L.sportId, tprof = mock.state.tprof[sp], ins = INSTRUCTIONS[sp];
@@ -1888,6 +1899,7 @@ function todayItems(){
   items.push({ label:"🎙 赛后抉择（双赛后解锁）", done: !!(pc2 && pc2.done), go:"choice" });
   const af2 = affairOfToday();
   items.push({ label:"🏢 每日集团事务", done: !!(af2 && af2.done), go:"affair" });
+  if(typeof gearActive === "function" && gearActive()){ const gs2 = gearState(); items.push({ label:"🎁 装备包（今日免费包）", done: gs2.freeDay === d, go:"gear" }); }
   return items;
 }
 function todayGo(go){
@@ -1896,6 +1908,7 @@ function todayGo(go){
   if(go === "daily"){ switchTab("league"); const el = $("#dailySlot"); if(el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   if(go === "choice"){ const el = $("#todaySlot"); if(el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   if(go === "affair"){ switchTab("club"); const el = $("#eventList"); if(el) setTimeout(()=>el.scrollIntoView({ behavior:"smooth", block:"center" }), 60); return; }
+  if(go === "gear"){ switchTab("club"); const el = $("#gearBody"); if(el) setTimeout(()=>el.scrollIntoView({ behavior:"smooth", block:"center" }), 60); return; }
   switchTab(go);
 }
 function fxText(fx){
@@ -2190,6 +2203,90 @@ function renderDevSession(){
   if(!elig.length){ el.innerHTML = `<div class="card"><div class="pname">🏋 个人发展课</div><div class="pmeta">当前运动没有可上课的球员（都在外历练或伤缺中）。</div></div>`; return; }
   const opts = elig.map(p => `<option value="${p.pid}">${p.name} · 能力 ${p.ability + (s.growth[p.pid] || 0)} · 体能 ${s.pstat[p.pid] ? s.pstat[p.pid].stamina : 100} · 进度 ${s.devProgress[p.pid] || 0}/100</option>`).join("");
   el.innerHTML = `<div class="card"><div class="pname">🏋 个人发展课 <span class="hint">每天给一名球员开小灶，进度攒满 100 → 能力 +1</span></div><div class="row" style="margin-top:8px"><select id="devPick" style="flex:1;min-width:0;padding:8px;border-radius:8px;border:1px solid var(--line);background:#fffdf6">${opts}</select></div><div class="tiers" style="margin-top:8px;grid-template-columns:1fr 1fr 1fr"><button onclick="pickDevUI('atk')">${devFocusName("atk")}<br><span class="hint">进度 +34 · 体能 −8</span></button><button onclick="pickDevUI('def')">${devFocusName("def")}<br><span class="hint">进度 +34 · 体能 −8</span></button><button onclick="pickDevUI('fit')">体能专项<br><span class="hint">进度 +20 · 体能 +6</span></button></div></div>`;
+}
+
+/* ================= v42 装备包副线（张弛提案）：收藏/开包/双加成 ================= */
+const GEAR_CFG = { cost: 220, perPack: 3, paidPerDay: 3, powerCap: 5, incomeCap: 25, unlockDay: 3 };
+const GEAR_RARITY = [
+  { id: "C", name: "普通", color: "#8a8272", w: 58, dup: 25 },
+  { id: "R", name: "稀有", color: "#2f5d8a", w: 28, dup: 45 },
+  { id: "E", name: "史诗", color: "#6d4fa1", w: 11, dup: 80 },
+  { id: "L", name: "传说", color: "#a83226", w: 3, dup: 140 },
+];
+const GEAR_NAMES = {
+  coach: ["里皮的银狐手记", "德尚的秩序清单", "西蒙尼的防守图谱", "泰伦·卢的调整笔记", "穆里尼奥的反击手册", "科尔的传切战术板", "斯波尔斯特拉的录像盘", "克洛普的压迫蓝图", "波波维奇的团队讲义", "瓜迪奥拉的控球圣经"],
+  shoes: ["疾风一代", "云踏缓震", "铁壁低帮", "草原钉王", "回弹矩阵 X", "弧线大师", "硬木统治者", "夜行者·影", "轻羽飞线", "无双·王者签名款"],
+  home: ["更衣室荣誉墙", "冠军走廊", "球迷横幅架", "加热观众席", "巨型中央吊屏", "山呼海啸音响阵", "草皮恒温养护系统", "球场灯光秀系统", "总决赛级枫木地板", "星空穹顶主场"],
+};
+const GEAR_VALS = { power: [0.4, 0.7, 1.1, 1.8], income: [2, 4, 7, 12] };
+const GEAR_ITEMS = [];
+for(const cat of ["coach", "shoes", "home"]) GEAR_NAMES[cat].forEach((name, i) => { const rar = i < 4 ? 0 : i < 7 ? 1 : i < 9 ? 2 : 3; GEAR_ITEMS.push({ id: "g_" + cat + "_" + (i + 1), cat, name, rar, val: (cat === "home" ? GEAR_VALS.income : GEAR_VALS.power)[rar] }); });
+function gearCatName(cat){ return cat === "coach" ? "🧠 战术顾问" : cat === "shoes" ? "👟 球鞋" : "🏟 主场设施"; }
+function fmtPct(v){ return Math.round(v * 10) / 10; }
+function gearActive(){ return seasonDayN() >= GEAR_CFG.unlockDay; }
+function gearState(){ ensureV2State(); return mock.state.gear; }
+function gearItem(id){ return GEAR_ITEMS.find(x => x.id === id); }
+function gearSums(){
+  const g = gearState(); let pw = 0, inc = 0, n = 0;
+  for(const id of Object.keys(g.owned || {})){ const it = gearItem(id); if(!it) continue; n++; if(it.cat === "home") inc += it.val; else pw += it.val; }
+  return { owned: n, powerRaw: fmtPct(pw), incomeRaw: fmtPct(inc), power: Math.min(GEAR_CFG.powerCap, fmtPct(pw)), income: Math.min(GEAR_CFG.incomeCap, fmtPct(inc)) };
+}
+function gearPowerMul(){ return 1 + gearSums().power / 100; }
+function rollGearRarity(){ let tot = 0; for(const r of GEAR_RARITY) tot += r.w; let x = Math.random() * tot; for(let i = 0; i < GEAR_RARITY.length; i++){ x -= GEAR_RARITY[i].w; if(x <= 0) return i; } return 0; }
+function openGearPack(){
+  const s = mock.state; if(!s.founded) return;
+  if(!gearActive()){ toast("装备包在赛季第 " + GEAR_CFG.unlockDay + " 天开放"); return; }
+  const g = gearState(), d = seasonDayN();
+  const freeAvail = g.freeDay !== d;
+  let paid = false;
+  if(!freeAvail){
+    if(g.paidDay === d && g.paidCount >= GEAR_CFG.paidPerDay){ toast("今天的装备包开完了，明天再来"); return; }
+    if((s.balance || 0) < GEAR_CFG.cost){ toast("资金不足（需要 " + GEAR_CFG.cost + "）"); return; }
+    paid = true;
+  }
+  const results = []; let dupFunds = 0;
+  for(let i = 0; i < GEAR_CFG.perPack; i++){
+    const ri = rollGearRarity();
+    const pool = GEAR_ITEMS.filter(x => x.rar === ri);
+    const it = pool[Math.floor(Math.random() * pool.length)];
+    if(g.owned[it.id]){ const v = GEAR_RARITY[it.rar].dup; dupFunds += v; results.push({ it, dup: true, val: v }); }
+    else { g.owned[it.id] = 1; results.push({ it, dup: false }); }
+  }
+  if(paid){ s.balance -= GEAR_CFG.cost; if(g.paidDay === d) g.paidCount += 1; else { g.paidDay = d; g.paidCount = 1; } }
+  else g.freeDay = d;
+  if(dupFunds){ s.balance += dupFunds; s.buckets.commercial += dupFunds; }
+  g.lastPack = { day: d, ids: results.map(r => r.it.id), dupFunds, paid };
+  s.log.push("开装备包：" + results.map(r => r.it.name + (r.dup ? "（重复 +" + r.val + "）" : "（新收藏）")).join("、"));
+  mock.save(); render(); showGearReveal(results, dupFunds, paid);
+}
+function showGearReveal(results, dupFunds, paid){
+  const m = $("#signModal"), sh = $("#signSheet"); if(!m || !sh) return;
+  const sums = gearSums();
+  sh.innerHTML = `<div style="text-align:center"><div class="pmeta">${paid ? "装备包" : "每日免费装备包"} · 开包结果</div>` +
+    results.map(r => { const R = GEAR_RARITY[r.it.rar]; return `<div class="card" style="margin-top:8px;text-align:left;border-color:${R.color}"><div class="row"><span class="tag" style="background:${R.color};color:#fff">${R.name}</span><div style="flex:1;min-width:0"><div class="pname" style="font-size:15px">${r.it.name}</div><div class="pmeta">${gearCatName(r.it.cat)} · ${r.it.cat === "home" ? "主场收益 +" + r.it.val + "%" : "全队战力 +" + r.it.val + "%"}${r.dup ? " · 重复收藏，折算 +" + r.val + " 资金" : ""}</div></div>${r.dup ? "" : '<span class="tag back">NEW</span>'}</div></div>`; }).join("") +
+    `<div class="pmeta" style="margin-top:8px">收藏 ${sums.owned}/30 · 战力加成 +${fmtPct(sums.power)}%${sums.powerRaw > sums.power ? "（已达 +5% 上限）" : ""} · 主场收益 +${fmtPct(sums.income)}%${dupFunds ? " · 本包重复折算 +" + dupFunds + " 资金" : ""}</div>
+     <button style="width:100%;margin-top:10px" onclick="document.querySelector('#signModal').classList.add('hidden')">收进收藏馆</button></div>`;
+  m.classList.remove("hidden");
+}
+function renderGear(){
+  const el = $("#gearBody"); if(!el) return;
+  const s = mock.state;
+  if(!s.founded){ el.innerHTML = '<div class="hint">建队完成后开放。</div>'; return; }
+  if(!gearActive()){ el.innerHTML = `<div class="pmeta">🔒 赛季第 ${GEAR_CFG.unlockDay} 天开放。抽战术顾问、球鞋与主场设施，给全队战力和主场收益加成——球员永远只走签约市场，这里不抽人。</div>`; return; }
+  const g = gearState(), d = seasonDayN(), sums = gearSums();
+  const freeAvail = g.freeDay !== d;
+  const paidLeft = g.paidDay === d ? Math.max(0, GEAR_CFG.paidPerDay - g.paidCount) : GEAR_CFG.paidPerDay;
+  let h = `<div class="kv"><span>收藏进度</span><b>${sums.owned} / 30</b></div>
+  <div class="kv"><span>全队战力加成（封顶 +5%）</span><b>+${fmtPct(sums.power)}%</b></div>
+  <div class="kv"><span>主场收益加成（封顶 +25%）</span><b>+${fmtPct(sums.income)}%</b></div>
+  <div class="hint">每包 3 件：战术顾问与球鞋给战力、主场设施给收益；重复收藏自动折算资金（普通 25 / 稀有 45 / 史诗 80 / 传说 140）。概率：普通 58% · 稀有 28% · 史诗 11% · 传说 3%。</div>
+  <div style="margin-top:8px"><button style="width:100%" ${(!freeAvail && paidLeft <= 0) ? "disabled" : ""} onclick="openGearPack()">${freeAvail ? "🎁 开今日免费包（3 件）" : paidLeft > 0 ? "再开一包 · " + GEAR_CFG.cost + " 资金（今日还剩 " + paidLeft + " 包）" : "今日已开完，明天再来"}</button></div>`;
+  for(const cat of ["coach", "shoes", "home"]){
+    h += `<div class="pname" style="font-size:13px;margin-top:10px">${gearCatName(cat)}</div>`;
+    h += GEAR_ITEMS.filter(x => x.cat === cat).map(it => { const R = GEAR_RARITY[it.rar], own = !!g.owned[it.id];
+      return `<div class="row" style="margin-top:4px;${own ? "" : "opacity:.45"}"><span class="tag" style="background:${R.color};color:#fff">${R.name}</span><div style="flex:1;min-width:0"><span class="pname" style="font-size:13px">${own ? it.name : "？？？"}</span><div class="pmeta">${it.cat === "home" ? "主场收益 +" + it.val + "%" : "战力 +" + it.val + "%"}${own ? "" : " · 未收藏"}</div></div>${own ? '<span class="tag back">已收藏</span>' : ""}</div>`; }).join("");
+  }
+  el.innerHTML = h;
 }
 
 function friendlyLeft(){ const f = friendlyState(); return Math.max(0, 4 + (f.ad ? 2 : 0) - f.used); }
@@ -4050,7 +4147,7 @@ function simSkillRaw(base, group, sportId, key){
   return { pace: d("pace", .85), shoot: d("shoot", .7), pass: d("pass", .85), ctrl: d("ctrl", .85), tackle: d("tackle", .8),
     save: sportId === "basketball" ? 50 : d("save", .1), decide: d("decide", .9), stam: Math.round(Math.max(45, Math.min(95, 55 + (base - 60) * .5))) };
 }
-function simSkillFor(p, sportId, group){ return simSkillRaw(effBase(p), group || slotGroupOf(p, sportId), sportId, p.pid); }
+function simSkillFor(p, sportId, group){ const raw = simSkillRaw(effBase(p), group || slotGroupOf(p, sportId), sportId, p.pid); const mul = (typeof gearPowerMul === "function") ? gearPowerMul() : 1; if(mul === 1) return raw; const out = {}; for(const k of Object.keys(raw)) out[k] = k === "stam" ? raw[k] : Math.min(99, Math.round(raw[k] * mul)); return out; }
 function simPlayerObj(pid, sportId, group){ const p = findPlayer(pid); if(!p) return null; return { pid, name: p.name, group: group || slotGroupOf(p, sportId), skill: simSkillFor(p, sportId, group) }; }
 function simMyTeam(sportId, starters){
   const players = starters.map(x=>{ const p = findPlayer(x.pid); return { pid: x.pid, name: p ? p.name : x.pid, group: x.slot, skill: simSkillFor(p, sportId) }; });
@@ -4210,6 +4307,7 @@ function cockpitTodos(dayN){
   const mcT = (typeof morningOfToday === "function") ? morningOfToday() : null;
   if(mcT && !mcT.pick) list.push({ u: 2, label: "🌅 今日晨检还没做", act: "choice" });
   if(!(s.devSession && s.devSession.day === dayN)) list.push({ u: 3, label: "🏋 今日个人发展课还没上", act: "squad" });
+  if(typeof gearActive === "function" && gearActive() && gearState().freeDay !== dayN) list.push({ u: 2, label: "🎁 今日免费装备包还没开", act: "gear" });
   const pcT = (typeof postChoiceOfToday === "function") ? postChoiceOfToday() : null;
   if(pcT && !pcT.done) list.push({ u: 2, label: "🎙 赛后抉择待拍板", act: "choice" });
   const afT = (typeof affairOfToday === "function") ? affairOfToday() : null;
@@ -4220,6 +4318,7 @@ function cockpitTodos(dayN){
 function cockpitGo(act){
   if(act === "returns"){ switchTab("league"); const el = $("#pendingList"); if(el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 60); return; }
   if(act === "club"){ switchTab("club"); return; }
+  if(act === "gear"){ switchTab("club"); const el = $("#gearBody"); if(el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 60); return; }
   if(act === "squad"){ switchTab("squad"); return; }
   if(act === "market"){ switchTab("market"); return; }
   if(act === "choice"){ switchTab("league"); const el = $("#todaySlot"); if(el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 60); return; }
@@ -5023,6 +5122,8 @@ function settleMatch(){
   const repD = isFr ? frRep : (res === "胜" ? 10 : res === "平" ? 4 : -2), fundD = isFr ? Math.round((res === "胜" ? 30 : res === "平" ? 10 : 0) * ((frMod.id === "rain" || frMod.id === "away") ? 1.5 : 1)) : (res === "胜" ? 80 : res === "平" ? 30 : 0);
   s.rep = Math.max(0, s.rep + repD); s.balance += fundD;
   if(fundD){ ensureV2State(); s.buckets.match += fundD; }
+  let gearHomeBonus = 0;
+  if(!isFr && fundD > 0 && L.dayN % 2 === 1 && typeof gearSums === "function"){ const gInc = gearSums().income; if(gInc > 0){ gearHomeBonus = Math.floor(fundD * gInc / 100); if(gearHomeBonus > 0){ s.balance += gearHomeBonus; s.buckets.commercial += gearHomeBonus; } } }
   const ment = mentalityOf(L.sportId), tprof = s.tprof[L.sportId];
   if(!tprof.fam) tprof.fam = {}; tprof.fam[L.startMentality] = (tprof.fam[L.startMentality] || 0) + 1;
   const stamMulAll = (ment.stam || 1) * instrFactor(L, "stam") * (isFr ? (frMod.id === "rain" ? 0.75 : 0.5) : 1);
@@ -5051,7 +5152,7 @@ function settleMatch(){
   } else {
     s.played[L.sportId + ":" + L.dayN] = `${res} ${scoreTxt}`;
     if(L.catchup) s.catchup = (s.catchup || []).filter(c=>!(c.sport === L.sportId && c.day === L.dayN));
-    s.log.push(`第${L.dayN}轮 ${res} ${L.opp}（${scoreTxt}）声望${repD >= 0 ? "+" : ""}${repD}${fundD ? " · 奖金+" + fundD : ""} · 教练经验+${xpD}`);
+    s.log.push(`第${L.dayN}轮 ${res} ${L.opp}（${scoreTxt}）声望${repD >= 0 ? "+" : ""}${repD}${fundD ? " · 奖金+" + fundD : ""}${gearHomeBonus ? " · 主场收藏加成+" + gearHomeBonus : ""} · 教练经验+${xpD}`);
     s.matchMeta[L.sportId + ":" + L.dayN] = { res, score: scoreTxt, opp: L.opp, scorers: L.scorers.slice(), mentality: ment.name, oppMentality: L.oppMent.name };
     if(!s.matchFunds || s.matchFunds.day !== L.dayN) s.matchFunds = { day: L.dayN, total: 0 };
     s.matchFunds.total += fundD;
@@ -5412,7 +5513,7 @@ async function render(){
   const hr2=new Date().getHours(); $("#eveningBar").classList.toggle("hidden", !(hr2>=19&&hr2<23));
   const sq=$("#squadList"); sq.innerHTML="";
   healCheck(); ensureCatchup(); renderToday(); renderSquad(); renderTactics(); renderTable(); renderCoach(); renderDaily(); renderWheel();
-  renderFinance(); renderFacility(); renderGuide(); renderOffline(h);
+  renderFinance(); renderFacility(); renderGear(); renderGuide(); renderOffline(h);
   renderEvents(); renderScout(); renderLoanPending(); renderFriendly(); renderTickerCard(); renderFixtures(); drawPreviewPitch();
   if(!inShell) renderBoard();
   const hb=$("#heroBand");
