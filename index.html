@@ -2691,7 +2691,7 @@ for(const cat of ["coach", "shoes", "home"]) GEAR_NAMES[cat].forEach((name, i) =
 function gearCatName(cat){ return cat === "coach" ? "🧠 战术顾问" : cat === "shoes" ? "👟 球鞋" : "🏟 主场设施"; }
 function fmtPct(v){ return Math.round(v * 10) / 10; }
 function gearActive(){ return seasonDayN() >= GEAR_CFG.unlockDay; }
-function gearState(){ ensureV2State(); const g = mock.state.gear; if(g.frags === undefined) g.frags = 0; if(!g.miles) g.miles = {}; if(!g.owned) g.owned = {}; return g; }
+function gearState(){ ensureV2State(); const g = mock.state.gear; if(g.frags === undefined) g.frags = 0; if(!g.miles) g.miles = {}; if(!g.owned) g.owned = {}; if(g.pity === undefined) g.pity = 0; return g; }
 function gearItem(id){ return GEAR_ITEMS.find(x => x.id === id); }
 function gearSums(){
   const g = gearState(); let pw = 0, inc = 0, n = 0, el = 0; const catN = { coach: 0, shoes: 0, home: 0 };
@@ -2750,20 +2750,24 @@ function openGearPack(){
     paid = true;
   }
   const results = []; let dupFunds = 0, frags = 0;
+  const rolls = [];
+  for(let i = 0; i < GEAR_CFG.perPack; i++) rolls.push(rollGearRarity());
+  let pityHit = false;
+  if(paid && (g.pity || 0) >= 9 && Math.max(...rolls) < 2){ rolls[rolls.length - 1] = Math.random() < 0.25 ? 3 : 2; pityHit = true; }
   for(let i = 0; i < GEAR_CFG.perPack; i++){
-    const ri = rollGearRarity();
+    const ri = rolls[i];
     const pool = GEAR_ITEMS.filter(x => x.rar === ri);
     const it = pool[Math.floor(Math.random() * pool.length)];
     if(g.owned[it.id]){ const v = Math.floor(GEAR_RARITY[it.rar].dup * (1 + 0.25 * (typeof facLv === "function" ? facLv("kitroom") : 0))); dupFunds += v; frags += 1; results.push({ it, dup: true, val: v }); }
     else { g.owned[it.id] = 1; results.push({ it, dup: false }); }
   }
-  if(paid){ s.balance -= GEAR_CFG.cost; if(g.paidDay === d) g.paidCount += 1; else { g.paidDay = d; g.paidCount = 1; } }
+  if(paid){ s.balance -= GEAR_CFG.cost; if(g.paidDay === d) g.paidCount += 1; else { g.paidDay = d; g.paidCount = 1; } g.pity = Math.max(...rolls) >= 2 ? 0 : (g.pity || 0) + 1; }
   else g.freeDay = d;
   if(dupFunds){ s.balance += dupFunds; s.buckets.commercial += dupFunds; }
   g.frags = (g.frags || 0) + frags;
   g.lastPack = { day: d, ids: results.map(r => r.it.id), dupFunds, frags, paid };
   s.log.push("开装备包：" + results.map(r => r.it.name + (r.dup ? "（重复 +" + r.val + "）" : "（新收藏）")).join("、"));
-  mock.save(); render(); showGearReveal(results, dupFunds, paid, frags);
+  mock.save(); render(); showGearReveal(results, dupFunds, paid, frags, pityHit ? "装备包 · 保底触发" : undefined);
 }
 function showGearReveal(results, dupFunds, paid, frags, title){
   const m = $("#signModal"), sh = $("#signSheet"); if(!m || !sh) return;
@@ -2774,6 +2778,49 @@ function showGearReveal(results, dupFunds, paid, frags, title){
      <button style="width:100%;margin-top:10px" onclick="document.querySelector('#signModal').classList.add('hidden')">收进收藏馆</button></div>`;
   m.classList.remove("hidden");
 }
+/* ================= v47 装备交易所 ================= */
+const GEAR_BASE_PRICE = [60, 120, 260, 520];
+function gearMarketOfToday(){
+  const s = mock.state, g = gearState(), d = seasonDayN();
+  if(g.market && g.market.day === d) return g.market;
+  let seed = (typeof hashN === "function" ? hashN("gearMkt|" + (s.clubName || "") + "|" + d) : 1234567) >>> 0;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const quotes = {}; for(const cat of ["coach", "shoes", "home"]) quotes[cat] = Math.round((0.8 + rnd() * 0.6) * 100) / 100;
+  const listings = [];
+  for(let slot = 0; slot < 3; slot++){
+    const x = rnd(); const rar = x < 0.45 ? 0 : x < 0.77 ? 1 : x < 0.94 ? 2 : 3;
+    let pool = GEAR_ITEMS.filter(it => it.rar === rar && !g.owned[it.id] && !listings.includes(it.id));
+    if(!pool.length) pool = GEAR_ITEMS.filter(it => !g.owned[it.id] && !listings.includes(it.id));
+    if(!pool.length) break;
+    listings.push(pool[Math.floor(rnd() * pool.length)].id);
+  }
+  g.market = { day: d, quotes, listings, sold: {}, bought: 0 };
+  mock.save();
+  return g.market;
+}
+function gearPriceFor(it){ const mk = gearMarketOfToday(); return Math.max(10, Math.round(GEAR_BASE_PRICE[it.rar] * (mk.quotes[it.cat] || 1))); }
+function gearSellFor(it){ const mk = gearMarketOfToday(); const kit = (typeof facLv === "function") ? facLv("kitroom") : 0; return Math.max(5, Math.round(GEAR_BASE_PRICE[it.rar] * (mk.quotes[it.cat] || 1) * 0.5 * (1 + 0.05 * kit))); }
+function buyGearListing(id){
+  const s = mock.state, g = gearState(), mk = gearMarketOfToday(), it = gearItem(id); if(!it) return;
+  if(mk.sold[id]){ toast("这件已经被买走了"); return; }
+  if((mk.bought || 0) >= 2){ toast("今日直购已达上限（2 件），明天再来"); return; }
+  if(g.owned[id]){ toast("已经收藏了这件"); return; }
+  const price = gearPriceFor(it);
+  if((s.balance || 0) < price){ toast("资金不足（需要 " + price + "）"); return; }
+  s.balance -= price; g.owned[id] = 1; mk.sold[id] = 1; mk.bought = (mk.bought || 0) + 1;
+  s.log.push("交易所购入：" + it.name + "（" + price + " 资金）。");
+  mock.save(); render(); toast("购入 " + it.name);
+  showGearReveal([{ it, dup: false }], 0, true, 0, "交易所直购");
+}
+function sellGearItem(id){
+  const s = mock.state, g = gearState(), it = gearItem(id); if(!it || !g.owned[id]) return;
+  const price = gearSellFor(it);
+  delete g.owned[id]; s.balance += price; s.buckets.commercial += price;
+  s.log.push("交易所卖出：" + it.name + "（+" + price + " 资金）。");
+  mock.save(); render(); toast("卖出 " + it.name + "，+" + price + " 资金");
+}
+window.buyGearListing = buyGearListing; window.sellGearItem = sellGearItem;
+
 function renderGear(){
   const el = $("#gearBody"); if(!el) return;
   const s = mock.state;
@@ -2786,7 +2833,7 @@ function renderGear(){
   <div class="kv"><span>全队战力加成（封顶 +5%）</span><b>+${fmtPct(sums.power)}%</b></div>
   <div class="kv"><span>主场收益加成（封顶 +25%）</span><b>+${fmtPct(sums.income)}%</b></div>
   <div class="hint">每包 3 件：战术顾问与球鞋给战力、主场设施给收益；重复收藏自动折算资金（普通 25 / 稀有 45 / 史诗 80 / 传说 140）并 +1 藏品碎片。概率：普通 58% · 稀有 28% · 史诗 11% · 传说 3%。</div>
-  <div style="margin-top:8px"><button style="width:100%" ${(!freeAvail && paidLeft <= 0) ? "disabled" : ""} onclick="openGearPack()">${freeAvail ? "🎁 开今日免费包（3 件）" : paidLeft > 0 ? "再开一包 · " + GEAR_CFG.cost + " 资金（今日还剩 " + paidLeft + " 包）" : "今日已开完，明天再来"}</button></div>`;
+  <div style="margin-top:8px"><button style="width:100%" ${(!freeAvail && paidLeft <= 0) ? "disabled" : ""} onclick="openGearPack()">${freeAvail ? "🎁 开今日免费包（3 件）" : paidLeft > 0 ? "再开一包 · " + GEAR_CFG.cost + " 资金（今日还剩 " + paidLeft + " 包）" : "今日已开完，明天再来"}</button></div>` + ((g.pity || 0) > 0 ? `<div class="hint" style="margin-top:4px">付费包保底进度 ${g.pity}/10：付费包连续未出史诗以上时计数，再 ${10 - (g.pity || 0)} 包必出。</div>` : "");
   h += `<div class="pname" style="font-size:13px;margin-top:10px">套装（计入封顶内）</div>
   <div class="pmeta">${sums.sets.coach ? "✅" : "⬜"} 战术顾问全套 → 战力 +1% · ${sums.sets.shoes ? "✅" : "⬜"} 球鞋全套 → 战力 +1% · ${sums.sets.home ? "✅" : "⬜"} 主场全套 → 收益 +5% · ${sums.sets.collector ? "✅" : "⬜"} 史诗+传说 ≥6 件（现 ${sums.epicLegend}）→ 战力 +0.5% / 收益 +2%</div>
   <div class="pname" style="font-size:13px;margin-top:10px">🧩 藏品碎片 · ${g.frags || 0}</div>
@@ -2794,6 +2841,15 @@ function renderGear(){
   <div class="tiers" style="grid-template-columns:1fr 1fr 1fr;margin-top:6px">${GEAR_CRAFT.map((c, i) => `<button class="mini" onclick="craftGear(${i})">${c.label}<br><span class="hint">${c.cost} 碎片</span></button>`).join("")}</div>
   <div class="pname" style="font-size:13px;margin-top:10px">收藏里程碑</div>` +
   GEAR_MILES.map(m => { const got = sums.owned >= m.n, claimed = !!((g.miles || {})[m.n]); return `<div class="row" style="margin-top:4px"><span class="pmeta">${claimed ? "✅" : got ? "🎁" : "⬜"} ${m.label}（${Math.min(sums.owned, m.n)}/${m.n}）· 奖励 ${fxText(m.fx)}</span>${claimed ? '<span class="tag back">已领取</span>' : got ? `<button class="mini" onclick="claimGearMile(${m.n})">领取</button>` : ""}</div>`; }).join("");
+  const mk = gearMarketOfToday();
+  const qText = ["coach", "shoes", "home"].map(cat => { const q = mk.quotes[cat]; return gearCatName(cat) + " " + (q >= 1 ? "走俏 +" : "低迷 ") + Math.abs(Math.round((q - 1) * 100)) + "%"; }).join(" · ");
+  h += `<div class="pname" style="font-size:13px;margin-top:12px">🏦 装备交易所（今日直购 ${mk.bought || 0}/2）</div>
+  <div class="pmeta">今日行情：${qText}。直购价＝档位基准（普通 60 / 稀有 120 / 史诗 260 / 传说 520）×品类行情；回收价＝基准×行情×50%，装备房每级再 +5%。就差一件成套时，来这儿定向补。</div>` +
+  mk.listings.map(id => { const it = gearItem(id), R = GEAR_RARITY[it.rar], sold = !!mk.sold[id];
+    return `<div class="row" style="margin-top:4px"><span class="tag" style="background:${R.color};color:#fff">${R.name}</span><div style="flex:1;min-width:0"><span class="pname" style="font-size:13px">${it.name}</span><div class="pmeta">${gearCatName(it.cat)} · ${it.cat === "home" ? "主场收益 +" + it.val + "%" : "战力 +" + it.val + "%"}</div></div>${sold ? '<span class="tag back">已售出</span>' : `<button class="mini" onclick="buyGearListing('${id}')">购入 · ${gearPriceFor(it)}</button>`}</div>`; }).join("");
+  const sellables = GEAR_ITEMS.filter(it => g.owned[it.id]);
+  if(sellables.length) h += `<div class="pname" style="font-size:13px;margin-top:10px">回收出售（按今日回收价卖出，卖出不可赎回）</div>` +
+    sellables.map(it => { const R = GEAR_RARITY[it.rar]; return `<div class="row" style="margin-top:4px"><span class="tag" style="background:${R.color};color:#fff">${R.name}</span><div style="flex:1;min-width:0"><span class="pname" style="font-size:13px">${it.name}</span></div><button class="mini ghost" onclick="sellGearItem('${it.id}')">卖出 +${gearSellFor(it)}</button></div>`; }).join("");
   for(const cat of ["coach", "shoes", "home"]){
     h += `<div class="pname" style="font-size:13px;margin-top:10px">${gearCatName(cat)}</div>`;
     h += GEAR_ITEMS.filter(x => x.cat === cat).map(it => { const R = GEAR_RARITY[it.rar], own = !!g.owned[it.id];
