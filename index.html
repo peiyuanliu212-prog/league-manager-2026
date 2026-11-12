@@ -273,6 +273,13 @@
 #tourBubble .tourDots .off{color:var(--line)}
 body.touring .page.on{padding-bottom:330px}
 body.touring #matchModal .sheet{padding-bottom:330px}
+.segbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.segbar .mini.act{background:var(--acc);color:#fff;border-color:var(--acc)}
+.segstrip{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.segcell{flex:1;min-width:52px;text-align:center;background:#f4efe2;border:1px solid var(--line);border-radius:8px;padding:3px 2px}
+.segcell small{display:block;font-size:9px;color:#8a8272;letter-spacing:.06em}
+.segcell b{font-size:12px}
+.segcell.cur{border-color:var(--acc);background:#fdf6e3}
 .chip .cbust{display:flex;justify-content:center;margin-bottom:3px}
 .chip .cbust .bust{box-shadow:inset 0 0 0 1px rgba(80,64,30,.25)}
 #tourBubble{pointer-events:none}
@@ -282,7 +289,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 <body>
 <header><h1>我在联赛当经理</h1><span style="display:flex;gap:8px;align-items:center"><span class="day" id="seasonDay">赛季第 1 天</span><button id="sndBtn" class="mini ghost" onclick="toggleSound()" title="声音开关">🔊</button></span></header>
 <div class="clubbar">
-  <div><div class="clubname" id="clubName">新星联队</div><div class="pmeta" id="capInfo">仓储 8 小时档</div></div>
+  <div><div class="clubname" id="clubName">新星联队</div><div class="pmeta" id="capInfo">仓储 8 小时档</div><div class="pmeta" id="saveStatus">💾 本地自动保存</div></div>
   <div class="funds"><span id="balance">0</span><small>俱乐部资金</small></div><div class="funds"><span id="repTop">0</span><small>集团声望</small></div>
 </div>
 <div id="heroBand"></div>
@@ -349,19 +356,17 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 <div class="page" data-page="club">
 <section>
   <div class="card" style="padding:10px 12px">
-    <div class="pmeta" style="margin-bottom:6px">🧭 俱乐部导航 · 功能多了，用这排按钮直达</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px">
-      <button class="mini" onclick="jumpCard('eventList')">📋 今日事务</button>
-      <button class="mini" onclick="jumpCard('finCard')">💰 财务</button>
-      <button class="mini" onclick="jumpCard('facCard')">🏟 设施</button>
-      <button class="mini" onclick="jumpCard('coachCard')">🧠 教练组</button>
-      <button class="mini" onclick="jumpCard('gearCard')">🎁 装备收藏馆</button>
-      <button class="mini" onclick="jumpCard('deskCard')">🗂 经理台</button>
-      <button class="mini" onclick="jumpCard('saveCard')">💾 存档</button>
+    <div class="pmeta" style="margin-bottom:6px">🧭 俱乐部栏目 · 点栏目切换，不用一划到底</div>
+    <div class="segbar" style="margin-bottom:0">
+      <button class="mini act" data-cbtn="events" onclick="clubSeg('events')">📋 今日事务</button>
+      <button class="mini" data-cbtn="office" onclick="clubSeg('office')">💰 办公</button>
+      <button class="mini" data-cbtn="gear" onclick="clubSeg('gear')">🎁 装备收藏馆</button>
+      <button class="mini" data-cbtn="desk" onclick="clubSeg('desk')">🗂 经理台</button>
+      <button class="mini" data-cbtn="save" onclick="clubSeg('save')">💾 存档</button>
     </div>
   </div>
-  <h2 data-no="01"><span class="eb">CLUB EVENTS</span>俱乐部事件</h2>
-  <div id="eventList"></div>
+  <h2 data-no="01" data-cseg="events"><span class="eb">CLUB EVENTS</span>俱乐部事件</h2>
+  <div id="eventList" data-cseg="events"></div>
 </section>
 </div>
 
@@ -407,24 +412,24 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 
 <div class="page" data-page="club">
 <section>
-  <h2 data-no="02"><span class="eb">CLUB OFFICE</span>俱乐部</h2>
-  <div class="card" id="finCard">
+  <h2 data-no="02" data-cseg="office" style="display:none"><span class="eb">CLUB OFFICE</span>俱乐部办公</h2>
+  <div class="card" id="finCard" data-cseg="office" style="display:none">
     <div class="pname">财务面板</div>
     <div id="financeBody" style="margin-top:6px"></div>
   </div>
-  <div class="card" id="facCard">
+  <div class="card" id="facCard" data-cseg="office" style="display:none">
     <div class="pname">俱乐部设施</div>
     <div id="facilityBody" style="margin-top:6px"></div>
   </div>
-  <div class="card" id="coachCard">
+  <div class="card" id="coachCard" data-cseg="office" style="display:none">
     <div class="pname">教练组</div>
     <div id="coachBody" style="margin-top:6px"></div>
   </div>
-  <div class="card" id="gearCard">
+  <div class="card" id="gearCard" data-cseg="gear" style="display:none">
     <div class="pname">装备收藏馆</div>
     <div id="gearBody" style="margin-top:6px"></div>
   </div>
-  <div class="card" id="deskCard">
+  <div class="card" id="deskCard" data-cseg="desk" style="display:none">
     <div class="pname">经理台</div>
     <div class="pmeta" style="margin:4px 0 8px">新手任务、离线规则、把俱乐部递出去，都在这里。</div>
     <div class="quickgrid">
@@ -436,7 +441,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
     </div>
     <div class="row" style="margin-top:8px"><span class="hint">虎扑 App 内可把游戏加到手机桌面，明天一键回来收菜。</span><button class="mini ghost" onclick="addDesktop()">添加到桌面</button></div>
   </div>
-  <div class="card" id="saveCard">
+  <div class="card" id="saveCard" data-cseg="save" style="display:none">
     <div class="row"><div><div class="pname">存档</div><div class="pmeta" id="saveInfo">本地自动保存中</div></div><span class="hint" id="activeSlotHint"></span></div>
     <div id="slotsBody" style="margin-top:8px"><div class="hint">档位加载中…</div></div>
     <div class="row" style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px"><div style="flex:1;min-width:140px"><div class="pname" style="font-size:14px">删档重开</div><div class="pmeta">清空当前进度，从起名建队重新开始。上面 5 个档位槽里存过的备份不会被删，随时能读回来。</div></div><button class="mini ghost" onclick="wipeSaveClick(this)">🗑 删档重开</button></div>
@@ -447,7 +452,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
     <textarea id="saveCode" rows="3" style="width:100%;margin-top:6px" placeholder="导出时长码显示在这里；换设备时把长码粘贴到这里再点导入"></textarea>
     <div class="row" style="margin-top:6px"><span class="hint">长按文本框全选复制（平台限制，无法一键复制）。导入会先进所选档位再载入，请先备份。</span><span><button class="mini ghost" id="saveExportBtn">导出长码</button> <button class="mini" id="saveImportBtn">导入长码</button></span></div>
   </div>
-  <div class="card">
+  <div class="card" data-cseg="save" style="display:none">
     <div class="row"><div><div class="pname">俱乐部改名</div><div class="pmeta">1–10 个字</div></div><button class="ghost" id="renameBtn">改名</button></div>
   </div>
 </section>
@@ -540,7 +545,7 @@ function toast(msg){ const t=document.createElement("div"); t.className="toast";
 const inShell = typeof window!=="undefined" && window.ColorboxAI && window.ColorboxAI.cloud;
 const mock = {
   state: JSON.parse(localStorage.getItem("lm_mock")||"null") || { clubName:"", createdAt:Date.now(), tier:8, balance:0, lastSettle:Date.now(), contracts:{}, settledOnce:false, rep:0, output:0, growth:{}, played:{}, finale:null, log:[], adDay:'', adCount:0 },
-  save(){ localStorage.setItem("lm_mock", JSON.stringify(this.state)); const el=document.querySelector("#saveInfo"); if(el){ const d=new Date(); el.textContent = "已自动保存 · " + String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0") + ":" + String(d.getSeconds()).padStart(2,"0"); } },
+  save(){ localStorage.setItem("lm_mock", JSON.stringify(this.state)); const d=new Date(); const ts = String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0") + ":" + String(d.getSeconds()).padStart(2,"0"); const el=document.querySelector("#saveInfo"); if(el) el.textContent = "已自动保存 · " + ts; const el2=document.querySelector("#saveStatus"); if(el2) el2.textContent = "💾 已保存 " + ts; },
   async call(path, body){
     const s=this.state, now=Date.now();
     if(path==="/api/home"){
@@ -995,7 +1000,7 @@ function playerCard(p){
   const away = awayMap.get(p.pid);
   const g = mock.state.growth[p.pid]||0;
   const el=document.createElement("div"); el.className="card";
-  const meta = p.club ? `${p.pos} · ${p.club} · ${p.age}岁 · 工资${p.wage}档${p.pot!=="无(即战力)"?" · 潜力"+p.pot:""}${p.role!=="首发"?" · "+p.role:""}` : `${p.pos} · ${p.en||""}`;
+  const meta = p.club ? `${p.pos} · 能力 ${p.ability+g} · ${p.club} · ${p.age}岁 · 工资${p.wage}档${p.pot!=="无(即战力)"?" · 潜力"+p.pot:""}${p.role!=="首发"?" · "+p.role:""}` : `${p.pos} · 能力 ${p.ability+g} · 日薪 ${wageOf(p)}`;
   el.innerHTML = `<div class="row" style="justify-content:flex-start;align-items:stretch"><div class="ovr" style="background:${tierColor(p.ability+g)}"><b>${p.ability+g}</b><small>${p.pos}</small>${g?'<i>+'+g+'</i>':''}</div><div class="bust">${bustSVG(p)}</div><div style="flex:1;min-width:0"><span class="pname">${p.name}</span> ${away?'<span class="tag away">'+away+'</span>':''}${isArrived(p)?'':'<span class="tag away">回租中 · 赛季第 '+arriveDay()+' 天到队</span>'}${isOut(p.pid)?'<span class="tag away">租出练级中 · 赛季第 '+mock.state.loansOut[p.pid].returnDay+' 天归队</span>':''}${(mock.state.loansIn||{})[p.pid]?'<span class="tag away">租入 · 赛季末回母队</span>':''}<div class="pmeta">${meta}${ratingBadge(p)}</div>${staminaBar(p)}</div></div>`;
   if(!away && isArrived(p) && !isOut(p.pid)){
     const t=document.createElement("div"); t.className="tiers tiers5";
@@ -1660,6 +1665,7 @@ function renderEvents(){
   if(!any){ const d = document.createElement("div"); d.className = "hint"; d.textContent = "暂无待处理事件。合同、试训、谈话这类事会随赛季推进找上门——真实经理的办公室从不清净。"; el.appendChild(d); }
 }
 
+let marketSeg = "free";
 function renderMarket(){
   const ml = $("#marketList"); if(!ml) return;
   const hint = $("#marketHint");
@@ -1669,6 +1675,16 @@ function renderMarket(){
   const dayN = seasonDayN();
   const stars = all.filter(p=>!isSigned(p) && p.ability >= V2_CFG.starAbility);
   const free = all.filter(p=>!isSigned(p) && p.ability < V2_CFG.starAbility).sort((a,b)=>b.ability-a.ability);
+  const loanPool = all.filter(p=>!isSigned(p) && p.ability >= 78 && p.ability < V2_CFG.starAbility);
+  const cStar=document.createElement("div"); cStar.dataset.mseg="star";
+  const cFree=document.createElement("div"); cFree.dataset.mseg="free";
+  const cLoan=document.createElement("div"); cLoan.dataset.mseg="loan";
+  const cFa=document.createElement("div"); cFa.dataset.mseg="fa";
+  const segBar=document.createElement("div"); segBar.className="segbar"; segBar.id="marketSegBar";
+  const mkSeg=(id,label)=>{ const b=document.createElement("button"); b.className="mini"+(marketSeg===id?" act":""); b.textContent=label; b.onclick=()=>{ marketSeg=id; renderMarket(); }; segBar.appendChild(b); };
+  mkSeg("free", "常规市场 " + free.length); mkSeg("star", "巨星窗口 " + stars.length); mkSeg("loan", "租借市场 " + loanPool.length); mkSeg("fa", "免签区");
+  for(const c of [cStar,cFree,cLoan,cFa]) c.style.display = marketSeg===c.dataset.mseg ? "" : "none";
+  ml.appendChild(segBar); ml.appendChild(cFree); ml.appendChild(cStar); ml.appendChild(cLoan); ml.appendChild(cFa);
   if(stars.length){
     const head = document.createElement("div"); head.className = "card";
     if(dayN < V2_CFG.starDay){
@@ -1683,9 +1699,9 @@ function renderMarket(){
         head.appendChild(rowEl);
       }
     }
-    ml.appendChild(head);
+    cStar.appendChild(head);
   }
-  if(!free.length){ const d=document.createElement("div"); d.className="hint"; d.textContent="常规市场已无自由球员。"; ml.appendChild(d); return; }
+  if(!free.length){ const d=document.createElement("div"); d.className="hint"; d.textContent="常规市场已无自由球员。"; cFree.appendChild(d); }
   for(const p of free.slice(0, 12)){
     const price = effSignPrice(p); const afford = (mock.state.balance||0) >= price;
     const el = document.createElement("div"); el.className = "card";
@@ -1696,10 +1712,12 @@ function renderMarket(){
     const sb2 = document.createElement("button"); sb2.className = "mini"; sb2.style.marginTop = "8px"; sb2.textContent = "球探考察";
     sb2.onclick = ()=>{ startScout(p.pid); };
     el.appendChild(sb2);
-    ml.appendChild(el);
+    cFree.appendChild(el);
   }
-  if(free.length > 12){ const d=document.createElement("div"); d.className="hint"; d.textContent = `市场共 ${free.length} 名自由球员，先显示能力最高的 12 名；签下后自动刷新。`; ml.appendChild(d); }
-  renderLoanMarket(ml); renderFreeAgents(ml);
+  if(free.length > 12){ const d=document.createElement("div"); d.className="hint"; d.textContent = `市场共 ${free.length} 名自由球员，先显示能力最高的 12 名；签下后自动刷新。`; cFree.appendChild(d); }
+  renderLoanMarket(cLoan); renderFreeAgents(cFa);
+  if(!cStar.children.length){ const d=document.createElement("div"); d.className="hint"; d.textContent="巨星窗口暂无球员。"; cStar.appendChild(d); }
+  if(!cFa.children.length){ const d=document.createElement("div"); d.className="hint"; d.textContent="今日暂无免签球员。"; cFa.appendChild(d); }
 }
 async function signPlayer(p, priceOverride){
   const price = priceOverride || signPrice(p);
@@ -1716,10 +1734,11 @@ function renderSquad(){
   const chips = $("#posChips");
   if(chips){
     const poss = [...new Set(curSport().players().map(p=>p.pos))];
+    const signedAll = curSport().players().filter(isSigned).concat((mock.state.customPlayers||[]).filter(c=>c.sport===curSport().id && isSigned(c)));
     chips.innerHTML = "";
     const mk = (label, val) => { const b=document.createElement("button"); b.className="mini"+(squadPosFilter===val?" act":""); b.textContent=label; b.onclick=()=>{ squadPosFilter = squadPosFilter===val?"":val; renderSquad(); }; return b; };
-    chips.appendChild(mk("全部位置",""));
-    poss.forEach(pos=>chips.appendChild(mk(pos,pos)));
+    chips.appendChild(mk("全部位置 " + signedAll.length,""));
+    poss.forEach(pos=>chips.appendChild(mk(pos + " " + signedAll.filter(p=>p.pos===pos).length, pos)));
   }
   const tabs = $("#sportTabs");
   if(tabs){ tabs.innerHTML=""; for(const sp of Object.values(SPORT_PACKS)){ const b=document.createElement("button"); b.className="mini"+((mock.state.sport||"football")===sp.id?" act":""); b.textContent = sp.icon+" "+sp.label+"队"; b.onclick=()=>{ mock.state.sport=sp.id; mock.save(); render(); toast("已切换到"+sp.label+"队"); }; tabs.appendChild(b); tabs.appendChild(document.createTextNode(" ")); } }
@@ -4660,7 +4679,7 @@ function startLiveMatch(){
   if(frTier){ friendlyState().used += 1; mock.save(); }
   LIVE = { sportId, dayN, opp, friendly: frTier || null, catchup: !!dayOverride, oppMent: oppMentalityFor(sportId, dayN, opp), oppForm: oppFormOf(sportId, opp, dayN), minute: 0, my: 0, oppScore: 0, yc: 0,
     lines: [], onPitch: clean.starters.map(x=>({ pid: x.pid, slot: x.slot, inMin: 0 })), bench: clean.rotation.slice(),
-    subsLeft: 3, settled: false, timer: null, speed: 1, scorers: [], myGoals: 0,
+    subsLeft: 3, settled: false, timer: null, speed: 1, scorers: [], myGoals: 0, segMy: [], segOpp: [], _segCursor: 0, _tally: {}, _fouls: [0, 0],
     startMentality: mock.state.tprof[sportId].mentality, paused: false, playedMins: {}, timeouts: 2, _inMin: {}, _slotMap: {}, _evCursor: 0, _lastBuildTick: -999, _lastShotTick: -999, _acc: 0, S: null, forceQueue: [] };
   for(const x of LIVE.onPitch){ LIVE._inMin[x.pid] = 0; LIVE._slotMap[x.pid] = x.slot; }
   const seed = (dayN * 7919 + (frTier ? 131 : 0) + Math.floor(Math.random() * 1e9)) >>> 0;
@@ -4699,8 +4718,10 @@ function renderMatchHead(){
   const avgSt = L.onPitch.length ? Math.round(L.onPitch.reduce((t,x)=>{ const es = engStamOf(x.pid); if(es != null) return t + es; const ps = mock.state.pstat[x.pid]; return t + (ps ? ps.stamina : 100) - MATCH_CFG.staminaStartCost * (L.minute / (L.sportId === "basketball" ? 40 : 90)); }, 0) / L.onPitch.length) : 100;
   const popMy = L._pm != null && L._pm !== L.my, popOp = L._po != null && L._po !== L.oppScore;
   L._pm = L.my; L._po = L.oppScore;
+  const curSeg = stripSegIdx(L, L.minute);
+  const strip = L.segMy ? `<div class="segstrip">${Array.from({length: curSeg + 1}, (_, i) => `<div class="segcell${i === curSeg ? " cur" : ""}"><small>${stripSegLabel(L, i)}</small><b>${L.segMy[i] || 0} : ${L.segOpp[i] || 0}</b></div>`).join("")}</div>` : "";
   el.innerHTML = `<div class="bcb"><div class="bcteam"><span class="bcbadge my">${esc((mock.state.clubName || "我").slice(0, 1))}</span><span class="bcname">${esc(mock.state.clubName || "我方")}</span></div><div class="bcscore"><b class="${popMy ? "pop" : ""}">${L.my}</b><span class="bcsep">:</span><b class="${popOp ? "pop" : ""}">${L.oppScore}</b></div><div class="bcteam r"><span class="bcname">${L.opp}</span><span class="bcbadge op">${(L.opp || "敌").slice(0, 1)}</span></div></div>
-  <div class="bcmeta"><span class="hint">第${L.dayN}轮 · ${L.minute}′ · ${mentalityOf(L.sportId).name}打法${L.sportId === "football" ? ' · 黄牌 ' + (L.yc || 0) + ' · 红牌 ' + (L.rc || 0) : ''}</span><span class="hint">对方 ${L.oppMent.name}</span></div>
+  <div class="bcmeta"><span class="hint">第${L.dayN}轮 · ${L.minute}′ · ${mentalityOf(L.sportId).name}打法${L.sportId === "football" ? ' · 黄牌 ' + (L.yc || 0) + ' · 红牌 ' + (L.rc || 0) : ' · 犯规 我方 ' + (L._fouls ? L._fouls[0] : 0) + ' · 对方 ' + (L._fouls ? L._fouls[1] : 0)}</span><span class="hint">对方 ${L.oppMent.name}</span></div>${strip}
   <div style="margin-top:6px"><div class="hint">全队体能 ${Math.max(5, avgSt)}%</div><div style="height:7px;background:#e7ddc6;border-radius:4px"><div style="height:100%;width:${Math.max(5, avgSt)}%;background:${avgSt < 40 ? "#c0392b" : "#2e6b46"};border-radius:4px;transition:width .4s"></div></div></div>`;
 }
 function tkIcon(kind, text){
@@ -4788,9 +4809,20 @@ function simOppTeam(sportId, oppName, form){
     return { pid: "opp" + i, name: "对方" + label, group: g, skill: simSkillRaw(pow, g, sportId, oppName + i) }; });
   return { formation: slots, players };
 }
+function stripSegIdx(L, min){ if(L.sportId === "basketball") return min < 10 ? 0 : min < 20 ? 1 : min < 30 ? 2 : min < 40 ? 3 : 4; return min < 45 ? 0 : 1; }
+function stripSegLabel(L, i){ return L.sportId === "basketball" ? (["Q1","Q2","Q3","Q4","加时"][i] || "") : (["上半场","下半场"][i] || ""); }
 function simSyncFromEngine(){
   const L = LIVE; if(!L || !L.S) return; const S = L.S;
   L.my = S.score[0]; L.oppScore = S.score[1];
+  /* 分节比分归集：按事件分钟把得分记到所属节（篮球四节/足球两半场），水位线扫事件、与解说排水解耦，跳过/节点结算也不会漏 */
+  if(!L.segMy){ L.segMy = []; L.segOpp = []; L._segCursor = 0; }
+  while(L._segCursor < S.events.length){
+    const ev = S.events[L._segCursor++];
+    if(ev.type === "goal" || ev.type === "ft"){
+      const pts = ev.type === "ft" ? (ev.made || 0) : (L.sportId === "basketball" ? (ev.pts || 2) : 1);
+      if(pts){ const i = stripSegIdx(L, ev.min || 0); const arr = ev.side === 0 ? L.segMy : L.segOpp; arr[i] = (arr[i] || 0) + pts; }
+    }
+  }
   L.minute = Math.floor(S.tick / S.totalTicks * (L.sportId === "basketball" ? 40 : 90));
   L.onPitch = S.players.filter(p=>p.side === 0 && !p.out).map(p=>({ pid: p.pid, slot: L._slotMap[p.pid] || slotGroupOf(findPlayer(p.pid), L.sportId), inMin: L._inMin[p.pid] != null ? L._inMin[p.pid] : L.minute }));
   renderMatchHead();
@@ -4862,9 +4894,17 @@ function simDrainEvents(){
   const L = LIVE; if(!L || !L.S) return; const S = L.S;
   while(L._evCursor < S.events.length){
     const ev = S.events[L._evCursor++];
+    if(ev.type === "foul" && L._fouls) L._fouls[ev.side === 0 ? 0 : 1]++;
     if(ev.type === "shot"){ L._lastShotTick = S.tick; continue; }
     if(ev.type === "duelWon" || ev.type === "injuryDone") continue;
     const line = simLineFor(ev);
+    /* 本场注脚：我方球员得分累计到线就顺带播报（篮球报总分、足球报第几球），只读事件、不改结算 */
+    if(line && !ev.og && (ev.type === "goal" || ev.type === "ft") && ev.side === 0 && ev.p){
+      const pts = ev.type === "ft" ? (ev.made || 0) : (L.sportId === "basketball" ? (ev.pts || 2) : 1);
+      if(pts){ const key = ev.p.pid || ev.p.name; const t = (L._tally[key] = (L._tally[key] || 0) + pts);
+        if(L.sportId === "basketball"){ if(t >= 10) line.text += `（${ev.p.name} 本场已得 ${t} 分）`; }
+        else if(t >= 2) line.text += `（${ev.p.name} 本场第 ${t} 球）`; }
+    }
     if(line) pushLine(line.min, line.text, line.kind);
   }
 }
@@ -6155,6 +6195,13 @@ async function render(){
   const bdC=$("#bdClub"); if(bdC){ bdC.textContent=""; bdC.style.display="none"; }
 }
 let CUR_TAB="league";
+let clubSegCur = "events";
+function clubSeg(name){
+  clubSegCur = name;
+  document.querySelectorAll("[data-cseg]").forEach(el => { el.style.display = el.dataset.cseg === name ? "" : "none"; });
+  document.querySelectorAll("[data-cbtn]").forEach(b => { b.classList.toggle("act", b.dataset.cbtn === name); });
+}
+window.clubSeg = clubSeg;
 function switchTab(name){ if(name==="market") guideFlag("market"); CUR_TAB=name; try{ renderGuide(); }catch(e){} if(name==="club"){ try{ refreshSlots(); }catch(e){} } document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.dataset.page===name)); document.querySelectorAll("#tabbar .tabbtn").forEach(b=>b.classList.toggle("on",b.dataset.tab===name)); window.scrollTo(0,0); }
 window.switchTab=switchTab;
 document.querySelectorAll("#tabbar .tabbtn").forEach(b=>b.onclick=()=>{ if(b.dataset.tab==="market") guideFlag("market"); switchTab(b.dataset.tab); });
@@ -6214,7 +6261,7 @@ const TOUR_STEPS = [
   { id:"arrange", tab:"squad", target:() => document.querySelector("#squadList .card"), action:"arrange", title:"实操一回：派他去教学拉练", body:"点第一名球员卡上金色的<b>「🎓 教学拉练」</b>——教学专属档，派出去<b>立刻归队</b>，只此一次。平时派人用卡上下半排的时长档：2 分钟到 22 小时，越久产出越高、早归有加成；赶时间点上方<b>「⚡ 一键加练」</b>全员出发。" },
   { id:"claim", tab:"league", target:() => document.querySelector("#pendingList .card") || $("#pendingList"), action:"claim", title:"迎接归队：回来的仪式感", body:"联赛页往下翻的<b>「待归队」区</b>就是这儿。球员到点后这里会出现带「已归队」的卡，点<b>「迎接归队」</b>领产出，还有一笔践约加成。现在还没人回来——睡前派长档，明早回来迎接最值。", bodyLive:"他回来了！高亮这张就是<b>归队卡</b>，点卡上的<b>「迎接归队」</b>把人接回来，产出和践约加成一起到账。以后人多了不用一个个点——阵容页上方有<b>「🎉 一键迎接」</b>，一次全领。" },
   { id:"tactics", tab:"squad", target:() => $("#tacticsSlot"), title:"战术区：阵型＋心态＋指令", body:"阵型定人数、心态定攻守、指令是细节开关。记住：<b>风格克制比硬堆战力划算</b>，打强队摆防守偷分是真赢法。" },
-  { id:"market", tab:"market", target:() => document.querySelector("#marketList .card") || $("#marketList"), title:"签约市场：先看工资再签人", body:"签人先看<b>日薪</b>：全队工资每天从资金扣，占收入<b>超 70% 就危险</b>（俱乐部页财务能看）。第 7 天开巨星指定窗口。" },
+  { id:"market", tab:"market", target:() => document.querySelector('#marketList [data-mseg="free"] .card') || document.querySelector("#marketList .card") || $("#marketList"), title:"签约市场：先看工资再签人", body:"签人先看<b>日薪</b>：全队工资每天从资金扣，占收入<b>超 70% 就危险</b>（俱乐部页财务能看）。第 7 天开巨星指定窗口。" },
   { id:"club", tab:"club", target:() => $("#deskCard"), title:"俱乐部页：后勤总部＋经理台", body:"迷路就来这页：设施、教练技能、装备收藏馆、海报中心、<b>存档</b>（云短码换设备取回）都在这。经理台里能重看这份引导。" },
   { id:"offline", tab:"league", target:() => $("#offlineSlot"), title:"最后记住：球队从不打烊", body:"关掉游戏也按在线的 <b>60%</b> 攒产出，仓储满 8 小时停（第 3 天扩 12 小时），每天回来一趟最划算。<b>引导结束，教练经验 +30 已备好——去打今天的篮球赛吧！</b>" },
 ];
@@ -6242,6 +6289,11 @@ function tourShow(){
   const attempt = () => {
     const el = step.target ? step.target() : null;
     if(!el && step.target && tries++ < 10){ setTimeout(attempt, 250); return; }
+    /* 小栏目守卫：高亮目标若藏在未选中的栏目里，先切到它所在的栏目再指 */
+    if(el){
+      const cs = el.closest("[data-cseg]"); if(cs && cs.style.display === "none") clubSeg(cs.dataset.cseg);
+      const ms = el.closest("[data-mseg]"); if(ms && ms.style.display === "none"){ marketSeg = ms.dataset.mseg; renderMarket(); }
+    }
     /* 迎接归队步：教学拉练的归队卡由首页数据异步渲染，给它留出到场时间再决定用实操版还是讲解版文案 */
     if(step.id === "claim" && !document.querySelector("#pendingList .card") && tries++ < 10){ setTimeout(attempt, 250); return; }
     tourRender(step, el);
