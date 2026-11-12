@@ -842,6 +842,34 @@ function choosePack(pk){
   mock.save(); renderFounding();
 }
 function draftNeedNow(){ return V2_CFG.draftNeed[mock.state.pack || "B"]; }
+function draftGroupOf(p, sport){ return sport === "football" ? (p.posGroup || p.pos) : (p.pos || p.posGroup); }
+function recommendedPicks(sport, need){
+  const pool = V2_CFG.draftPools[sport].map(findPlayer).filter(p => p && !signedSet().includes(p.pid));
+  const budget = Math.round(V2_CFG.estDailyIncome * 0.7);
+  const picks = [];
+  const groups = [...new Set(pool.map(p => draftGroupOf(p, sport)))];
+  const bestPerGroup = groups.map(g => pool.filter(p => draftGroupOf(p, sport) === g).sort((a, b) => b.ability - a.ability)[0]).filter(Boolean).sort((a, b) => b.ability - a.ability);
+  for(const p of bestPerGroup){ if(picks.length >= need) break; picks.push(p); }
+  for(const p of pool.filter(p => !picks.includes(p)).sort((a, b) => b.ability - a.ability)){ if(picks.length >= need) break; picks.push(p); }
+  const bill = () => dailyWageBill() + picks.reduce((t, p) => t + wageOf(p), 0);
+  let guard = 0;
+  while(bill() > budget && guard++ < 24){
+    let swapped = false;
+    for(const out of [...picks].sort((a, b) => wageOf(b) - wageOf(a))){
+      const cand = pool.filter(p => !picks.includes(p) && draftGroupOf(p, sport) === draftGroupOf(out, sport) && wageOf(p) < wageOf(out)).sort((a, b) => wageOf(a) - wageOf(b))[0];
+      if(cand){ picks[picks.indexOf(out)] = cand; swapped = true; break; }
+    }
+    if(!swapped) break;
+  }
+  return picks.map(p => p.pid);
+}
+function applyRecommendedDraft(){
+  const f = mock.state.founding; if(!f || f.step !== "draft") return;
+  f.picks = recommendedPicks(f.sport, draftNeedNow());
+  mock.save(); renderFounding();
+  toast("推荐阵容已排好：每个位置都有人、按能力优选。换人随意，不改就直接确认");
+}
+window.applyRecommendedDraft = applyRecommendedDraft;
 function togglePick(pid){
   const f = mock.state.founding; if(!f) return;
   const i = f.picks.indexOf(pid);
@@ -855,8 +883,8 @@ function confirmDraft(){
   if(f.sport === "football"){ f.sport = "basketball"; f.picks = []; mock.save(); renderFounding(); return; }
   s.founded = true; s.founding = null; s.lineup = {}; mock.save();
   $("#foundingModal").classList.add("hidden");
-  toast("建队完成！班底＋选秀拼出第一支队伍，赛季开始。");
-  render();
+  toast("建队完成！先打第一场正赛，老陈在联赛页等你。");
+  render(); if(typeof switchTab === "function") switchTab("league");
 }
 function renderFounding(){
   const s = mock.state, f = s.founding, sheet = $("#foundingSheet"); if(!sheet || !f) return;
@@ -881,6 +909,8 @@ function renderFounding(){
     <div class="kv"><span>集团全队日薪（含已选）</span><b class="${over ? "loss" : ""}">${bill}</b></div>
     <div style="height:8px;background:#e7ddc6;border-radius:4px;position:relative;margin:6px 0 2px"><div style="height:100%;width:${pct}%;background:${over ? "#c0392b" : "#c9962e"};border-radius:4px"></div></div>
     <div class="hint">${over ? "已超工资红线（预估收入的 70%）：再签贵人，每天结算会被工资吃穿。" : "工资红线（预估收入 70%）约 " + budget + "/日，还在安全区。"}</div>
+    <button style="width:100%;margin:8px 0 2px" onclick="applyRecommendedDraft()">⚡ 一键推荐阵容（位置齐全 · 按能力优选）</button>
+    <div class="hint">赶时间就用推荐阵容；想自己挑，下面逐个换人就行。</div>
     <div id="draftPool"></div>
     <button id="draftOk" style="width:100%;margin-top:10px" ${f.picks.length === need ? "" : "disabled"}>确认${sp.label}队选秀（${f.picks.length}/${need}）</button>`;
   const dp = sheet.querySelector("#draftPool");
@@ -2132,6 +2162,12 @@ function renderToday(){
     }
   }
   h += `</div>`;
+  /* v50 明日预告卡 */
+  { const nd = d + 1;
+    const awayNames = [...awayMap.entries()].map(([pid, st]) => { const p = findPlayer(pid); return p ? p.name + "（" + st + "）" : null; }).filter(Boolean);
+    const unlock = nd === 2 ? "新的一天：每日日常刷新，派出去的人陆续归队" : nd === 3 ? "仓储扩到 12 小时档 · 装备收藏馆开启" : nd === 7 ? "巨星指定窗口开启（梅西、詹姆斯这个级别，2 倍价竞签）" : nd >= 14 ? "收官日：老将告别赛＋冠军典礼" : "双场正赛＋每日日常刷新";
+    h += `<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><span class="pname">🌙 明日预告 · 第 ${Math.min(nd, 14)} 天</span><div class="pmeta" style="margin-top:2px">${unlock}。</div>${awayNames.length ? `<div class="pmeta">在外未归：${awayNames.join("、")}，到点回联赛页迎接。</div>` : `<div class="pmeta">现在没人在外面——睡前派一两个长档出去，明天回来正好迎接。</div>`}<button class="mini ghost" style="margin-top:6px" onclick="addDesktop()">📲 把俱乐部放到桌面，明天一键回来</button></div>`;
+  }
   /* pre-season test accelerator (auto-hidden from 2026-11-17) */
   if(beijingDateStr() < "2026-11-17") h += `<div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:8px"><button class="mini ghost" onclick="testAdvanceDay()">推进一天（测试 · 11/17 开赛后自动消失）</button></div>`;
   h += `</div>`;
@@ -5656,7 +5692,7 @@ function settleMatch(){
   const box = $("#matchNode");
   if(box) box.innerHTML = isFr
     ? `<div class="nodebox"><div style="display:flex;gap:12px;align-items:center"><span class="seal ${res === "胜" ? "win" : res === "平" ? "draw" : "lose"}">${res}</span><div><div class="pname">热身赛结束：${scoreTxt} 对 ${L.opp}</div><div class="pmeta">战术「${ment.name}」熟练度 +1 · 不计积分榜，${frMod.id === "rain" ? "雨战体能扣 3/4" : "体能只扣一半"} · 今日词缀：${frMod.icon} ${frMod.name}</div></div></div><div style="margin-top:8px"><div class="kv"><span>声望</span><b data-count="${repD}">+${repD}</b></div><div class="kv"><span>比赛奖金</span><b data-count="${fundD}">+${fundD}</b></div><div class="kv"><span>教练经验</span><b>+${xpD}</b></div></div><div class="pmeta" style="margin-top:6px">进球：${L.scorers.length ? L.scorers.join("、") : "—"}<br>声望按胜负入账（每日上限 +${frMod.id === "derby" ? 8 : 4}）。今日还可打 ${friendlyLeft()} 场。</div>${starHtml}<button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`
-    : `<div class="nodebox"><div style="display:flex;gap:12px;align-items:center"><span class="seal ${res === "胜" ? "win" : res === "平" ? "draw" : "lose"}">${res}</span><div><div class="pname">全场结束：${scoreTxt} 对 ${L.opp}</div><div class="pmeta">第${L.dayN}轮 · 战术「${ment.name}」熟练度 +1</div></div></div><div style="margin-top:8px"><div class="kv"><span>声望</span><b data-count="${repD}">${repD >= 0 ? "+" : ""}${repD}</b></div><div class="kv"><span>比赛奖金</span><b data-count="${fundD}">+${fundD}</b></div><div class="kv"><span>教练经验</span><b>+${xpD}</b></div></div><div class="pmeta" style="margin-top:6px">进球：${L.scorers.length ? L.scorers.join("、") : "—"}<br>首发体能已按出场时间扣除，未出场球员恢复 +${MATCH_CFG.staminaRestGain}。${friendlyLeft() > 0 ? "<br>老陈：正赛完了别散场，约场热身赛热热身——体能只算一半，输赢不记账。" : ""}</div>${starHtml}<button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`;
+    : `<div class="nodebox"><div style="display:flex;gap:12px;align-items:center"><span class="seal ${res === "胜" ? "win" : res === "平" ? "draw" : "lose"}">${res}</span><div><div class="pname">全场结束：${scoreTxt} 对 ${L.opp}</div><div class="pmeta">第${L.dayN}轮 · 战术「${ment.name}」熟练度 +1</div></div></div><div style="margin-top:8px"><div class="kv"><span>声望</span><b data-count="${repD}">${repD >= 0 ? "+" : ""}${repD}</b></div><div class="kv"><span>比赛奖金</span><b data-count="${fundD}">+${fundD}</b></div><div class="kv"><span>教练经验</span><b>+${xpD}</b></div></div><div class="pmeta" style="margin-top:6px">进球：${L.scorers.length ? L.scorers.join("、") : "—"}<br>首发体能已按出场时间扣除，未出场球员恢复 +${MATCH_CFG.staminaRestGain}。${friendlyLeft() > 0 ? "<br>老陈：正赛完了别散场，约场热身赛热热身——体能只算一半，输赢不记账。" : ""}</div>${starHtml}<button class="ghost" style="width:100%;margin-top:8px" onclick="closeMatch();openPosters('report')">🖼 生成战报海报</button><button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`;
   countUps(box);
   renderMatchHead(); renderMatchTicker();
 }
@@ -6051,9 +6087,9 @@ window.watchRenameAd = watchRenameAd;
 
 /* ---------- v14 新手引导（经理任务链） ---------- */
 const GUIDE_STEPS = [
-  { id:"tactics", t:"排兵布阵", d:"去阵容页选一个战术心态，或开一个战术指令", tip:"老陈：先把打法立住，克制对面比堆战力划算。", tab:"squad" },
-  { id:"arranged", t:"派人成长", d:"安排 1 名球员去集训或外租——离线也在长", tip:"老陈：人派出去了，你关掉页面他也照练。", tab:"squad" },
   { id:"match", t:"打第一场联赛", d:"在联赛页完成 1 场比赛（可倍速；首场可免费跳过，之后跳过需看广告）", tip:"老陈：赢了涨声望，输了也给教练经验，不亏。", tab:"league" },
+  { id:"arranged", t:"派人成长", d:"安排 1 名球员去集训或外租——离线也在长；第一次先选 2 分钟的队内加练，马上能体验归队", tip:"老陈：人派出去了，你关掉页面他也照练。", tab:"squad" },
+  { id:"tactics", t:"排兵布阵", d:"去阵容页选一个战术心态，或开一个战术指令", tip:"老陈：先把打法立住，克制对面比堆战力划算。", tab:"squad" },
   { id:"market", t:"逛签约市场", d:"打开市场页看看今天有哪些人", tip:"老陈：先看价再下手，工资占比别过 70% 红线。", tab:"market" },
   { id:"claimed", t:"迎接归队", d:"有球员归队时，在联赛页点「迎接归队」", tip:"老陈：加练 2 分钟就回，迎接还有践约加成。", tab:"league" },
 ];
