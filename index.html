@@ -334,6 +334,18 @@
 
 <div class="page" data-page="club">
 <section>
+  <div class="card" style="padding:10px 12px">
+    <div class="pmeta" style="margin-bottom:6px">🧭 俱乐部导航 · 功能多了，用这排按钮直达</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      <button class="mini" onclick="jumpCard('eventList')">📋 今日事务</button>
+      <button class="mini" onclick="jumpCard('finCard')">💰 财务</button>
+      <button class="mini" onclick="jumpCard('facCard')">🏟 设施</button>
+      <button class="mini" onclick="jumpCard('coachCard')">🧠 教练组</button>
+      <button class="mini" onclick="jumpCard('gearCard')">🎁 装备收藏馆</button>
+      <button class="mini" onclick="jumpCard('deskCard')">🗂 经理台</button>
+      <button class="mini" onclick="jumpCard('saveCard')">💾 存档</button>
+    </div>
+  </div>
   <h2 data-no="01"><span class="eb">CLUB EVENTS</span>俱乐部事件</h2>
   <div id="eventList"></div>
 </section>
@@ -382,23 +394,23 @@
 <div class="page" data-page="club">
 <section>
   <h2 data-no="02"><span class="eb">CLUB OFFICE</span>俱乐部</h2>
-  <div class="card">
+  <div class="card" id="finCard">
     <div class="pname">财务面板</div>
     <div id="financeBody" style="margin-top:6px"></div>
   </div>
-  <div class="card">
+  <div class="card" id="facCard">
     <div class="pname">俱乐部设施</div>
     <div id="facilityBody" style="margin-top:6px"></div>
   </div>
-  <div class="card">
+  <div class="card" id="coachCard">
     <div class="pname">教练组</div>
     <div id="coachBody" style="margin-top:6px"></div>
   </div>
-  <div class="card">
+  <div class="card" id="gearCard">
     <div class="pname">装备收藏馆</div>
     <div id="gearBody" style="margin-top:6px"></div>
   </div>
-  <div class="card">
+  <div class="card" id="deskCard">
     <div class="pname">经理台</div>
     <div class="pmeta" style="margin:4px 0 8px">新手任务、离线规则、把俱乐部递出去，都在这里。</div>
     <div class="quickgrid">
@@ -408,7 +420,7 @@
     </div>
     <div class="row" style="margin-top:8px"><span class="hint">虎扑 App 内可把游戏加到手机桌面，明天一键回来收菜。</span><button class="mini ghost" onclick="addDesktop()">添加到桌面</button></div>
   </div>
-  <div class="card">
+  <div class="card" id="saveCard">
     <div class="row"><div><div class="pname">存档</div><div class="pmeta" id="saveInfo">本地自动保存中</div></div><span class="hint" id="activeSlotHint"></span></div>
     <div id="slotsBody" style="margin-top:8px"><div class="hint">档位加载中…</div></div>
     <div class="row" style="margin-top:12px"><div><div class="pname" style="font-size:14px">云端短码</div><div class="pmeta">8 位短码永久有效，凭码在任何设备取回；与档位槽互通。发码/取码每小时合计 10 次。</div></div><button id="codeIssueBtn">生成短码</button></div>
@@ -1117,6 +1129,7 @@ function campusSVG(){
     : `<g onclick="facJump('medical')" style="cursor:pointer"><rect x="264" y="${lm >= 2 ? 40 : 52}" width="66" height="${lm >= 2 ? 54 : 42}" fill="#f7efdb" stroke="#d8cdb2"/><path d="M260 ${lm >= 2 ? 40 : 52}h74" stroke="#a83226" stroke-width="3"/><circle cx="297" cy="${lm >= 2 ? 30 : 42}" r="8" fill="#fff" stroke="#d8cdb2"/><path d="M297 ${lm >= 2 ? 25 : 37}v10M292 ${lm >= 2 ? 30 : 42}h10" stroke="#c0392b" stroke-width="2.4"/><rect x="290" y="80" width="14" height="14" fill="#c9bc98"/>${label(297, "医疗室 Lv" + lm + "/2")}</g>`;
   return `<svg class="campus" viewBox="0 0 360 118"><rect x="0" y="94" width="360" height="5" fill="#ddd2b2"/>${train}${ware}${med}</svg>`;
 }
+window.jumpCard = function(id){ const el = document.getElementById(id); if(!el) return; el.scrollIntoView({ behavior:"smooth", block:"center" }); el.classList.remove("facflash"); void el.offsetWidth; el.classList.add("facflash"); };
 window.facJump = function(id){ const r = document.getElementById("facrow-" + id); if(!r) return; r.scrollIntoView({ behavior:"smooth", block:"center" }); r.classList.remove("facflash"); void r.offsetWidth; r.classList.add("facflash"); };
 function renderFacility(){
   const el = $("#facilityBody"); if(!el) return;
@@ -1404,6 +1417,10 @@ function renderEvents(){
   const s = mock.state, dayN = seasonDayN();
   el.innerHTML = "";
   let any = false;
+  const evHead = t => { const hd = document.createElement("div"); hd.className = "pname"; hd.style.cssText = "margin:16px 2px 2px;font-size:13px;opacity:.75"; hd.textContent = t; el.appendChild(hd); };
+  let storyHeadDone = false;
+  const storyHead = () => { if(!storyHeadDone){ storyHeadDone = true; evHead("🔗 剧情与事件链"); } };
+  if(s.founded) evHead("📌 每日事务");
   const af = s.founded ? affairOfToday() : null;
   if(af){
     const adef = AFFAIRS.find(x=>x.id === af.id);
@@ -1469,6 +1486,7 @@ function renderEvents(){
     el.appendChild(mcard);
   }
   if(s.founded && packActive("2026-11-19") && !s.p1Seen){
+    storyHead();
     any = true;
     const card = document.createElement("div"); card.className = "card";
     card.innerHTML = `<div class="pname">🌟 新星来投</div><div class="pmeta">转会窗的风吹进了训练基地。8 名球员已抵达，等待你的签约决定：奥纳纳、托莫里、板仓滉、蒋圣龙、朱辰杰、刘洋、韦世豪、拜合拉木——已加入签约市场。训练场即日起可扩建至 Lv2。</div><div class="tiers"><button>知道了</button></div>`;
@@ -1476,6 +1494,7 @@ function renderEvents(){
     el.appendChild(card);
   }
   if(s.founded && packActive("2026-11-26") && !s.p3NoteSeen){
+    storyHead();
     any = true;
     const card = document.createElement("div"); card.className = "card";
     card.innerHTML = `<div class="pname">📓 球探手记 · 未完</div><div class="pmeta">球探带着报告回来了：全队评级已公布（名单卡上可见），京多安、卡塞米罗、加克波 3 人列入推荐签约（8 折，只此一次）。附：另有一份『特邀导师』旧档案——内容包开放且赛季满 8 天后，可在事务区正式聘请。</div><div class="tiers"><button>收下报告</button></div>`;
@@ -1483,6 +1502,7 @@ function renderEvents(){
     el.appendChild(card);
   }
   if(s.founded && packActive("2026-11-29") && !s.p4Seen){
+    storyHead();
     any = true;
     const totalMatches = Object.values(s.played || {}).reduce((a, b) => a + b, 0) / 2;
     const veterans = PLAYERS.concat(P1_PLAYERS).filter(p => isSigned(p) && +p.age >= 35).map(p => p.name);
@@ -1497,6 +1517,7 @@ function renderEvents(){
     if(cand){ s.chain = { pid: cand.pid, stage: 1, path: null }; s.chainDay = dayN; mock.save(); }
   }
   if(s.chain){
+    storyHead();
     any = true;
     const p = findPlayer(s.chain.pid);
     const card = document.createElement("div"); card.className = "card";
@@ -1529,6 +1550,7 @@ function renderEvents(){
   if(s.founded && typeof chain2Trigger === "function") chain2Trigger();
   const c2v = s.founded ? chain2View() : null;
   if(c2v){
+    storyHead();
     any = true;
     const c2card = document.createElement("div"); c2card.className = "card";
     if(c2v.waiting) c2card.innerHTML = `<div class="pname">${c2v.title}</div><div class="pmeta">${c2v.body}</div>`;
@@ -1536,6 +1558,7 @@ function renderEvents(){
     el.appendChild(c2card);
   }
   if(s.founded && dayN >= 6 && !s.trialUsed){
+    storyHead();
     any = true;
     const card = document.createElement("div"); card.className = "card";
     card.innerHTML = `<div class="pname">🔍 公开试训日</div><div class="pmeta">温布尔登当年靠公开试训从 230 人里凑出一支队。今天来了两个苗子，只能签一个，免费：</div>` + TRIALISTS.map(t => `<div class="row" style="margin-top:6px"><span class="pmeta">${t.name} · ${t.sport === "football" ? "足球" : "篮球"} · ${t.pos} · 能力 ${t.ability} · 潜力高</span><button class="mini" data-pid="${t.pid}">签下他</button></div>`).join("");
@@ -1551,6 +1574,7 @@ function renderEvents(){
     if(cand) s.morale = { pid: cand.pid };
   }
   if(s.morale && !s.moraleDone){
+    storyHead();
     any = true;
     const p = findPlayer(s.morale.pid);
     const card = document.createElement("div"); card.className = "card";
@@ -1927,7 +1951,7 @@ function choiceOfToday(){
 }
 function applyChoiceFx(fx){
   const s = mock.state;
-  if(fx.funds) s.balance += fx.funds;
+  if(fx.funds){ s.balance += fx.funds; if(s.balance < 0) s.balance = 0; }
   if(fx.rep) s.rep = Math.max(0, s.rep + fx.rep);
   if(fx.coachXp){ ensureV2State(); s.coach.xp = (s.coach.xp || 0) + fx.coachXp; }
   if(fx.staminaAll){ for(const pid of Object.keys(s.pstat || {})){ const ps = s.pstat[pid]; ps.stamina = Math.max(5, Math.min(100, ps.stamina + fx.staminaAll)); } }
@@ -1993,6 +2017,17 @@ function todayItems(){
   if(vrI) items.push({ label:"🎬 录像分析室", done: !!vrI.pick, go:"video" });
   const spI = (typeof surpriseOfToday === "function") ? surpriseOfToday() : null;
   if(spI) items.push({ label:"⚡ 今日突发待处理", done: !!spI.done, go:"affair" });
+  const c2I = (typeof chain2View === "function") ? chain2View() : null;
+  if(c2I) items.push({ label:"🔗 连锁事件" + (c2I.waiting ? "（进行中）" : ""), done: !!c2I.waiting, go:"affair" });
+  if(typeof mentorOpen === "function" && mentorOpen()){
+    const mm = s.mentor || {}, mcx2 = s.mentorClass || {};
+    if(!mm.football || !mm.basketball) items.push({ label:"🎓 特邀导师待聘请", done: false, go:"affair" });
+    else items.push({ label:"🎓 导师公开课", done: mcx2.football === d && mcx2.basketball === d, go:"affair" });
+  }
+  const G = [["⚽", "match"], ["🏀", "match"], ["🏃", "match"], ["🌱", "grow"], ["🏋", "grow"], ["🔭", "grow"], ["🎁", "grow"], ["🎓", "grow"]];
+  for(const it of items){ it.g = "ops"; for(const [pre, g] of G){ if(it.label.startsWith(pre)){ it.g = g; break; } } }
+  const ord = { match: 0, ops: 1, grow: 2 };
+  items.sort((a, b) => ord[a.g] - ord[b.g]);
   return items;
 }
 function todayGo(go){
@@ -2020,7 +2055,9 @@ function renderToday(){
   const d = seasonDayN(), items = todayItems();
   const doneN = items.filter(i=>i.done).length;
   let h = `<div class="card"><div class="row"><div><span class="pname">📋 今日清单 · 赛季第 ${d} 天</span><div class="pmeta">每天十几分钟，把两支队都照顾到——已完成 ${doneN}/${items.length}</div></div></div><div style="margin-top:8px">`;
+  let lastG = "";
   for(const it of items){
+    if(it.g && it.g !== lastG){ lastG = it.g; h += `<div class="hint" style="margin-top:9px;font-weight:700">${{ match: "⚽ 今日比赛", ops: "🏢 每日运营", grow: "🌱 成长与收藏" }[it.g] || ""}</div>`; }
     h += `<div class="row" style="padding:3px 0;border-top:1px dashed var(--line)"><span>${it.done ? "✅" : "⬜"} ${it.label}</span>${it.done ? "" : `<button class="mini ghost" onclick="todayGo('${it.go}')">去完成</button>`}</div>`;
   }
   h += `</div>`;
@@ -5956,10 +5993,8 @@ async function render(){
     const rtEl = $("#repTop"); if(rtEl) rtEl.textContent = mock.state.rep || 0;
     $("#capInfo").textContent = `仓储 ${h.capacityTier} 小时档`;
     window.__capTier = h.capacityTier;
-    const cdEl = $("#capDesc"); if(cdEl) cdEl.textContent = `当前离线积累上限 ${h.capacityTier} 小时（${h.capacityTier*60} 资金）`;
     const day = Math.max(1, Math.floor((Date.now()-(mock.state.createdAt||Date.now()))/86400000)+1);
     $("#seasonDay").textContent = "赛季第 "+Math.min(day,14)+" 天";
-    const cbEl = $("#capBtn"); if(cbEl){ cbEl.disabled = !(day>=3 && h.capacityTier===8); if(h.capacityTier===12){ cbEl.textContent="已扩容"; cbEl.disabled=true; } }
     window.__lastPending = h.pendingReturns || [];
     if(h.settledTo) window.__settledTo = h.settledTo;
     window.__awayNames = [...awayMap.keys()].map(pid=>{ const pp = findPlayer(pid); return pp ? pp.name : pid; });
@@ -6022,7 +6057,6 @@ $("#adBtn").onclick = async () => {
   mock.state.adCount+=1; mock.state.balance+=120; ensureV2State(); mock.state.buckets.commercial+=120; mock.save();
   toast(`补给到账 +120 资金（今日 ${mock.state.adCount}/3）`); render();
 };
-const cbTop = $("#capBtn"); if(cbTop) cbTop.onclick = async () => { const r = await api("/api/capacity/upgrade"); if(r.ok){ toast("仓储已扩到 12 小时档！"); render(); } };
 $("#renameBtn").onclick = () => { window.__renameMode = true; $("#nameInput").value=$("#clubName").textContent; const h=$("#nameAdHint"); if(h) h.classList.remove("hidden"); const c=$("#nameCancel"); if(c) c.classList.remove("hidden"); const ok=$("#nameOk"); if(ok) ok.textContent = "看广告并改名"; $("#nameModal").classList.remove("hidden"); };
 $("#nameCancel").onclick = () => { window.__renameMode = false; $("#nameModal").classList.add("hidden"); };
 $("#nameOk").onclick = async () => {
