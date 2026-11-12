@@ -1257,7 +1257,7 @@ function renderFixtures(){
     const played = mock.state.played[sp.id + ":" + d];
     rows.push(`<div class="kv"><span>第 ${d} 轮 · ${d % 2 === 1 ? "主场" : "客场"} 对 ${opp}</span><b>${meta ? meta.res + " " + meta.score : (played ? played : (d === dayN ? "今天" : "待赛"))}</b></div>`);
   }
-  el.innerHTML = `<div class="card"><div class="pname">赛程</div><div class="pmeta" style="margin-bottom:4px">${sp.name} · 14 轮全赛程（学 IdleFC 的 Table 页赛程表）</div>${rows.join("")}</div>`;
+  el.innerHTML = `<div class="card"><div class="pname">赛程</div><div class="pmeta" style="margin-bottom:4px">第 ${dayN} 轮 · 14 轮全赛程</div>${rows.join("")}</div>`;
 }
 function renderTickerCard(){
   const el = document.querySelector("#tickerSlot"); if(!el) return;
