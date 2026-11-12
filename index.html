@@ -311,7 +311,15 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 <div class="page on" data-page="league">
 <div id="cockpitSlot"></div>
 <div id="todaySlot"></div>
-<section>
+<div class="card" style="padding:10px 12px">
+  <div class="segbar" style="margin-bottom:0">
+    <button class="mini act" data-hbtn="league" onclick="homeSeg('league')">🏆 联赛</button>
+    <button class="mini" data-hbtn="daily" onclick="homeSeg('daily')">🎁 每日补给</button>
+    <button class="mini" data-hbtn="returns" onclick="homeSeg('returns')">🎉 待归队</button>
+    <button class="mini" data-hbtn="boards" onclick="homeSeg('boards')">📊 排行榜</button>
+  </div>
+</div>
+<section data-hseg="league">
   <h2 data-no="01"><span class="eb">STAR LEAGUE</span>明星联赛 · 跨联赛对决</h2>
   <div class="card" id="leagueCard"></div>
   <div id="friendlySlot"></div>
@@ -323,7 +331,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 </section>
 <div id="guideSlot"></div>
 <div id="offlineSlot"></div>
-<section>
+<section data-hseg="daily" style="display:none">
   <h2 data-no="02"><span class="eb">DAILY</span>每日补给</h2>
   <div class="card">
     <div class="pname">球迷幸运日</div>
@@ -336,12 +344,12 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 </section>
 <section id="settleSlot"></section>
 
-<section>
+<section data-hseg="returns" style="display:none">
   <h2 data-no="03"><span class="eb">RETURNS</span>待归队</h2>
   <div id="pendingList"><div class="hint">暂无。把球员派去集训或外租，归队日他会自己回来。</div></div>
 </section>
 
-<section>
+<section data-hseg="boards" style="display:none">
   <h2 data-no="04"><span class="eb">RANKING</span>排行榜</h2>
   <div class="card">
     <div class="row"><div class="pname" style="font-size:15px">双榜</div>
@@ -1205,7 +1213,7 @@ function campusSVG(){
     : `<g onclick="facJump('medical')" style="cursor:pointer"><rect x="264" y="${lm >= 2 ? 40 : 52}" width="66" height="${lm >= 2 ? 54 : 42}" fill="#f7efdb" stroke="#d8cdb2"/><path d="M260 ${lm >= 2 ? 40 : 52}h74" stroke="#a83226" stroke-width="3"/><circle cx="297" cy="${lm >= 2 ? 30 : 42}" r="8" fill="#fff" stroke="#d8cdb2"/><path d="M297 ${lm >= 2 ? 25 : 37}v10M292 ${lm >= 2 ? 30 : 42}h10" stroke="#c0392b" stroke-width="2.4"/><rect x="290" y="80" width="14" height="14" fill="#c9bc98"/>${label(297, "医疗室 Lv" + lm + "/2")}</g>`;
   return `<svg class="campus" viewBox="0 0 360 118"><rect x="0" y="94" width="360" height="5" fill="#ddd2b2"/>${train}${ware}${med}</svg>`;
 }
-window.jumpCard = function(id){ const el = document.getElementById(id); if(!el) return; el.scrollIntoView({ behavior:"smooth", block:"center" }); el.classList.remove("facflash"); void el.offsetWidth; el.classList.add("facflash"); };
+window.jumpCard = function(id){ const el = document.getElementById(id); if(!el) return; const cs = el.closest("[data-cseg]"); if(cs && cs.style.display === "none") clubSeg(cs.dataset.cseg); const hs = el.closest("[data-hseg]"); if(hs && hs.style.display === "none") homeSeg(hs.dataset.hseg); const ms = el.closest("[data-mseg]"); if(ms && ms.style.display === "none"){ marketSeg = ms.dataset.mseg; renderMarket(); } el.scrollIntoView({ behavior:"smooth", block:"center" }); el.classList.remove("facflash"); void el.offsetWidth; el.classList.add("facflash"); };
 window.facJump = function(id){ const r = document.getElementById("facrow-" + id); if(!r) return; r.scrollIntoView({ behavior:"smooth", block:"center" }); r.classList.remove("facflash"); void r.offsetWidth; r.classList.add("facflash"); };
 function renderFacility(){
   const el = $("#facilityBody"); if(!el) return;
@@ -1343,6 +1351,7 @@ function renderLoanPending(){
     d.querySelector("button").onclick = () => claimLoanReturn(pid);
     pl.appendChild(d);
   }
+  syncHomeSegBadge();
 }
 function renderLoanMarket(ml){
   ensureV2State();
@@ -2132,7 +2141,7 @@ function todayGo(go){
   if(go === "daily"){ switchTab("league"); const el = $("#dailySlot"); if(el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   if(go === "choice"){ const el = $("#todaySlot"); if(el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   if(go === "affair"){ switchTab("club"); const el = $("#eventList"); if(el) setTimeout(()=>el.scrollIntoView({ behavior:"smooth", block:"center" }), 60); return; }
-  if(go === "gear"){ switchTab("club"); const el = $("#gearBody"); if(el) setTimeout(()=>el.scrollIntoView({ behavior:"smooth", block:"center" }), 60); return; }
+  if(go === "gear"){ switchTab("club"); clubSeg("gear"); const el = $("#gearBody"); if(el) setTimeout(()=>el.scrollIntoView({ behavior:"smooth", block:"center" }), 60); return; }
   if(go === "video"){ switchTab("club"); const el = $("#eventList"); if(el) setTimeout(()=>el.scrollIntoView({ behavior:"smooth", block:"center" }), 60); return; }
   switchTab(go);
 }
@@ -4991,9 +5000,9 @@ function cockpitTodos(dayN){
   return list.sort((a, b) => a.u - b.u);
 }
 function cockpitGo(act){
-  if(act === "returns"){ switchTab("league"); const el = $("#pendingList"); if(el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 60); return; }
+  if(act === "returns"){ switchTab("league"); homeSeg("returns"); const el = $("#pendingList"); if(el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 60); return; }
   if(act === "club"){ switchTab("club"); return; }
-  if(act === "gear"){ switchTab("club"); const el = $("#gearBody"); if(el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 60); return; }
+  if(act === "gear"){ switchTab("club"); clubSeg("gear"); const el = $("#gearBody"); if(el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 60); return; }
   if(act === "video"){ switchTab("club"); const el = $("#eventList"); if(el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 60); return; }
   if(act === "squad"){ switchTab("squad"); return; }
   if(act === "market"){ switchTab("market"); return; }
@@ -5388,12 +5397,12 @@ function simShowNode(nd){
     const C = S.players[nd.carrierIdx], D = S.players[nd.defenderIdx];
     const winP = Math.max(0.15, Math.min(0.75, 0.42 + (D.skill.tackle - C.skill.ctrl) * 0.008));
     const goalP = Math.max(0.08, Math.min(0.45, 0.16 + (C.skill.shoot - 65) * 0.006));
-    box.innerHTML = `<div class="nodebox"><div class="pname">⚔ 关键对决（${L.minute}′）</div><div class="pmeta">${C.name} 带球直面 ${D.name}，${L.sportId === "basketball" ? "身后就是篮筐" : "身后只剩门将"}——选一种处置，概率都写在脸上：</div>
+    box.innerHTML = `<div class="nodebox"><div class="pname">⚔ 关键对决（${L.minute}′）</div><div class="pmeta">${C.name} 带球直面 ${D.name}，${isB ? "身后就是篮筐" : "身后只剩门将"}——选一种处置，概率都写在脸上：</div>
     <div class="tiers" style="grid-template-columns:1fr 1fr 1fr">
-      <button onclick="duelChoose('tackle')">上抢<br><span class="hint">成功 ${Math.round(winP * 100)}% · 犯规 26% · 可能得牌</span></button>
-      <button onclick="duelChoose('slide')">放铲<br><span class="hint">成功 ${Math.round(Math.min(0.85, winP + 0.12) * 100)}% · 犯规 38% · 得牌风险高</span></button>
-      <button onclick="duelChoose('contain')">收缩<br><span class="hint">不犯规 · 放他出手，命中率 ${Math.round(goalP * 100)}%</span></button>
-    </div><div class="hint">这不是弹窗点缀：场上跑动就是这么打出来的。8 秒不选自动按「收缩」。</div></div>`;
+      <button onclick="duelChoose('tackle')">${isB ? "贴身逼抢" : "上抢"}<br><span class="hint">成功 ${Math.round(winP * 100)}% · 犯规 26%${isB ? "" : " · 可能得牌"}</span></button>
+      <button onclick="duelChoose('slide')">${isB ? "下手抢断" : "放铲"}<br><span class="hint">成功 ${Math.round(Math.min(0.85, winP + 0.12) * 100)}% · 犯规 38%${isB ? " · 容易被吹" : " · 得牌风险高"}</span></button>
+      <button onclick="duelChoose('contain')">${isB ? "收缩护筐" : "收缩"}<br><span class="hint">不犯规 · 放他出手，命中率 ${Math.round(goalP * 100)}%</span></button>
+    </div><div class="hint">这不是弹窗点缀：场上跑动就是这么打出来的。8 秒不选自动按「${isB ? "收缩护筐" : "收缩"}」。</div></div>`;
     L.nodeTimer = setTimeout(()=>{ if(LIVE && LIVE.nodesPending && LIVE.S && LIVE.S.deadBall && LIVE.S.deadBall.type === "duel") duelChoose("contain"); }, 8000);
   }
   else if(nd.type === "pen"){
@@ -5426,9 +5435,9 @@ function duelChoose(kind){
   const goalEv = evs.find(e=>e.type === "goal"), foulEv = evs.find(e=>e.type === "foul"), cardEv = evs.find(e=>e.type === "card"), wonEv = evs.find(e=>e.type === "duelWon"), saveEv = evs.find(e=>e.type === "save");
   simSyncFromEngine();
   if(goalEv) txt = kind === "contain" ? `收缩放${isB ? "投" : "射"}——${C.name} 出手命中。比分 ${L.my}:${L.oppScore}。` : `被过了！${C.name} ${isB ? "迎着防守强行打进" : "直面门将打进"}。比分 ${L.my}:${L.oppScore}。`;
-  else if(wonEv) txt = kind === "contain" ? `收缩到位，${C.name} 勉强出手偏出，虚惊一场。` : `${D.name} ${kind === "slide" ? "一记干净利落的放铲" : "果断上抢"}，把球断下！`;
-  else if(foulEv) txt = `犯规！${D.name} 慢了半步，${isB ? "送给对方球权" : "对方拿到前场任意球"}。${cardEv ? " 还吃到一张黄牌。" : ""}`;
-  else if(saveEv) txt = `对方射门被门将扑出，虚惊一场。`;
+  else if(wonEv) txt = kind === "contain" ? `${isB ? "收缩护筐到位" : "收缩到位"}，${C.name} 勉强出手偏出，虚惊一场。` : `${D.name} ${kind === "slide" ? (isB ? "下手如电，一把将球掏掉" : "一记干净利落的放铲") : (isB ? "贴身紧逼，迫使对方失误" : "果断上抢")}，把球断下！`;
+  else if(foulEv) txt = `犯规！${D.name} 慢了半步，${isB ? "送给对方球权" : "对方拿到前场任意球"}。${cardEv && !isB ? " 还吃到一张黄牌。" : ""}`;
+  else if(saveEv) txt = isB ? `${C.name} 的出手被封盖干扰，偏出篮筐。` : `对方射门被门将扑出，虚惊一场。`;
   else txt = `险情化解。`;
   closeNode(); pushLine(L.minute, txt, "chance"); renderMatchHead();
 }
@@ -6160,6 +6169,7 @@ async function render(){
         pl.appendChild(d);
       }
     }
+    syncHomeSegBadge();
   }
   const dayN = Math.min(Math.max(1, Math.floor((Date.now()-(mock.state.createdAt||Date.now()))/86400000)+1),14);
   const spL = curSport(); const opp = spL.leagues()[(dayN-1)%spL.leagues().length];
@@ -6195,6 +6205,18 @@ async function render(){
   const bdC=$("#bdClub"); if(bdC){ bdC.textContent=""; bdC.style.display="none"; }
 }
 let CUR_TAB="league";
+let homeSegCur = "league";
+function homeSeg(name){
+  homeSegCur = name;
+  document.querySelectorAll("[data-hseg]").forEach(el => { el.style.display = el.dataset.hseg === name ? "" : "none"; });
+  document.querySelectorAll("[data-hbtn]").forEach(b => { b.classList.toggle("act", b.dataset.hbtn === name); });
+}
+window.homeSeg = homeSeg;
+function syncHomeSegBadge(){
+  const b = document.querySelector('[data-hbtn="returns"]'); if(!b) return;
+  const n = document.querySelectorAll("#pendingList .card").length;
+  b.textContent = n ? `🎉 待归队 ${n}` : "🎉 待归队";
+}
 let clubSegCur = "events";
 function clubSeg(name){
   clubSegCur = name;
@@ -6293,6 +6315,7 @@ function tourShow(){
     if(el){
       const cs = el.closest("[data-cseg]"); if(cs && cs.style.display === "none") clubSeg(cs.dataset.cseg);
       const ms = el.closest("[data-mseg]"); if(ms && ms.style.display === "none"){ marketSeg = ms.dataset.mseg; renderMarket(); }
+      const hs = el.closest("[data-hseg]"); if(hs && hs.style.display === "none") homeSeg(hs.dataset.hseg);
     }
     /* 迎接归队步：教学拉练的归队卡由首页数据异步渲染，给它留出到场时间再决定用实操版还是讲解版文案 */
     if(step.id === "claim" && !document.querySelector("#pendingList .card") && tries++ < 10){ setTimeout(attempt, 250); return; }
