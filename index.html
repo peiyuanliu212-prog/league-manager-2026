@@ -599,10 +599,18 @@ const mock = {
     return { ok:false, code:"NO_ROUTE" };
   }
 };
+const LM_API_BASE = "https://app-e3301d52aa-d0g0tqijucebc60a8-1252166086.ap-shanghai.app.tcloudbase.com";
+const LM_ENV_ID = "app-e3301d52aa-d0g0tqijucebc60a8";
 async function api(path, body){
   if(inShell){
-    const r = await window.ColorboxAI.cloud.request({ path, method:"POST", data: body||{} });
-    return (r && r.data) || { ok:false, code:"EMPTY" };
+    /* 官方 SDK 形态（hupu-skills-pack 官方示例）：必须给完整 url，只给 {path} 会被 SDK 拒（Missing parameter: url）；
+       应答按 statusCode＋code 判、业务数据在 res.data（网关信封 {code,message,data}） */
+    try{
+      const r = await window.ColorboxAI.cloud.request({ url: LM_API_BASE + path, method:"POST", data: body||{}, envId: LM_ENV_ID, auth: true });
+      if(r && r.statusCode === 200 && (r.code === 0 || r.code === 200) && r.data) return r.data;
+      if(r && r.statusCode === 401) return { ok:false, code:"UNAUTHORIZED" };
+      return { ok:false, code:"EMPTY" };
+    }catch(e){ return { ok:false, code:"NETWORK" }; }
   }
   return mock.call(path, body||{});
 }
