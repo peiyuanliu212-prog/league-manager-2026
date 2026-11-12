@@ -913,7 +913,6 @@ const SPORT_PACKS = {
 };
 const SPORTS = SPORT_PACKS;
 function curSport(){ return SPORT_PACKS[mock.state.sport||"football"] || SPORT_PACKS.football; }
-function sportTerms(){ return curSport().terms || {}; }
 function teamPower(){ return teamPowerFor(curSport()); }
 function findPlayer(pid){ return PLAYERS.find(x=>x.pid===pid) || BPLAYERS.find(x=>x.pid===pid) || (mock.state.customPlayers||[]).find(x=>x.pid===pid) || P1_PLAYERS.find(x=>x.pid===pid) || P3_PLAYERS.find(x=>x.pid===pid); }
 function tierColor(v){ return v>=90?"#a83226":v>=87?"#6d4fa1":v>=83?"#2f5d8a":v>=79?"#2e6b46":"#8a8272"; }
@@ -1184,7 +1183,7 @@ function drawPreviewPitch(){
   const cv = document.querySelector("#previewPitch"); if(!cv) return;
   const sp = curSport(), dayN = seasonDayN(), opp = sp.leagues()[(dayN - 1) % sp.leagues().length];
   const ctx = cv.getContext("2d"), W = cv.width, H = cv.height, isB = sp.id === "basketball";
-  if(isB){ const sk = skinOf(); const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, sk.bc1); g.addColorStop(1, sk.bc1); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.fillStyle = sk.bc2; ctx.fillRect(0, H * .42, W, H * .16); ctx.fillStyle = "rgba(255,255,255,.05)"; const stp = sk.stripe || "v"; if(stp === "v"){ for(let i = 0; i < 6; i += 2) ctx.fillRect(W * i / 6, 0, W / 6, H); } else if(stp === "h"){ for(let i = 0; i < 6; i += 2) ctx.fillRect(0, H * i / 6, W, H / 6); } }
+  if(isB){ const sk = skinOf(); const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, sk.bc1); g.addColorStop(1, sk.bc2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.fillStyle = sk.bc2; ctx.fillRect(0, H * .42, W, H * .16); ctx.fillStyle = "rgba(255,255,255,.05)"; const stp = sk.stripe || "v"; if(stp === "v"){ for(let i = 0; i < 6; i += 2) ctx.fillRect(W * i / 6, 0, W / 6, H); } else if(stp === "h"){ for(let i = 0; i < 6; i += 2) ctx.fillRect(0, H * i / 6, W, H / 6); } }
   else { const sk = skinOf(); const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, sk.c1); g.addColorStop(1, sk.c2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = "rgba(255,255,255,.045)"; const stp = skinOf().stripe || "v";
     if(stp === "v"){ for(let i = 0; i < 6; i += 2) ctx.fillRect(W * i / 6, 0, W / 6, H); }
@@ -3648,43 +3647,6 @@ function triggerForce(S, evs){
   else if(f.type === "injury"){ const cur = ballOwner(S); if(cur) S.deadBall = { type: "injury", pid: cur.pid, side: cur.side, victimIdx: S.players.indexOf(cur), then: { type: "fk", side: cur.side, x: cur.x, y: cur.y } }; }
 }
 /* ---------------- basketball ---------------- */
-function decideCarrierBasketball(S, p, evs){
-  const C = S.C, P = dynParams(S, p.side), dir = p.side ? -1 : 1;
-  const hoop = { x: p.side ? 1.5 : 98.5, y: 32 };
-  const dHoop = Math.hypot(hoop.x - p.x, hoop.y - p.y);
-  const nOpp = nearestOppTo(S, p);
-  const press = nOpp ? Math.hypot(nOpp.x - p.x, nOpp.y - p.y) : 99;
-  let pMake = clamp(1.0 - dHoop * .009 - Math.min(press, 10) * .006 + (p.skill.shoot - 72) * .003, .16, .94);
-  const pts = dHoop > 26 ? 3 : 2; if(pts === 3) pMake *= .85;
-  if(pMake > P.shootThr * (0.60 + dHoop / 170) || (dHoop < 12 && pMake > .32)){
-    const d = Math.max(4, dHoop), v = d / 4.5;
-    const ang = Math.atan2(hoop.y - p.y, hoop.x - p.x) + (S.rng() * 2 - 1) * (1 - p.skill.shoot / 100) * .06;
-    S.ball.vx = Math.cos(ang) * v; S.ball.vy = Math.sin(ang) * v;
-    S.ball.owner = null; S.ball.lastTouch = p.side; S.ball.kickSide = p.side; S.ball.noSteal = 5;
-    S.ball.shotBy = p.side; S.ball.lastShooter = p; S.ball.hoopShot = { side: p.side, pMake, pts, shooter: p };
-    S.stats.shots[p.side]++; evs.push(emit(S, { type: "shot", side: p.side, p, pts }));
-    p.cool = 26; return;
-  }
-  let best = null, bestScore = 15; const candB = [];
-  for(const t of teamPlayers(S, p.side)){
-    if(t === p) continue;
-    const adv = (t.x - p.x) * dir;
-    const n = nearestOppTo(S, t); const open = n ? Math.hypot(n.x - t.x, n.y - t.y) : 20;
-    let corridor = 99; for(const q of S.players){ if(q.side === p.side || q.out) continue; corridor = Math.min(corridor, distToSeg(q.x, q.y, p.x, p.y, t.x, t.y)); }
-    const dHT = Math.hypot(hoop.x - t.x, hoop.y - t.y);
-    let sc = adv * 1.6 + open * 1.5 + (dHoop - dHT) * .8 + (t.skill.ctrl - 60) * .05;
-    if(adv < -4 && press > 5) sc *= .5;
-    if(corridor < 2.0) sc *= (S.rng() < P.passRisk ? .55 : .2);
-    candB.push({ t, sc });
-    if(sc > bestScore){ bestScore = sc; best = t; }
-  }
-  if(candB.length > 1 && S.rng() < (1 - p.skill.decide / 100) * .65){ candB.sort((a, b)=>b.sc - a.sc); const pick = candB[1 + Math.floor(S.rng() * (candB.length - 1))]; if(pick && pick.sc > 0){ best = pick.t; bestScore = pick.sc; } }
-  if(best){ evs.push(doPass(S, p, best, 5)); return; }
-  let ty = hoop.y + (p.y - 32) * .4;
-  if(nOpp && press < 6) ty += (p.y < nOpp.y ? -8 : 8);
-  p.tx = clamp(p.x + dir * 16, 2, 98); p.ty = clamp(ty, 4, 60); p.state = "dribble";
-  p.cool = Math.round((C.decCool[0] + S.rng() * (C.decCool[1] - C.decCool[0])) * P.tempo * (1.15 - p.skill.decide / 100 * .3) * .6);
-}
 /* ================= BASKETBALL — possession state machine on the shared tick chassis =================
    Court in feet, 94x50, full-court coordinates always. Team 0 attacks the right hoop (88.75,25), team 1 the left (5.25,25).
    Attack frame: fx measured toward the hoop a team attacks (fx = x for team 0, 94 - x for team 1), fy = y.
@@ -4641,71 +4603,12 @@ function sampleSegment(L, from, to){
   evs.sort((a,b)=>a.min-b.min);
   return { evs, lamMy, lamOpp };
 }
-function applyEvent(L, ev){
-  const isB = L.sportId === "basketball";
-  if(ev.side === "fill"){ pushLine(Math.floor(ev.min), ev.text, ""); return; }
-  if(ev.side === "card"){ L.yc = (L.yc || 0) + 1; const p = pickScorer(L, true); pushLine(Math.floor(ev.min), `黄牌——${Math.random() < 0.55 && p ? p.name : "对方球员"} 战术犯规，裁判出示黄牌。`, "card"); return; }
-  if(ev.side === "my"){ L.my += ev.pts; const p = pickScorer(L, true); const a = pickScorer(L, true);
-    if(isB){ L.myGoals++; pushLine(Math.floor(ev.min), `${p ? p.name : "我方"} ${ev.pts === 3 ? "外线三分命中" : "突破上篮得手"}！${a && p && a.pid !== p.pid ? "（" + a.name + " 助攻）" : ""} 比分 ${L.my}:${L.oppScore}。`, "goal"); }
-    else { L.myGoals++; if(p) L.scorers.push(p.name); pushLine(Math.floor(ev.min), `进球！${p ? p.name : "我方"} 破门得分${a && p && a.pid !== p.pid ? "，" + a.name + " 送出助攻" : ""}！比分 ${L.my}:${L.oppScore}。`, "goal"); } return; }
-  if(ev.side === "opp"){ L.oppScore += ev.pts; pushLine(Math.floor(ev.min), isB ? `对方打成一波进攻，+${ev.pts} 分。比分 ${L.my}:${L.oppScore}。` : `丢球——对方前锋抓住防线身后空当打进。比分 ${L.my}:${L.oppScore}。`, "oppgoal"); return; }
-}
 function pickByGroup(L, groups){
   const cand = L.onPitch.map(x=>({ p: findPlayer(x.pid), slot: x.slot })).filter(x=>x.p && groups.includes(slotGroupOf(x.p, L.sportId)));
   const src = cand.length ? cand : L.onPitch.map(x=>({ p: findPlayer(x.pid) })).filter(x=>x.p);
   return src.length ? src[Math.floor(Math.random() * src.length)].p : null;
 }
 /* v22 组织进攻链：推进 → 机会 → 射门；每一步都点名持球人，球场上由该球员带球推进、传给下一人 */
-function buildSegmentScript(L, from, to){
-  const { evs, lamMy, lamOpp } = sampleSegment(L, from, to);
-  const isB = L.sportId === "basketball", span = to - from, items = [];
-  const myGroups = L.onPitch.map(x=>{ const p = findPlayer(x.pid); return p ? slotGroupOf(p, L.sportId) : "MF"; });
-  const myPos = pitchBasePos(L.sportId, myGroups, false);
-  const awayGroups = (L.oppForm && L.oppForm.slots) ? L.oppForm.slots.slice() : (isB ? ["控卫","分卫","小前锋","大前锋","中锋"] : ["GK","DF","DF","DF","DF","MF","MF","MF","WG","ST","ST"]);
-  const awayPos = pitchBasePos(L.sportId, awayGroups, true);
-  const myCarrier = groups => { const p = pickByGroup(L, groups); if(!p) return null; const i = L.onPitch.findIndex(x=>x.pid === p.pid); return { p, flow: { pid: p.pid, y: i >= 0 ? myPos[i].by : .5 } }; };
-  const awayCarrierAt = x => { let bi = 0, bd = 1e9; awayPos.forEach((pp, i)=>{ const d = Math.abs(pp.bx - x); if(d < bd){ bd = d; bi = i; } }); return { flow: { ai: bi, y: awayPos[bi] ? awayPos[bi].by : .5 } }; };
-  const progF = [["GK","DF"],["MF"],["WG","ST","FW"]], progB = [["控卫","分卫"],["小前锋","大前锋","中锋"]];
-  const buildMyF = [c=>`${c.p.name} 后场稳住球权，带球向前推进。`, c=>`${c.p.name} 中场连续盘带传递，把球送到前场。`, c=>`${c.p.name} 压到禁区前沿，进攻成型。`];
-  const buildOpF = ["对方后卫带球推进过半场。", "对方中场连续传递，压了上来。", "对方攻到禁区前沿，防线告急。"];
-  const buildMyB = c=>`${c.p.name} 持球推进，组织半场进攻。`;
-  const buildOpB = "对方后卫持球推进，组织半场进攻。";
-  let lastFlow = { side: "my", x: .45, pid: null };
-  const mkGoalChain = ev => {
-    const mine = ev.side === "my", steps = isB ? 2 : 3, xs = isB ? [.35, .68] : [.27, .52, .77];
-    let carrier = null;
-    for(let k = 0; k < steps; k++){
-      const mm = Math.max(from + 0.5, ev.min - (steps - k) * (span / 8));
-      if(mine){ carrier = myCarrier(isB ? progB[k] : progF[k]); }
-      else { carrier = awayCarrierAt(1 - xs[k]); }
-      const fl = Object.assign({ side: ev.side, x: mine ? xs[k] : 1 - xs[k] }, carrier ? carrier.flow : {});
-      items.push({ min: mm, kind: "build", delay: isB ? 480 : 760, flow: fl, text: isB ? (mine ? buildMyB(carrier || { p: { name: "队员" } }) : buildOpB) : (mine ? buildMyF[k](carrier || { p: { name: "队员" } }) : buildOpF[k]) });
-      lastFlow = fl;
-    }
-    const fl = Object.assign({ side: ev.side, x: mine ? .93 : .07 }, carrier ? carrier.flow : {});
-    items.push({ ev, min: ev.min, delay: isB ? 820 : 1250, flow: fl }); lastFlow = fl;
-  };
-  for(const ev of evs){
-    if(ev.side === "my" || ev.side === "opp") mkGoalChain(ev);
-    else if(ev.side === "fill"){ items.push({ ev, min: ev.min, delay: 850, flow: Object.assign({}, lastFlow, { x: .45 }) }); }
-    else { items.push({ ev, min: ev.min, delay: 900, flow: Object.assign({}, lastFlow) }); }
-  }
-  const chMy = pois(lamMy * 0.9), chOpp = pois(lamOpp * 0.9);
-  const addChance = (mine, txt, carrier) => {
-    const mm = from + Math.random() * span;
-    const c1 = mine ? myCarrier(isB ? ["控卫","分卫","小前锋"] : ["MF"]) : awayCarrierAt(.48);
-    const fl1 = Object.assign({ side: mine ? "my" : "opp", x: mine ? .52 : .48 }, c1 ? c1.flow : {});
-    items.push({ min: Math.max(from + 0.5, mm - span / 8), kind: "build", delay: isB ? 480 : 760, flow: fl1, text: isB ? (mine ? buildMyB(c1 || { p: { name: "队员" } }) : buildOpB) : (mine ? buildMyF[1](c1 || { p: { name: "队员" } }) : buildOpF[1]) });
-    const fl2 = Object.assign({ side: mine ? "my" : "opp", x: mine ? .85 : .15 }, carrier ? carrier.flow : {});
-    items.push({ min: mm, kind: "chance", delay: isB ? 750 : 1050, flow: fl2, text: txt });
-  };
-  const chanceMyF = [c=>`${c.p.name} 禁区弧顶一脚远射，被门将稳稳抱住。`, c=>`${c.p.name} 头球攻门，稍稍偏出立柱。`, c=>`${c.p.name} 直塞打穿防线，临门一脚被后卫封堵。`];
-  const chanceOpF = ["对方禁区外远射，被门将飞身扑出。", "对方头球攻门，擦着立柱偏出。", "对方小禁区前抢点，球被后卫抢先解围。"];
-  for(let i = 0; i < chMy; i++){ const c = myCarrier(isB ? ["分卫","小前锋","大前锋"] : ["WG","ST","FW"]); addChance(true, isB ? `${(c ? c.p.name : "队员")} 迎着防守出手，弹框而出。` : chanceMyF[i % 3](c || { p: { name: "队员" } }), c); }
-  for(let i = 0; i < chOpp; i++){ const c = awayCarrierAt(.18); addChance(false, isB ? "对方外线出手，打铁偏出。" : chanceOpF[i % 3], c); }
-  items.sort((a,b)=>a.min - b.min);
-  return items;
-}
 /* ---------- v23 空间模拟适配层（引擎在 engine/sim-core.js，内联于本文件 SIM 标记段） ---------- */
 const SIM_PROF_F = { GK:{pace:.55,shoot:.2,pass:.75,ctrl:.7,tackle:.4,save:1.0,decide:.8}, DF:{pace:.8,shoot:.35,pass:.8,ctrl:.8,tackle:1.05,save:.1,decide:.85}, MF:{pace:.9,shoot:.7,pass:1.0,ctrl:1.0,tackle:.8,save:.05,decide:1.0}, WG:{pace:1.05,shoot:.9,pass:.9,ctrl:.95,tackle:.55,save:.05,decide:.9}, ST:{pace:.95,shoot:1.05,pass:.75,ctrl:.95,tackle:.45,save:.05,decide:.9}, FW:{pace:.95,shoot:1.05,pass:.75,ctrl:.95,tackle:.45,save:.05,decide:.9} };
 const SIM_PROF_B = { "控卫":{pace:.95,shoot:.85,pass:1.05,ctrl:1.05,tackle:.8,decide:1.05}, "分卫":{pace:.95,shoot:1.0,pass:.9,ctrl:.95,tackle:.85,decide:.95}, "小前锋":{pace:1.0,shoot:1.05,pass:.85,ctrl:.95,tackle:.9,decide:.95}, "大前锋":{pace:.85,shoot:.9,pass:.8,ctrl:.9,tackle:1.0,decide:.9}, "中锋":{pace:.7,shoot:.85,pass:.7,ctrl:.85,tackle:1.05,decide:.85} };
@@ -5317,9 +5220,6 @@ function simShowNode(nd){
     <div class="tiers" style="grid-template-columns:1fr 1fr">${L.bench.slice(0, 4).map(pid=>{ const bp = findPlayer(pid); return `<button onclick="injurySub('${pid}')">${bp ? bp.name : pid}（${bp ? effBase(bp) : ""}）</button>`; }).join("") || '<span class="hint">替补席没人了</span>'}<button class="ghost" onclick="injurySub('')">无人可换 · 少一人应战（战力打折）</button></div></div>`;
   }
   renderMatchTicker();
-}
-function simNodeSummary(kind){
-  /* 事件已在 resolve 后进入队列；这里只补一句人话总结（duel 用），其余靠 simDrainEvents */
 }
 function duelChoose(kind){
   const L = LIVE; if(!L || !L.S || !L.S.deadBall || L.S.deadBall.type !== "duel") return;
@@ -6149,7 +6049,7 @@ window.watchRenameAd = watchRenameAd;
 const GUIDE_STEPS = [
   { id:"tactics", t:"排兵布阵", d:"去阵容页选一个战术心态，或开一个战术指令", tip:"老陈：先把打法立住，克制对面比堆战力划算。", tab:"squad" },
   { id:"arranged", t:"派人成长", d:"安排 1 名球员去集训或外租——离线也在长", tip:"老陈：人派出去了，你关掉页面他也照练。", tab:"squad" },
-  { id:"match", t:"打第一场联赛", d:"在联赛页完成 1 场比赛（可倍速、可跳过）", tip:"老陈：赢了涨声望，输了也给教练经验，不亏。", tab:"league" },
+  { id:"match", t:"打第一场联赛", d:"在联赛页完成 1 场比赛（可倍速；首场可免费跳过，之后跳过需看广告）", tip:"老陈：赢了涨声望，输了也给教练经验，不亏。", tab:"league" },
   { id:"market", t:"逛签约市场", d:"打开市场页看看今天有哪些人", tip:"老陈：先看价再下手，工资占比别过 70% 红线。", tab:"market" },
   { id:"claimed", t:"迎接归队", d:"有球员归队时，在联赛页点「迎接归队」", tip:"老陈：加练 2 分钟就回，迎接还有践约加成。", tab:"league" },
 ];
