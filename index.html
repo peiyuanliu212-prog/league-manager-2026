@@ -6157,12 +6157,10 @@ const TOUR_STEPS = [
   { id:"welcome", title:"欢迎上任！先用一分钟学会打比赛", body:"我是领队老陈。这个游戏你同时管两支队：足球队＋篮球队，每天各打一场正赛。<br>接下来跟着高亮走一遍——重点是比赛，其它系统最后巡一圈。随时可以跳过，之后在「俱乐部 → 经理台」能重看。" },
   { id:"card", tab:"league", target:() => $("#leagueCard"), title:"第一步：看懂今天的比赛卡", body:"开赛前先看三样：<b>双方战力</b>（差太多先回阵容页调阵型）、<b>赛前情报</b>（克制对方有加成）、<b>本场奖金</b>（赢 80 平 30，全队工资靠它）。" },
   { id:"play", tab:"league", target:() => $("#playBtn"), action:"play", title:"点这里进直播间（不会直接开赛）", body:"点「进入直播间 · 打这场」先进赛前准备页，<b>不会立刻开球</b>。<br>误点进来也零损失：退出不用看广告、不耗任何场次。放心点一下试试。" },
-  { id:"start", target:() => $("#startMatchBtn"), action:"start", title:"这才是「开始比赛」按钮", body:"赛前页最后确认三件事：实力对比、我方和对手的打法克制、首发体能。<br>有人体能低于 40 就容易受伤，先去阵容页轮休他。确认没问题，<b>点它才正式开球</b>。" },
-  { id:"head", target:() => $("#matchHead"), title:"比分牌：比赛的眼睛", body:"上排是比分和对手，中间是比赛分钟；下面写着当前心态、黄红牌（篮球看犯规）和<b>全队体能条</b>。<br>体能掉到 40 以下，球员会变慢、还容易受伤——那就是该换人的信号。" },
-  { id:"speed", target:() => $("#matchSpeed"), title:"倍速：赶时间就点它", body:"一场球正常看完约两三分钟。点这里在 ×1 和 ×3 之间切换。<br><b>倍速只影响观看速度，不影响比赛结果</b>，发动机算出来的比分一模一样。" },
-  { id:"skip", target:() => $("#skipBtn"), title:"跳过并结算：首场免费", body:"实在没时间可以跳过，直接出结果。<b>第一场免费，之后每场跳过要看一条广告</b>。<br>广告没看完不会结算、也不会惩罚——但跳过就没有临场指挥的乐趣了。第一场建议老老实实看完。" },
-  { id:"livebar", target:() => $("#liveBar"), title:"临场指挥台：你不是观众，是教练", body:"这一排全是真能改写比赛的操作：<br>① <b>心态五档</b>（极守到强攻）随时切换、立刻生效；<br>② <b>附加指令</b>可多开，比如逼抢、沉退、换防；<br>③ <b>换人</b>全场 3 次，点开会暂停比赛慢慢挑；篮球还能<b>叫暂停</b>。<br>落后了别干看着，变阵真的管用。" },
-  { id:"nodes", target:() => $("#matchNode"), title:"关键时刻会暂停，等你拍板", body:"比赛里会停下来让你做决定：<b>关键对决</b>（拼一把还是求稳）、<b>点球</b>（亲自选打门落点）、<b>篮球罚球</b>、<b>有人伤退</b>要换人、<b>中场调整</b>。<br>每个选择都真实影响结果，而且比赛停着不会偷跑，慢慢想。" },
+  { id:"brief1", dock:"top", title:"开球前先认：比分牌和体能条", body:"进了直播间，最上面是<b>比分牌</b>：比分、比赛分钟、当前心态、黄红牌（篮球看犯规），还有一条<b>全队体能条</b>。<br>体能掉到 40 以下，球员会变慢、还容易受伤——看到体能条见底，就是该换人的信号。" },
+  { id:"brief2", dock:"top", title:"开球前先认：倍速和跳过", body:"直播间右上角有<b>倍速</b>：在 ×1 和 ×3 之间切换，只影响观看速度，<b>不影响比赛结果</b>。<br>没时间可以<b>跳过并结算</b>：第一场免费，之后每场跳过要看一条广告；广告没看完不会结算、也不会惩罚。第一场建议老老实实看完。" },
+  { id:"brief3", dock:"top", title:"开球前先认：指挥台和关键时刻", body:"比分牌下面是<b>临场指挥台</b>：心态五档随时切换立刻生效、附加指令可多开、换人全场 3 次（点开会暂停慢慢挑），篮球还能叫暂停。<br>比赛里还会暂停等你拍板<b>关键时刻</b>：关键对决、点球选落点、篮球罚球、伤退换人、中场调整——比赛停着不会偷跑，慢慢想。" },
+  { id:"start", target:() => $("#startMatchBtn"), action:"start", title:"这才是「开始比赛」按钮", body:"赛前页最后确认三件事：实力对比、我方和对手的打法克制、首发体能。<br>有人体能低于 40 就容易受伤，先去阵容页轮休他。确认没问题，<b>点它才正式开球</b>。开球后引导会先退场，这场你专心指挥，赛后再见。" },
   { id:"settle", target:() => $("#matchNode"), action:"close", title:"全场结束：结算看四样", body:"① <b>声望</b>：赢涨输跌，影响排名和以后签人的吸引力；<br>② <b>比赛奖金</b>：进你的资金池；<br>③ <b>教练经验</b>：升级教练技能用；<br>④ <b>本场之星</b>：这场最亮眼的球员。<br>点「生成战报海报」能把这场做成图，发群里晒。看完点「完成」。" },
   { id:"arrange", tab:"squad", target:() => document.querySelector("#squadList .card"), title:"打完别散场：派人出去成长", body:"点球员卡下方的时长按钮派他出去：<b>2 分钟加练</b>（马上回，先体验）、2/4/8/22 小时四档，越久产出越高，<b>早归还有加成</b>。关掉游戏他也照练——这就是离线成长。" },
   { id:"claim", tab:"league", target:() => $("#todaySlot"), title:"迎接归队：回来的仪式感", body:"球员到点后，联赛页上方会出现「已归队」的卡片，点<b>「迎接归队」</b>领他的成长产出，还有一笔<b>践约加成</b>。<br>睡前派一两个长档出去，明天回来正好迎接——这是每天上线最值的动作。" },
@@ -6185,7 +6183,7 @@ function tourShow(){
   const t = tourState(); if(t.done){ tourHide(); return; }
   let step = TOUR_STEPS[t.i]; if(!step){ tourFinish(true); return; }
   /* 比赛段步骤（开始→结算）依赖比赛弹窗在场；弹窗不在就退回「进直播间」步等玩家，不许对着空页面乱指 */
-  const MATCH_SEG = ["start","head","speed","skip","livebar","nodes","settle"];
+  const MATCH_SEG = ["start","settle"];
   const mm = $("#matchModal");
   if(MATCH_SEG.includes(step.id) && mm && mm.classList.contains("hidden")){
     t.i = TOUR_STEPS.findIndex(x => x.id === "play"); mock.save(); step = TOUR_STEPS[t.i];
@@ -6209,25 +6207,39 @@ function tourRender(step, el){
     : `<button class="mini" onclick="tourNext()">${t.i === TOUR_STEPS.length - 1 ? "完成引导" : "下一步"}</button>`;
   bub.innerHTML = `<div class="pmeta">🧭 新手引导 ${t.i + 1}/${TOUR_STEPS.length} · 领队老陈</div><div class="pname" style="font-size:15px;margin:3px 0">${step.title}</div><div class="pmeta" style="line-height:1.6">${step.body}</div><div class="row" style="margin-top:9px"><button class="mini ghost" onclick="tourSkip()">跳过引导</button>${right}</div>`;
   bub.style.display = "";
-  if(el){ try{ const r0 = el.getBoundingClientRect(); el.scrollIntoView({ block: r0.height > window.innerHeight * 0.45 ? "start" : "center", behavior:"smooth" }); }catch(e){} }
-  setTimeout(() => tourPlace(el), 350);
-  tourPlace(el);
+  TOUR_SIDE = null;
+  if(el){ try{ const r0 = el.getBoundingClientRect(), vh0 = window.innerHeight;
+    if(r0.top < 70 || r0.bottom > vh0 - 90){ el.scrollIntoView({ block: r0.height > vh0 * 0.45 ? "start" : "center", behavior:"auto" }); } }catch(e){} }
+  setTimeout(() => tourPlace(el, true), 60);
+  tourPlace(el, true);
 }
-function tourPlace(el){
+let TOUR_SIDE = null;
+function tourPlace(el, decide){
   const ring = $("#tourRing"), bub = $("#tourBubble"); if(!ring || !bub || bub.style.display === "none") return;
-  if(!el){ ring.style.display = "none"; bub.style.top = ""; bub.style.bottom = "84px"; return; }
+  const step = TOUR_STEPS[tourState().i];
+  if(!el){
+    ring.style.display = "none";
+    if(step && step.dock === "top"){ bub.style.bottom = ""; bub.style.top = "12px"; }
+    else { bub.style.top = ""; bub.style.bottom = "84px"; }
+    return;
+  }
   const r = el.getBoundingClientRect();
   if(r.width === 0 || r.height < 6){ ring.style.display = "none"; bub.style.top = ""; bub.style.bottom = "84px"; return; }
   ring.style.display = "";
   ring.style.left = (r.left - 5) + "px"; ring.style.top = (r.top - 5) + "px";
   ring.style.width = (r.width + 10) + "px"; ring.style.height = (r.height + 10) + "px";
-  /* 气泡绝不压目标：优先目标下方、下方放不下放上方、两边都不够时停靠空格大的一侧 */
+  /* 气泡绝不压目标，且同一步内固定一侧（滚动追踪只挪位置、不翻面，防页面跳动） */
   const vh = window.innerHeight, bh = bub.offsetHeight || 200, GAP = 12;
-  const belowTop = r.bottom + GAP, aboveTop = r.top - GAP - bh;
+  if(decide || !TOUR_SIDE){
+    if(r.bottom + GAP + bh <= vh - 8) TOUR_SIDE = "below";
+    else if(r.top - GAP - bh >= 8) TOUR_SIDE = "above";
+    else if(vh - r.bottom >= r.top) TOUR_SIDE = "dockb";
+    else TOUR_SIDE = "dockt";
+  }
   let top;
-  if(belowTop + bh <= vh - 8) top = belowTop;
-  else if(aboveTop >= 8) top = aboveTop;
-  else if(vh - r.bottom >= r.top) top = vh - 10 - bh; /* 大目标停靠底部：宁可盖页签，不许盖目标本体 */
+  if(TOUR_SIDE === "below") top = r.bottom + GAP;
+  else if(TOUR_SIDE === "above") top = r.top - GAP - bh;
+  else if(TOUR_SIDE === "dockb") top = vh - 10 - bh;
   else top = 8;
   top = Math.max(8, Math.min(top, vh - 8 - bh));
   bub.style.bottom = ""; bub.style.top = top + "px";
@@ -6245,11 +6257,12 @@ function tourHook(ev){
   const t = s.tour, step = TOUR_STEPS[t.i]; if(!step) return;
   const idx = id => TOUR_STEPS.findIndex(x => x.id === id);
   if(ev === "play" && step.action === "play"){ tourNext(); return; }
-  if(ev === "start" && step.action === "start"){ tourNext(); return; }
+  /* 开球：引导整段退场，停在结算步等比赛打完/跳过，期间不弹任何气泡、不挡操作 */
+  if(ev === "start" && step.action === "start"){ t.i = idx("settle"); mock.save(); tourHide(); return; }
   if(ev === "cancel" && t.i > idx("play") && t.i <= idx("settle")){ t.i = idx("play"); mock.save(); tourShow(); return; }
-  if(ev === "settle" && t.i >= idx("head") && t.i < idx("settle")){ t.i = idx("settle"); mock.save(); tourShow(); return; }
-  if(ev === "close" && t.i >= idx("head") && t.i < idx("arrange")){ t.i = idx("arrange"); mock.save(); tourShow(); return; }
-  if(ev === "close" && step.action === "close"){ tourNext(); }
+  if(ev === "settle" && t.i >= idx("brief1") && t.i <= idx("settle")){ t.i = idx("settle"); mock.save(); tourShow(); return; }
+  if(ev === "close" && step.action === "close"){ tourNext(); return; }
+  if(ev === "close" && t.i >= idx("settle") && t.i < idx("arrange")){ t.i = idx("arrange"); mock.save(); tourShow(); return; }
 }
 window.tourStart = tourStart; window.tourNext = tourNext; window.tourSkip = tourSkip; window.tourHook = tourHook; window.tourAutoStart = tourAutoStart;
 
