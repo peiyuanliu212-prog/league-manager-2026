@@ -417,6 +417,7 @@
       <button class="mini" onclick="guideReopen()">📖 新手任务</button>
       <button class="mini" onclick="openRules()">🌙 离线成长说明</button>
       <button class="mini" onclick="shareClub()">📣 分享俱乐部</button>
+      <button class="mini" onclick="openPosters()">🖼 海报中心</button>
     </div>
     <div class="row" style="margin-top:8px"><span class="hint">虎扑 App 内可把游戏加到手机桌面，明天一键回来收菜。</span><button class="mini ghost" onclick="addDesktop()">添加到桌面</button></div>
   </div>
@@ -496,6 +497,9 @@
   </div>
 </div>
 
+<div class="modal hidden" id="posterModal">
+  <div class="sheet" id="posterSheet"></div>
+</div>
 <div class="modal hidden" id="settleModal">
   <div class="sheet" id="settleSheet"></div>
 </div>
@@ -973,13 +977,13 @@ async function claimReturn(c){
   const p = findPlayer(c.playerId);
   if(c.kind==="commission"){
     const r = await api("/api/return/claim", { playerId:c.playerId, plannedReturnEpoch:c.plannedReturnEpoch, baseReward:150 });
-    if(r.ok && !r.replayed){ guideFlag("claimed"); ensureV2State(); if(typeof bumpDaily === "function") bumpDaily("train", 1); mock.state.output += 25; mock.state.commSynergy = true; mock.state.buckets.commercial += (r.reward||180); mock.save(); toast(`${p?p.name:c.playerId} 委托归队！委托费 ${r.reward||180} 到账、训练产出 +25、下一次特训 -20%（默契加成）`); }
+    if(r.ok && !r.replayed){ guideFlag("claimed"); ensureV2State(); if(typeof bumpDaily === "function") bumpDaily("train", 1); mock.state.output += 25; mock.state.commSynergy = true; mock.state.buckets.commercial += (r.reward||180); mock.state.lastReturn = { pid: c.playerId, name: p ? p.name : c.playerId, kind: "拉练委托", reward: r.reward || 180, day: seasonDayN() }; mock.save(); toast(`${p?p.name:c.playerId} 委托归队！委托费 ${r.reward||180} 到账、训练产出 +25、下一次特训 -20%（默契加成）`); }
     else if(r.ok){ toast("已领过啦"); }
     awayMap.delete(c.playerId); render(); return;
   }
   const base = 40 + Math.round((p?p.ability:70)/2);
   const r = await api("/api/return/claim", { playerId:c.playerId, plannedReturnEpoch:c.plannedReturnEpoch, baseReward:base });
-  if(r.ok && !r.replayed){ guideFlag("claimed"); ensureV2State(); if(typeof bumpDaily === "function") bumpDaily("train", 1); mock.state.buckets.commercial += (r.reward||0); mock.save(); toast(`${p?p.name:c.playerId} 归队！${RETURN_LINES[Math.floor(Math.random()*RETURN_LINES.length)]} 奖励 ${r.reward} 资金（践约加成 +${r.promiseBonus}）`); }
+  if(r.ok && !r.replayed){ guideFlag("claimed"); ensureV2State(); if(typeof bumpDaily === "function") bumpDaily("train", 1); mock.state.buckets.commercial += (r.reward||0); mock.state.lastReturn = { pid: c.playerId, name: p ? p.name : c.playerId, kind: "成长归队", reward: r.reward || 0, day: seasonDayN() }; mock.save(); toast(`${p?p.name:c.playerId} 归队！${RETURN_LINES[Math.floor(Math.random()*RETURN_LINES.length)]} 奖励 ${r.reward} 资金（践约加成 +${r.promiseBonus}）`); }
   else if(r.ok){ toast("已领过啦"); }
   awayMap.delete(c.playerId); render();
 }
@@ -1161,7 +1165,7 @@ function claimLoanReturn(pid){
   const p = findPlayer(pid); if(!p) return;
   mock.state.growth[pid] = Math.min(5, (mock.state.growth[pid] || 0) + 1);
   delete mock.state.loansOut[pid]; mock.save();
-  toast(`${p.name} 租借归队！练级有成，能力 +1`); render();
+  ensureV2State(); mock.state.lastReturn = { pid: p.pid, name: p.name, kind: "租借归队", reward: 0, day: seasonDayN() }; mock.save(); toast(`${p.name} 租借归队！练级有成，能力 +1`); render();
 }
 function previewHTML(sp, opp, dayN){
   const venue = dayN % 2 === 1 ? "主场" : "客场";
@@ -6111,6 +6115,116 @@ function closeRules(){ $("#rulesModal").classList.add("hidden"); }
 window.openRules = openRules; window.closeRules = closeRules;
 
 /* ---------- v14 分享 / 添加到桌面（壳内能力，点击触发，试玩版降级提示） ---------- */
+/* ================= v49 海报中心 ================= */
+let posterKind = "report";
+let posterCanvas = null;
+function posterRecord(){
+  const s = mock.state, out = { football: { w: 0, d: 0, l: 0, gf: 0, ga: 0 }, basketball: { w: 0, d: 0, l: 0, gf: 0, ga: 0 } };
+  for(const [k, v] of Object.entries(s.played || {})){
+    const sp = k.split(":")[0]; if(!out[sp] || typeof v !== "string") continue;
+    const mm = v.match(/(\d+):(\d+)/); if(!mm) continue;
+    const a = +mm[1], b = +mm[2], r = out[sp]; r.gf += a; r.ga += b;
+    if(v.startsWith("胜")) r.w++; else if(v.startsWith("平")) r.d++; else r.l++;
+  }
+  return out;
+}
+function posterVerdict(rec, s){
+  const tot = rec.football.w + rec.basketball.w, games = tot + rec.football.d + rec.basketball.d + rec.football.l + rec.basketball.l;
+  if(!games) return "赛季刚刚开始，第一页战报等你来写。";
+  const wr = tot / games;
+  if(wr >= 0.6) return "双线飘红，这支集团军正走在冠军路上。";
+  if(wr >= 0.4) return "稳扎稳打，豪门的样子已经有了雏形。";
+  return "逆风开局不丢人，经理的功力都在后半程。";
+}
+async function openPosters(kind){
+  if(kind) posterKind = kind;
+  const sh = $("#posterSheet"); if(!sh) return;
+  const tabs = [["report", "📊 赛季战报"], ["return", "🎉 归队喜报"], ["finale", "🏆 收官盘点"]].map(([k, label]) => `<button class="mini ${posterKind === k ? "" : "ghost"}" onclick="openPosters('${k}')">${label}</button>`).join(" ");
+  sh.innerHTML = `<div class="row"><span class="pname">🖼 海报中心</span><button class="mini ghost" onclick="document.querySelector('#posterModal').classList.add('hidden')">关闭</button></div>
+  <div style="display:flex;gap:6px;margin:10px 0">${tabs}</div>
+  <div id="posterCanvasWrap" style="text-align:center"></div>
+  <button style="width:100%;margin-top:10px" onclick="savePosterImage()">保存图片（PNG）</button>
+  <div class="hint" style="margin-top:6px">保存后可发到虎扑参赛帖或群里；壳内若未自动下载，长按图片保存。</div>`;
+  $("#posterModal").classList.remove("hidden");
+  await drawPoster();
+}
+function wrapLines(ctx, text, maxW){
+  const lines = []; let cur = "";
+  for(const ch of String(text)){ if(ctx.measureText(cur + ch).width > maxW && cur){ lines.push(cur); cur = ch; } else cur += ch; }
+  if(cur) lines.push(cur);
+  return lines;
+}
+async function drawPoster(){
+  const wrap = $("#posterCanvasWrap"); if(!wrap) return;
+  const s = mock.state, d = seasonDayN(), rec = posterRecord();
+  const W = 750, H = 1000, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  cv.style.cssText = "width:min(100%,380px);border-radius:10px;box-shadow:0 4px 18px rgba(0,0,0,.25)";
+  const ctx = cv.getContext("2d"), cx = W / 2;
+  ctx.fillStyle = "#f4efe4"; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "#a83226"; ctx.lineWidth = 6; ctx.strokeRect(22, 22, W - 44, H - 44);
+  ctx.strokeStyle = "#2b2620"; ctx.lineWidth = 2; ctx.strokeRect(38, 38, W - 76, H - 76);
+  ctx.textAlign = "center"; ctx.fillStyle = "#2b2620";
+  ctx.font = "700 27px sans-serif"; ctx.fillText("我 在 联 赛 当 经 理", cx, 96);
+  ctx.font = "15px sans-serif"; ctx.fillStyle = "#7a7261";
+  ctx.fillText("LEAGUE MANAGER · 虎扑主题创作大赛参赛作品", cx, 126);
+  ctx.fillStyle = "#a83226"; ctx.fillRect(cx - 60, 146, 120, 3);
+  let y = 210;
+  const big = t => { ctx.fillStyle = "#2b2620"; ctx.font = "700 46px sans-serif"; ctx.fillText(t, cx, y); y += 58; };
+  const mid = t => { ctx.fillStyle = "#2b2620"; ctx.font = "700 25px sans-serif"; ctx.fillText(t, cx, y); y += 40; };
+  const line = t => { ctx.fillStyle = "#4c463c"; ctx.font = "20px sans-serif"; for(const ln of wrapLines(ctx, t, W - 170)){ ctx.fillText(ln, cx, y); y += 30; } };
+  const gap = n => { y += n; };
+  if(posterKind === "report"){
+    mid("赛 季 战 报"); gap(6);
+    big(s.clubName || "新星联队"); gap(4);
+    line("赛季第 " + d + " 天 · 声望 " + (s.rep || 0) + " · 资金 " + (s.balance || 0)); gap(16);
+    const f = rec.football, b = rec.basketball;
+    mid("⚽ 足球  " + f.w + " 胜 " + f.d + " 平 " + f.l + " 负");
+    line("进球 " + f.gf + " · 失球 " + f.ga); gap(10);
+    mid("🏀 篮球  " + b.w + " 胜 " + b.d + " 平 " + b.l + " 负");
+    line("得分 " + b.gf + " · 失分 " + b.ga); gap(22);
+    line(posterVerdict(rec, s));
+  } else if(posterKind === "return"){
+    mid("归 队 喜 报"); gap(6);
+    const lr = s.lastReturn;
+    if(lr){
+      const p = findPlayer(lr.pid);
+      const uri = p ? portraitOf(p) : "";
+      if(uri){ const img = new Image(); await new Promise(res => { img.onload = res; img.onerror = res; img.src = uri; }); ctx.save(); ctx.beginPath(); ctx.arc(cx, y + 105, 105, 0, Math.PI * 2); ctx.clip(); ctx.drawImage(img, cx - 105, y, 210, 210); ctx.restore(); ctx.strokeStyle = "#a83226"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(cx, y + 105, 105, 0, Math.PI * 2); ctx.stroke(); y += 248; }
+      big(lr.name); gap(2);
+      line(lr.kind + "归来" + (lr.reward ? " · 奖励 " + lr.reward + " 资金" : " · 能力 +1")); gap(8);
+      const rl = RETURN_LINES[Math.abs(hashN("poster|" + lr.pid)) % RETURN_LINES.length];
+      line("「" + rl + "」"); gap(10);
+      line("赛季第 " + (lr.day || d) + " 天 · " + (s.clubName || "新星联队"));
+    } else {
+      gap(30); big("虚位以待"); gap(6);
+      line("还没有球员归队过。派人去集训、外租或拉练，"); line("迎接第一位归队球员时，他的喜报会出现在这里。");
+    }
+  } else {
+    mid("收 官 盘 点"); gap(6);
+    big(s.clubName || "新星联队"); gap(4);
+    const f = rec.football, b = rec.basketball;
+    mid("⚽ " + f.w + "胜" + f.d + "平" + f.l + "负 · 🏀 " + b.w + "胜" + b.d + "平" + b.l + "负"); gap(8);
+    line("最终声望 " + (s.rep || 0) + " · 资金 " + (s.balance || 0)); gap(6);
+    const sums = (typeof gearSums === "function") ? gearSums() : { owned: 0 };
+    line("装备收藏 " + sums.owned + "/30 · 在册球员 " + (s.signed || []).length + " 人 · 教练经验 " + ((s.coach || {}).xp || 0)); gap(16);
+    if(s.finale) line("收官抉择：" + (s.finale === "rep" ? "声望路线——这赛季值了" : "资金路线——为下赛季蓄力"));
+    else line(d >= 14 ? "收官日已到，去联赛页办告别赛与典礼。" : "赛季尚未收官（第 14 天开启），这张是中途盘点。");
+    gap(10); line(posterVerdict(rec, s));
+  }
+  ctx.fillStyle = "#7a7261"; ctx.font = "15px sans-serif";
+  ctx.fillText("足球＋篮球双队同营 · 离线也在成长 · 14 天一个赛季", cx, H - 66);
+  wrap.innerHTML = ""; wrap.appendChild(cv);
+  posterCanvas = cv;
+}
+function savePosterImage(){
+  if(!posterCanvas){ toast("海报还没画好"); return; }
+  const url = posterCanvas.toDataURL("image/png");
+  const a = document.createElement("a"); a.href = url; a.download = "联赛经理-" + posterKind + "海报.png";
+  document.body.appendChild(a); a.click(); a.remove();
+  toast("海报已生成，开始下载");
+}
+window.openPosters = openPosters; window.savePosterImage = savePosterImage;
+
 function shareClub(){
   const data = { title: "我在联赛当经理", link: window.location.href, text: "接手一家自创俱乐部，足球篮球双队同营——你离开时球队照常训练赚钱，14 天赛季冲榜。" };
   try{
