@@ -353,6 +353,7 @@
 </section>
 <section>
   <h2 data-no="02"><span class="eb">SQUAD</span>一线队 · 安排明日计划</h2>
+  <div id="devSlot"></div>
   <div class="card" style="padding:10px 12px">
     <div class="row" style="margin-bottom:8px">
       <div id="sportTabs"></div>
@@ -761,6 +762,9 @@ function ensureV2State(){
   if(s.dailyChoice === undefined) s.dailyChoice = null;
   if(s.postChoice === undefined) s.postChoice = null;
   if(s.dailyAffair === undefined) s.dailyAffair = null;
+  if(s.morningCheck === undefined) s.morningCheck = null;
+  if(s.devSession === undefined) s.devSession = null;
+  if(!s.devProgress) s.devProgress = {};
 }
 function settleWages(){
   ensureV2State();
@@ -1526,7 +1530,7 @@ async function signPlayer(p, priceOverride){
 }
 function renderSquad(){
   const sq = $("#squadList"); if(!sq) return;
-  renderMarket();
+  renderMarket(); renderDevSession();
   sq.innerHTML = "";
   const q = ($("#squadSearch") && $("#squadSearch").value || "").trim();
   const f = $("#squadFilter") ? $("#squadFilter").value : "";
@@ -1872,9 +1876,12 @@ function todayItems(){
   items.push({ label:"🏀 篮球正赛", done: !!s.played["basketball:" + d], go:"league:basketball" });
   items.push({ label:"🏃 今日热身赛（" + Math.min(fs.used, 4) + "/4 · " + friendlyModOf(d).name + "）", done: fs.used >= 4, go:"friendly" });
   items.push({ label:"🌱 成长安排（有人在外历练）", done: arrangeDone, go:"squad" });
+  items.push({ label:"🏋 个人发展课", done: !!(s.devSession && s.devSession.day === d), go:"squad" });
   items.push({ label:"🔭 球探考察", done: scoutDone, go:"scout" });
   items.push({ label:"🍀 球迷幸运日", done: !!ws.used, go:"league" });
   items.push({ label:"🎯 每日挑战（" + dl.ids.filter(id=>dl.claimed[id]).length + "/" + dl.ids.length + "）", done: dl.ids.every(id=>dl.claimed[id]), go:"daily" });
+  const mc2 = morningOfToday();
+  items.push({ label:"🌅 每日晨检", done: !!(mc2 && mc2.pick), go:"choice" });
   const dc = choiceOfToday();
   items.push({ label:"🗳 每日抉择", done: !!(dc && dc.done), go:"choice" });
   const pc2 = postChoiceOfToday();
@@ -1919,6 +1926,22 @@ function renderToday(){
       const sp = SPORT_PACKS[c.sport];
       const opp = sp.leagues()[(c.day - 1) % sp.leagues().length];
       h += `<div class="row" style="padding:3px 0"><span>${sp.icon} 第 ${c.day} 轮 vs ${opp}</span><button class="mini" onclick="openCatchupMatch('${c.sport}', ${c.day})">补打这场</button></div>`;
+    }
+    h += `</div>`;
+  }
+  /* morning check (v41 wave1) */
+  const mc = morningOfToday();
+  if(mc){
+    const ro = morningReadout();
+    h += `<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><span class="pname">🌅 今日晨检</span><div class="pmeta" style="margin:2px 0 6px">`;
+    h += ro.tired.length ? `体能告急 ${ro.tired.length} 人：${ro.tired.slice(0, 4).map(p => p.name + "（" + ro.stam(p) + "）").join("、")}。` : `全队体能都在 60 以上，状态在线。`;
+    if(ro.injured.length) h += ` 伤缺：${ro.injured.map(p => p.name + "（至第 " + ((s.pstat[p.pid] || {}).injUntil || "?") + " 天）").join("、")}。`;
+    h += `</div>`;
+    if(!mc.pick){
+      h += `<div class="tiers" style="grid-template-columns:1fr 1fr 1fr">${Object.entries(MORNING_OPTS).map(([k, o]) => `<button onclick="pickMorning('${k}')">${o.label}<br><span class="hint">${fxText(o.fx)}</span></button>`).join("")}</div>`;
+    } else {
+      const mo = MORNING_OPTS[mc.pick];
+      h += `<div class="hint">已定：${mo ? mo.label : ""}。${mo ? mo.result : ""}</div>`;
     }
     h += `</div>`;
   }
@@ -2092,6 +2115,82 @@ function pickAffair(i){
   toast("事务已办：" + opt.label);
 }
 window.pickAffair = pickAffair;
+
+/* ================= v41 真实日常第一波：晨检卡 / 个人发展课 ================= */
+const MORNING_OPTS = {
+  rest: { label:"全队恢复日", fx:{ staminaAll:6 }, result:"瑜伽、拉伸、早睡令——训练场难得地安静了一天。" },
+  ice: { label:"冰浴＋理疗套餐", fx:{ funds:-30, staminaAll:10 }, result:"理疗室排起了队，出来的人个个龇牙咧嘴又神清气爽。" },
+  grind: { label:"照常加练", fx:{ coachXp:25, staminaAll:-3 }, result:"该练的一点没少，教练组把昨天的录像又过了一遍。" },
+};
+function morningOfToday(){
+  const s = mock.state; if(!s.founded) return null;
+  const day = seasonDayN();
+  if(s.morningCheck && s.morningCheck.day === day) return s.morningCheck;
+  s.morningCheck = { day, pick: null };
+  return s.morningCheck;
+}
+function morningReadout(){
+  const s = mock.state, all = [];
+  for(const sp of Object.values(SPORT_PACKS)) for(const p of sp.players()) if(isSigned(p) && isArrived(p)) all.push(p);
+  for(const p of (s.customPlayers || [])) if(isSigned(p) && isArrived(p)) all.push(p);
+  const stam = p => (s.pstat[p.pid] ? s.pstat[p.pid].stamina : 100);
+  const tired = all.filter(p => stam(p) < 60).sort((a, b) => stam(a) - stam(b));
+  const injured = all.filter(p => isInjured(p.pid));
+  return { n: all.length, tired, injured, stam };
+}
+function pickMorning(which){
+  const s = mock.state, mc = morningOfToday(); if(!mc || mc.pick) return;
+  const def = MORNING_OPTS[which]; if(!def) return;
+  applyChoiceFx(def.fx);
+  mc.pick = which;
+  s.log.push(`晨检决定：${def.label}。`);
+  mock.save(); render();
+  toast("晨检已定：" + def.label);
+}
+window.pickMorning = pickMorning;
+function devEligible(){
+  const s = mock.state, sp = curSport();
+  return sp.players().concat((s.customPlayers || []).filter(c => c.sport === sp.id))
+    .filter(p => isSigned(p) && isArrived(p) && !awayMap.get(p.pid) && !isInjured(p.pid));
+}
+function devFocusName(focus){
+  const isB = curSport().id === "basketball";
+  return focus === "atk" ? (isB ? "投篮专项" : "射门专项") : focus === "def" ? (isB ? "防守脚步" : "防守站位") : "体能专项";
+}
+function pickDev(pid, focus){
+  const s = mock.state; ensureV2State();
+  const d = seasonDayN();
+  if(s.devSession && s.devSession.day === d) return;
+  const p = findPlayer(pid); if(!p) return;
+  if(!isSigned(p) || !isArrived(p) || awayMap.get(pid) || isInjured(pid)){ toast("这名球员今天上不了课"); return; }
+  const focusName = devFocusName(focus), ps = pstatOf(pid);
+  if(focus === "fit"){ ps.stamina = Math.min(100, ps.stamina + 6); s.devProgress[pid] = (s.devProgress[pid] || 0) + 20; }
+  else { ps.stamina = Math.max(5, ps.stamina - 8); s.devProgress[pid] = (s.devProgress[pid] || 0) + 34; }
+  let converted = false;
+  if(s.devProgress[pid] >= 100){ s.devProgress[pid] -= 100; s.growth[pid] = (s.growth[pid] || 0) + 1; s.output = (s.output || 0) + 10; converted = true; }
+  s.coach.xp = (s.coach.xp || 0) + 5;
+  s.devSession = { day: d, pid, focus, focusName, converted };
+  s.log.push(`个人发展课：${p.name}「${focusName}」进度 ${s.devProgress[pid]}/100${converted ? "，能力 +1" : ""}。`);
+  mock.save(); render();
+  toast(converted ? `${p.name} 发展课结业：能力 +1！` : `${p.name} 的${focusName}练完了（进度 ${s.devProgress[pid]}/100）`);
+}
+function pickDevUI(focus){ const sel = $("#devPick"); if(sel && sel.value) pickDev(sel.value, focus); }
+window.pickDev = pickDev; window.pickDevUI = pickDevUI;
+function renderDevSession(){
+  const el = $("#devSlot"); if(!el) return;
+  const s = mock.state; if(!s.founded){ el.innerHTML = ""; return; }
+  ensureV2State();
+  const d = seasonDayN();
+  if(s.devSession && s.devSession.day === d){
+    const p = findPlayer(s.devSession.pid);
+    el.innerHTML = `<div class="card"><div class="pname">🏋 个人发展课 · 今日已上</div><div class="pmeta">${p ? p.name : ""}练了「${s.devSession.focusName}」，当前进度 ${s.devProgress[s.devSession.pid] || 0}/100。${s.devSession.converted ? "🎉 这一课进度满格，能力 +1！" : "一课一课攒，满 100 能力 +1。"}</div></div>`;
+    return;
+  }
+  const elig = devEligible();
+  if(!elig.length){ el.innerHTML = `<div class="card"><div class="pname">🏋 个人发展课</div><div class="pmeta">当前运动没有可上课的球员（都在外历练或伤缺中）。</div></div>`; return; }
+  const opts = elig.map(p => `<option value="${p.pid}">${p.name} · 能力 ${p.ability + (s.growth[p.pid] || 0)} · 体能 ${s.pstat[p.pid] ? s.pstat[p.pid].stamina : 100} · 进度 ${s.devProgress[p.pid] || 0}/100</option>`).join("");
+  el.innerHTML = `<div class="card"><div class="pname">🏋 个人发展课 <span class="hint">每天给一名球员开小灶，进度攒满 100 → 能力 +1</span></div><div class="row" style="margin-top:8px"><select id="devPick" style="flex:1;min-width:0;padding:8px;border-radius:8px;border:1px solid var(--line);background:#fffdf6">${opts}</select></div><div class="tiers" style="margin-top:8px;grid-template-columns:1fr 1fr 1fr"><button onclick="pickDevUI('atk')">${devFocusName("atk")}<br><span class="hint">进度 +34 · 体能 −8</span></button><button onclick="pickDevUI('def')">${devFocusName("def")}<br><span class="hint">进度 +34 · 体能 −8</span></button><button onclick="pickDevUI('fit')">体能专项<br><span class="hint">进度 +20 · 体能 +6</span></button></div></div>`;
+}
 
 function friendlyLeft(){ const f = friendlyState(); return Math.max(0, 4 + (f.ad ? 2 : 0) - f.used); }
 /*__SIM_ENGINE_BEGIN__*/
@@ -4108,6 +4207,9 @@ function cockpitTodos(dayN){
   for(const sid of ["football", "basketball"]){
     if(!(s.played || {})[sid + ":" + dayN]) list.push({ u: 2, label: (sid === "football" ? "⚽ 足球" : "🏀 篮球") + "今日比赛还没打", act: "match:" + sid });
   }
+  const mcT = (typeof morningOfToday === "function") ? morningOfToday() : null;
+  if(mcT && !mcT.pick) list.push({ u: 2, label: "🌅 今日晨检还没做", act: "choice" });
+  if(!(s.devSession && s.devSession.day === dayN)) list.push({ u: 3, label: "🏋 今日个人发展课还没上", act: "squad" });
   const pcT = (typeof postChoiceOfToday === "function") ? postChoiceOfToday() : null;
   if(pcT && !pcT.done) list.push({ u: 2, label: "🎙 赛后抉择待拍板", act: "choice" });
   const afT = (typeof affairOfToday === "function") ? affairOfToday() : null;
