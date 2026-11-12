@@ -430,6 +430,7 @@
   <div class="card" id="saveCard">
     <div class="row"><div><div class="pname">存档</div><div class="pmeta" id="saveInfo">本地自动保存中</div></div><span class="hint" id="activeSlotHint"></span></div>
     <div id="slotsBody" style="margin-top:8px"><div class="hint">档位加载中…</div></div>
+    <div class="row" style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px"><div style="flex:1;min-width:140px"><div class="pname" style="font-size:14px">删档重开</div><div class="pmeta">清空当前进度，从起名建队重新开始。上面 5 个档位槽里存过的备份不会被删，随时能读回来。</div></div><button class="mini ghost" onclick="wipeSaveClick(this)">🗑 删档重开</button></div>
     <div class="row" style="margin-top:12px"><div><div class="pname" style="font-size:14px">云端短码</div><div class="pmeta">8 位短码永久有效，凭码在任何设备取回；与档位槽互通。发码/取码每小时合计 10 次。</div></div><button id="codeIssueBtn">生成短码</button></div>
     <div id="shortCodeOut" style="margin-top:6px"></div>
     <div class="row" style="margin-top:8px"><input id="shortCodeIn" placeholder="输入 8 位短码" maxlength="8" style="flex:1;min-width:100px;text-transform:uppercase"><span class="hint">导入到</span><select id="importSlotSel"><option value="1">存档 1</option><option value="2">存档 2</option><option value="3">存档 3</option><option value="4">存档 4</option><option value="5">存档 5</option></select><button class="mini" id="codeFetchBtn">凭短码导入</button></div>
@@ -1790,6 +1791,12 @@ function renderSlots(){
   }).join("");
 }
 function armBtn(el, text){ if(el.dataset.armed){ el.dataset.armed=""; return true; } el.dataset.armed="1"; const old=el.textContent; el.textContent=text; setTimeout(()=>{ el.dataset.armed=""; el.textContent=old; }, 2600); return false; }
+function wipeSaveClick(el){
+  if(!armBtn(el, "再点一次确认删档")){ toast("删档会清空当前进度（档位槽备份不受影响）"); return; }
+  try{ localStorage.removeItem("lm_mock"); }catch(e){}
+  location.reload();
+}
+window.wipeSaveClick = wipeSaveClick;
 async function slotSaveClick(n, el){ if(!armBtn(el, "确认覆盖？")) return; const r = await api("/api/slots/save", { slot:n, payload: savePayload() }); if(r && r.ok){ localStorage.setItem("lm_active_slot", String(n)); toast("已保存到存档 " + n); refreshSlots(); } else toast("保存失败，请稍后再试"); }
 async function slotLoadClick(n, el){ if(!armBtn(el, "确认读取？")) return; const r = await api("/api/slots/load", { slot:n }); if(r && r.ok && r.payload){ try{ const st = unwrapState(r.payload); localStorage.setItem("lm_active_slot", String(n)); mock.state = st; mock.save(); toast("已读取存档 " + n + "，正在刷新"); setTimeout(()=>location.reload(), 600); }catch(e){ toast("这个档位的数据不对，读取失败"); } } else toast("这个档位是空的"); }
 async function slotCodeClick(n){ const r = await api("/api/slots/load", { slot:n }); if(!r || !r.ok || !r.payload){ toast("这个档位是空的"); return; } const c = await api("/api/savecode", { payload: r.payload }); showShortCode(c, "存档 " + n + " 的短码"); }
