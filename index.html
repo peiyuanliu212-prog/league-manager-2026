@@ -267,7 +267,10 @@
 
 .tourRing{position:fixed;z-index:300;border:2px solid var(--acc);border-radius:12px;box-shadow:0 0 0 9999px rgba(24,20,12,.48);pointer-events:none;animation:tourPulse 1.6s ease-in-out infinite}
 @keyframes tourPulse{0%,100%{outline:0 solid rgba(168,50,38,0)}50%{outline:6px solid rgba(168,50,38,.18)}}
-#tourBubble{position:fixed;z-index:310;left:12px;right:12px;background:var(--paper);border:1.5px solid var(--acc);border-radius:14px;padding:12px 14px;box-shadow:0 10px 30px rgba(24,20,12,.35)}
+#tourBubble{position:fixed;z-index:310;left:12px;right:12px;background:var(--panel);color:var(--ink);border:1.5px solid var(--acc);border-radius:14px;padding:12px 14px;box-shadow:0 10px 30px rgba(24,20,12,.45)}
+#tourBubble .pmeta{color:#5a5342}
+.chip .cbust{display:flex;justify-content:center;margin-bottom:3px}
+.chip .cbust .bust{box-shadow:inset 0 0 0 1px rgba(80,64,30,.25)}
 #tourBubble{pointer-events:none}
 #tourBubble button{pointer-events:auto}
 </style>
@@ -1415,7 +1418,7 @@ function renderScout(){
     const grade = p.ability >= 90 ? "S" : p.ability >= 85 ? "A" : p.ability >= 80 ? "B" : "C";
     const conf = [0, 30, 60, 90][sc.stage] || 0;
     const bars = `<div style="margin-top:8px;display:grid;gap:5px">${sc.stage >= 3 ? `<div style="display:flex;align-items:center;gap:8px"><span class="pmeta" style="flex:0 0 66px">能力 ${p.ability}</span><span class="sbar"><u style="width:${p.ability}%"></u></span></div>` : ""}<div style="display:flex;align-items:center;gap:8px"><span class="pmeta" style="flex:0 0 66px">置信度 ${conf}%</span><span class="sbar"><u style="width:${conf}%;background:#c9962e"></u></span></div></div>`;
-    card.innerHTML = `<div class="stamp ${sc.stage >= 3 ? "" : "unk"}">${sc.stage >= 3 ? grade : "？"}</div><div class="row"><div><span class="pname">${p.name}</span> <span class="tag">${stageName}</span>${sc.stage < 3 ? ' <span class="tag away">待揭晓</span>' : ""}<div class="pmeta">${p.pos} · ${scoutInfo(p, sc)}</div></div></div>${bars}<div style="margin-top:8px">${actions}</div>`;
+    card.innerHTML = `<div class="stamp ${sc.stage >= 3 ? "" : "unk"}">${sc.stage >= 3 ? grade : "？"}</div><div class="row"><div class="bust">${bustSVG(p)}</div><div style="flex:1;min-width:0"><span class="pname">${p.name}</span> <span class="tag">${stageName}</span>${sc.stage < 3 ? ' <span class="tag away">待揭晓</span>' : ""}<div class="pmeta">${p.pos} · ${scoutInfo(p, sc)}</div></div></div>${bars}<div style="margin-top:8px">${actions}</div>`;
     card.querySelectorAll("button").forEach(b => { b.onclick = () => scoutAction(pid, b.dataset.act); });
     if(sc.stage < 3){ const rb = document.createElement("button"); rb.className = "mini ghost"; rb.style.marginTop = "6px"; rb.textContent = "看广告提前揭晓（今日 " + ((mock.state.scoutAdDay === beijingDateStr()) ? (mock.state.scoutAdCount || 0) : 0) + "/2）"; rb.onclick = () => scoutReveal(pid); card.appendChild(rb); }
     trio.appendChild(card);
@@ -1423,7 +1426,7 @@ function renderScout(){
   const deep = curSport().players().filter(p => !isSigned(p) && p.ability < V2_CFG.starAbility).sort((a, b) => b.ability - a.ability).slice(12, 18).filter(p => !mock.state.scout[p.pid]);
   if(deep.length){
     const d = document.createElement("div"); d.className = "card";
-    d.innerHTML = `<div class="pname" style="font-size:13px">深度名单（市场没摆出来的）</div>` + deep.map(p => `<div class="row" style="margin-top:6px"><span class="pmeta">${p.name} · ${p.pos}</span><button class="mini" data-pid="${p.pid}">派球探 30</button></div>`).join("");
+    d.innerHTML = `<div class="pname" style="font-size:13px">深度名单（市场没摆出来的）</div>` + deep.map(p => `<div class="row" style="margin-top:6px"><div class="bust">${bustSVG(p)}</div><span class="pmeta" style="flex:1">${p.name} · ${p.pos}</span><button class="mini" data-pid="${p.pid}">派球探 30</button></div>`).join("");
     d.querySelectorAll("button").forEach(b => { b.onclick = () => startScout(b.dataset.pid); });
     el.appendChild(d);
   }
@@ -5830,12 +5833,12 @@ function renderTactics(){
     for(const g of row){ for(const i of (slotIdxByGroup[g] || [])){
       const pid = lu.starters[i], p = pid ? findPlayer(pid) : null, ps = p && s.pstat[p.pid];
       const st = ps ? ps.stamina : 100;
-      h += `<button class="chip ${PICK && PICK.kind === "slot" && PICK.idx === i ? "picked" : ""}" onclick="openPick('slot', ${i})">${p ? `<b>${p.name}</b><span>${g} · ${Math.round(effAbility(p, g))} · 体能${st}${isInjured(p.pid) ? " · 伤" : ps && ps.restDay === seasonDayN() ? " · 休" : ""}</span><i class="stam"><u style="width:${st}%;background:${st >= 60 ? "#2e6b46" : st >= 35 ? "#c9962e" : "#c0392b"}"></u></i>` : `<b>空缺</b><span>${g}</span>`}</button>`;
+      h += `<button class="chip ${PICK && PICK.kind === "slot" && PICK.idx === i ? "picked" : ""}" onclick="openPick('slot', ${i})">${p ? `<span class="cbust"><span class="bust">${bustSVG(p)}</span></span><b>${p.name}</b><span>${g} · ${Math.round(effAbility(p, g))} · 体能${st}${isInjured(p.pid) ? " · 伤" : ps && ps.restDay === seasonDayN() ? " · 休" : ""}</span><i class="stam"><u style="width:${st}%;background:${st >= 60 ? "#2e6b46" : st >= 35 ? "#c9962e" : "#c0392b"}"></u></i>` : `<b>空缺</b><span>${g}</span>`}</button>`;
     } }
     h += `</div>`;
   }
   h += `</div><div class="pname" style="margin-top:8px">轮换席</div><div class="pitchrow">`;
-  (lu.rotation || []).forEach((pid, i)=>{ const p = findPlayer(pid); if(!p) return; const ps = s.pstat[pid]; h += `<button class="chip rot ${PICK && PICK.kind === "rot" && PICK.idx === i ? "picked" : ""}" onclick="openPick('rot', ${i})"><b>${p.name}</b><span>${p.pos} · ${effBase(p)} · 体能${ps ? ps.stamina : 100}</span><i class="stam"><u style="width:${ps ? ps.stamina : 100}%;background:${(ps ? ps.stamina : 100) >= 60 ? "#2e6b46" : (ps ? ps.stamina : 100) >= 35 ? "#c9962e" : "#c0392b"}"></u></i></button>`; });
+  (lu.rotation || []).forEach((pid, i)=>{ const p = findPlayer(pid); if(!p) return; const ps = s.pstat[pid]; h += `<button class="chip rot ${PICK && PICK.kind === "rot" && PICK.idx === i ? "picked" : ""}" onclick="openPick('rot', ${i})"><span class="cbust"><span class="bust">${bustSVG(p)}</span></span><b>${p.name}</b><span>${p.pos} · ${effBase(p)} · 体能${ps ? ps.stamina : 100}</span><i class="stam"><u style="width:${ps ? ps.stamina : 100}%;background:${(ps ? ps.stamina : 100) >= 60 ? "#2e6b46" : (ps ? ps.stamina : 100) >= 35 ? "#c9962e" : "#c0392b"}"></u></i></button>`; });
   h += `</div>`;
   if(PICK){
     const curPid = PICK.kind === "slot" ? lu.starters[PICK.idx] : lu.rotation[PICK.idx];
