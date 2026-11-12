@@ -759,6 +759,8 @@ function ensureV2State(){
   if(!s.p3Used) s.p3Used = {};
   if(!s.catchup) s.catchup = [];
   if(s.dailyChoice === undefined) s.dailyChoice = null;
+  if(s.postChoice === undefined) s.postChoice = null;
+  if(s.dailyAffair === undefined) s.dailyAffair = null;
 }
 function settleWages(){
   ensureV2State();
@@ -1184,8 +1186,9 @@ function renderFriendly(){
   ensureV2State();
   const f = friendlyState(), left = friendlyLeft();
   const tiers = ["弱","平","强"].map(t=>`<button class="ghost" onclick="openLiveMatch('${t}')"${left<=0?" disabled":""}>约${t}队</button>`).join("");
-  const adBtn = (!f.ad && f.used >= 3) ? `<div style="margin-top:8px"><button style="width:100%" onclick="friendlyAdUnlock()">看广告 +2 场（今日）</button></div>` : "";
-  el.innerHTML = `<div class="card"><div class="row"><div><span class="pname">今日热身赛</span><div class="pmeta">正赛之外练兵：体能消耗减半、不计积分榜；赢球声望 +2 / 平 +1（每日声望上限 +4），奖金减半。今日还可打 <b>${left}</b> 场（免费 3 场${f.ad ? "＋广告 2 场已解锁" : ""}）。</div></div></div><div class="tiers" style="margin-top:8px">${tiers}</div>${adBtn}${left<=0 && f.ad ? '<div class="hint" style="margin-top:6px">今天打满了，明天再来。</div>' : ""}</div>`;
+  const adBtn = (!f.ad && f.used >= 4) ? `<div style="margin-top:8px"><button style="width:100%" onclick="friendlyAdUnlock()">看广告 +2 场（今日）</button></div>` : "";
+  const fmod = friendlyModOf(seasonDayN());
+  el.innerHTML = `<div class="card"><div class="row"><div><span class="pname">今日热身赛</span><div class="pmeta">正赛之外练兵：体能消耗减半、不计积分榜；赢球声望 +2 / 平 +1（每日声望上限 +${fmod.id === "derby" ? 8 : 4}），奖金减半。今日还可打 <b>${left}</b> 场（免费 4 场${f.ad ? "＋广告 2 场已解锁" : ""}）。</div><div class="pmeta" style="margin-top:4px">${fmod.icon} <b>今日词缀 · ${fmod.name}</b>：${fmod.desc}</div></div></div><div class="tiers" style="margin-top:8px">${tiers}</div>${adBtn}${left<=0 && f.ad ? '<div class="hint" style="margin-top:6px">今天打满了，明天再来。</div>' : ""}</div>`;
 }
 async function friendlyAdUnlock(){
   const f = friendlyState(); if(f.ad) return;
@@ -1371,6 +1374,21 @@ function renderEvents(){
   const s = mock.state, dayN = seasonDayN();
   el.innerHTML = "";
   let any = false;
+  const af = s.founded ? affairOfToday() : null;
+  if(af){
+    const adef = AFFAIRS.find(x=>x.id === af.id);
+    if(adef){
+      any = true;
+      const acard = document.createElement("div"); acard.className = "card";
+      if(!af.done){
+        acard.innerHTML = `<div class="pname">🏢 今日集团事务 · ${adef.tag}</div><div class="pmeta"><b>${adef.title}</b>——${adef.body}</div><div class="tiers" style="grid-template-columns:1fr 1fr 1fr">${adef.opts.map((o, i)=>`<button onclick="pickAffair(${i})">${o.label}<br><span class="hint">${fxText(o.fx)}</span></button>`).join("")}</div>`;
+      } else {
+        const aopt = adef.opts[af.pick];
+        acard.innerHTML = `<div class="pname">🏢 今日集团事务 · ${adef.tag}</div><div class="pmeta"><b>${adef.title}</b>——已定：${aopt ? aopt.label : ""}。${aopt ? aopt.result : ""}</div>`;
+      }
+      el.appendChild(acard);
+    }
+  }
   if(s.founded && packActive("2026-11-19") && !s.p1Seen){
     any = true;
     const card = document.createElement("div"); card.className = "card";
@@ -1752,6 +1770,14 @@ let LIVE = null;
 function friendlyState(){ const s = mock.state; if(!s.friendly || s.friendly.day !== seasonDayN()) s.friendly = { day: seasonDayN(), used: 0, ad: false, repGot: 0 }; if(s.friendly.repGot === undefined) s.friendly.repGot = 0; return s.friendly; }
 /* ================= v24 每日内容加厚：今日清单 / 每日抉择 / 补赛 / 测试期加速 ================= */
 const FRIENDLY_CFG = { repWin: 2, repDraw: 1, repCapDay: 4 };
+/* v40 热身赛每日词缀：按赛季天轮换，给重复劳动换个打法 */
+const FRIENDLY_MODS = [
+  { id:"derby", icon:"🔥", name:"同城德比", desc:"声望奖励 ×2（每日声望上限提到 +8），看台今天格外吵。" },
+  { id:"rain", icon:"🌧", name:"雨战泥泞", desc:"体能消耗 ×1.5，但比赛奖金 ×1.5——鞋钉都得换长的。" },
+  { id:"youth", icon:"🌱", name:"青训开放日", desc:"梯队小将跟一队合练，热身赛教练经验 ×2。" },
+  { id:"away", icon:"🚌", name:"客场远征", desc:"约到的对手升一档（弱→平、平→强），声望与奖金 ×1.5。" },
+];
+function friendlyModOf(dayN){ return FRIENDLY_MODS[(Math.max(1, dayN || 1) - 1) % FRIENDLY_MODS.length]; }
 const DAILY_CHOICES = [
   { id:"open-day", tag:"球迷", title:"球迷开放日", body:"球迷会想在本周办一场开放训练，近距离看新援。",
     a:{ label:"办，热闹起来", fx:{ rep:6, funds:-30 }, result:"开放日来了三百多号人，声望涨了一截，茶水横幅花了点小钱。" },
@@ -1844,13 +1870,17 @@ function todayItems(){
   const arrangeDone = Object.values(s.contracts || {}).some(c=>c && (c.state === "away" || c.state === "pendingReturn"));
   items.push({ label:"⚽ 足球正赛", done: !!s.played["football:" + d], go:"league:football" });
   items.push({ label:"🏀 篮球正赛", done: !!s.played["basketball:" + d], go:"league:basketball" });
-  items.push({ label:"🏃 今日热身赛（" + Math.min(fs.used, 3) + "/3）", done: fs.used >= 3, go:"friendly" });
+  items.push({ label:"🏃 今日热身赛（" + Math.min(fs.used, 4) + "/4 · " + friendlyModOf(d).name + "）", done: fs.used >= 4, go:"friendly" });
   items.push({ label:"🌱 成长安排（有人在外历练）", done: arrangeDone, go:"squad" });
   items.push({ label:"🔭 球探考察", done: scoutDone, go:"scout" });
   items.push({ label:"🍀 球迷幸运日", done: !!ws.used, go:"league" });
   items.push({ label:"🎯 每日挑战（" + dl.ids.filter(id=>dl.claimed[id]).length + "/" + dl.ids.length + "）", done: dl.ids.every(id=>dl.claimed[id]), go:"daily" });
   const dc = choiceOfToday();
   items.push({ label:"🗳 每日抉择", done: !!(dc && dc.done), go:"choice" });
+  const pc2 = postChoiceOfToday();
+  items.push({ label:"🎙 赛后抉择（双赛后解锁）", done: !!(pc2 && pc2.done), go:"choice" });
+  const af2 = affairOfToday();
+  items.push({ label:"🏢 每日集团事务", done: !!(af2 && af2.done), go:"affair" });
   return items;
 }
 function todayGo(go){
@@ -1858,6 +1888,7 @@ function todayGo(go){
   if(go === "friendly"){ switchTab("league"); const el = $("#friendlySlot"); if(el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   if(go === "daily"){ switchTab("league"); const el = $("#dailySlot"); if(el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   if(go === "choice"){ const el = $("#todaySlot"); if(el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
+  if(go === "affair"){ switchTab("club"); const el = $("#eventList"); if(el) setTimeout(()=>el.scrollIntoView({ behavior:"smooth", block:"center" }), 60); return; }
   switchTab(go);
 }
 function fxText(fx){
@@ -1906,6 +1937,24 @@ function renderToday(){
       h += `</div>`;
     }
   }
+  /* post-match choice (v40) */
+  const pc = postChoiceOfToday();
+  h += `<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><span class="pname">🎙 赛后抉择</span>`;
+  if(!pc){
+    h += `<div class="pmeta" style="margin-top:2px">🔒 今天两场正赛都打完后解锁——赢了怎么庆祝、输了谁来担责，都得你来拍板。</div>`;
+  } else {
+    const pdef = POST_CHOICES.find(x=>x.id === pc.id);
+    if(pdef){
+      h += `<div class="pmeta" style="margin:2px 0 6px"><b>${pdef.title}</b>——${pdef.body}</div>`;
+      if(!pc.done){
+        h += `<div class="tiers" style="grid-template-columns:1fr 1fr"><button onclick="pickPostChoice('a')">${pdef.a.label}<br><span class="hint">${fxText(pdef.a.fx)}</span></button><button onclick="pickPostChoice('b')">${pdef.b.label}<br><span class="hint">${fxText(pdef.b.fx)}</span></button></div>`;
+      } else {
+        const opt = pdef[pc.pick];
+        h += `<div class="hint">已定：${opt ? opt.label : ""}。${opt ? opt.result : ""}</div>`;
+      }
+    }
+  }
+  h += `</div>`;
   /* pre-season test accelerator (auto-hidden from 2026-11-17) */
   if(beijingDateStr() < "2026-11-17") h += `<div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:8px"><button class="mini ghost" onclick="testAdvanceDay()">推进一天（测试 · 11/17 开赛后自动消失）</button></div>`;
   h += `</div>`;
@@ -1913,7 +1962,138 @@ function renderToday(){
 }
 window.pickDailyChoice = pickDailyChoice; window.openCatchupMatch = openCatchupMatch; window.testAdvanceDay = testAdvanceDay; window.todayGo = todayGo;
 
-function friendlyLeft(){ const f = friendlyState(); return Math.max(0, 3 + (f.ad ? 2 : 0) - f.used); }
+/* ================= v40 一天加厚：赛后抉择（结果感知） / 每日集团事务（三选一） ================= */
+const POST_CHOICES = [
+  { id:"pw-press", when:"win", tag:"发布会", title:"记者问：冲着冠军去的？", body:"双队同日告捷，发布会上的话筒比平时多了一倍。",
+    a:{ label:"放话：目标就是冠军", fx:{ rep:8, coachXp:10 }, result:"头条有了，压力也有了——更衣室把这句话贴在了墙上。" },
+    b:{ label:"低调：一场一场来", fx:{ coachXp:20 }, result:"记者没挖到猛料，教练组落得清净，多看了两小时录像。" } },
+  { id:"pw-rotate", when:"win", tag:"更衣室", title:"赢球后的轮换难题", body:"赢是赢了，但主力们腿都发沉，助教建议下轮大轮换。",
+    a:{ label:"下轮大轮换保体力", fx:{ staminaAll:8, rep:-2 }, result:"主力歇了一轮，回来满血；媒体嘀咕了两句「不尊重比赛」。" },
+    b:{ label:"乘胜追击不换人", fx:{ rep:5, staminaAll:-5 }, result:"连胜势头保住了，理疗室的床位也跟着紧俏起来。" } },
+  { id:"pw-bonus", when:"win", tag:"董事会", title:"赢球奖加码提案", body:"董事会想临时加一笔赢球奖，把士气再往上推一格。",
+    a:{ label:"加码，这钱花得值", fx:{ funds:-40, rep:6 }, result:"奖金到账当晚，更衣室合唱跑调都格外响亮。" },
+    b:{ label:"按制度来，不搞特殊", fx:{ coachXp:15 }, result:"队长带头表态「制度比奖金重要」，教练组记下了这句话。" } },
+  { id:"pw-fans", when:"win", tag:"球迷", title:"远征球迷在雨里站了全场", body:"随队远征的几百名球迷淋着雨唱到终场，视频上了同城热搜。",
+    a:{ label:"包大巴，请他们吃饭", fx:{ funds:-30, rep:7 }, result:"大巴车队夜里浩浩荡荡回城，这事比赢球还出圈。" },
+    b:{ label:"官方账号发文致谢", fx:{ rep:3, coachXp:8 }, result:"致谢文转发过万，公关部顺手把下轮海报也定了稿。" } },
+  { id:"pl-blame", when:"lose", tag:"发布会", title:"话筒全伸过来了", body:"双队同日失利，发布会第一个问题就是「谁来负责」。",
+    a:{ label:"我来担责，与球员无关", fx:{ rep:5, coachXp:10 }, result:"第二天训练场没人低头——队长说，冲这个也得拼回来。" },
+    b:{ label:"点出几个人的问题", fx:{ coachXp:25, staminaAll:-3 }, result:"发布会气氛降到冰点，更衣室当晚安静得反常。" } },
+  { id:"pl-meeting", when:"lose", tag:"更衣室", title:"队长提议开内部会", body:"老队长想关起门来，球员之间先把话说透。",
+    a:{ label:"尊重自治，你们谈", fx:{ rep:4, staminaAll:3 }, result:"会开了四十分钟，出来时队长胳膊搭在最年轻那小子肩上。" },
+    b:{ label:"教练组介入，连夜复盘", fx:{ coachXp:25, staminaAll:-3 }, result:"失误镜头逐帧过了一遍，天亮才散，眼睛都熬红了。" } },
+  { id:"pl-medical", when:"lose", tag:"队医", title:"伤情预警会", body:"队医说两名主力已是疲劳性伤病的高风险状态。",
+    a:{ label:"强制轮休，健康第一", fx:{ staminaAll:9, funds:-20 }, result:"理疗和睡眠监测全套安排上，队医难得给了个好脸色。" },
+    b:{ label:"咬牙坚持，就这一阵", fx:{ coachXp:15, staminaAll:-4 }, result:"全队咬着牙顶了过去，队医的警告被钉在了日程表上。" } },
+  { id:"pl-board", when:"lose", tag:"董事会", title:"董事会的电话", body:"电话那头的语气不重，但每个字都带着分量：要解释，也要计划。",
+    a:{ label:"立军令状：三轮内反弹", fx:{ rep:7, coachXp:5 }, result:"军令状立下了，训练场的计时器从第二天起快了半拍。" },
+    b:{ label:"递交长线整改规划", fx:{ coachXp:20, rep:2 }, result:"二十页规划递上去，董事会回了四个字：按计划办。" } },
+  { id:"pm-focus", when:"mixed", tag:"媒体", title:"一喜一忧，重心在哪边？", body:"一支队赢了、一支队输了，记者追着问集团的资源往哪边倾斜。",
+    a:{ label:"一碗水端平，两边都是亲生的", fx:{ rep:5, coachXp:10 }, result:"发布会原话被两家球迷群同时置顶，难得。" },
+    b:{ label:"资源先紧着状态好的", fx:{ funds:30, rep:-2 }, result:"赢球那队多了一笔装备预算，输球那边的更衣室沉默了。" } },
+  { id:"pm-schedule", when:"mixed", tag:"赛程", title:"魔鬼赛程预警", body:"接下来三天两赛，体能教练的警报表已经红了大半。",
+    a:{ label:"全队加餐＋恢复日", fx:{ funds:-35, staminaAll:7 }, result:"食堂多了一口锅，冰浴房排起了队，值了。" },
+    b:{ label:"咬着牙顶过去", fx:{ coachXp:20, staminaAll:-4 }, result:"教练组把轮换表算到小数点后一位，顶住了。" } },
+  { id:"pm-scout", when:"mixed", tag:"球探", title:"双份对手报告", body:"球探把今天两支对手的报告一起递了上来，摞起来有半指厚。",
+    a:{ label:"连夜研读", fx:{ coachXp:30, staminaAll:-2 }, result:"凌晨两点，报告边上写满了批注，咖啡见了底。" },
+    b:{ label:"明早再说，先睡觉", fx:{ staminaAll:4, coachXp:8 }, result:"睡了个整觉，第二天晨会效率出奇地高。" } },
+  { id:"pm-store", when:"mixed", tag:"商业", title:"商店补货日", body:"赢球那队的球衣断货了，输球那队的还堆在库房。",
+    a:{ label:"紧急补货，趁热打铁", fx:{ funds:55, rep:-1 }, result:"补货三天售罄，排队的人里有人嘀咕「赢球才补货」。" },
+    b:{ label:"两边同价，慢慢卖", fx:{ rep:4, funds:15 }, result:"不偏不倚，球迷说这家俱乐部「有里有面」。" } },
+];
+function postResultCtx(){
+  const s = mock.state, d = seasonDayN();
+  const f = s.played["football:" + d], b = s.played["basketball:" + d];
+  if(!f || !b) return null;
+  const fw = f.charAt(0), bw = b.charAt(0);
+  if(fw === "胜" && bw === "胜") return "win";
+  if(fw === "负" && bw === "负") return "lose";
+  return "mixed";
+}
+function postChoiceOfToday(){
+  const s = mock.state; if(!s.founded) return null;
+  const ctx = postResultCtx(); if(!ctx) return null;
+  const day = seasonDayN();
+  if(s.postChoice && s.postChoice.day === day) return s.postChoice;
+  const pool = POST_CHOICES.filter(x=>x.when === ctx);
+  const def = pool[(day * 3 + 1) % pool.length];
+  s.postChoice = { day, id: def.id, done: false, pick: null };
+  return s.postChoice;
+}
+function pickPostChoice(which){
+  const s = mock.state, pc = postChoiceOfToday(); if(!pc || pc.done) return;
+  const def = POST_CHOICES.find(x=>x.id === pc.id); if(!def) return;
+  const opt = def[which]; if(!opt) return;
+  applyChoiceFx(opt.fx);
+  pc.done = true; pc.pick = which;
+  s.log.push(`赛后抉择「${def.title}」：${opt.label}。`);
+  mock.save(); render();
+  toast("赛后决定：" + opt.label);
+}
+window.pickPostChoice = pickPostChoice;
+const AFFAIRS = [
+  { id:"af-sponsor", tag:"赞助商", title:"主赞助续约报价", body:"赞助商拿来三档方案，钱、脸面和长远，总得舍一样。",
+    opts:[
+      { label:"高价短约", fx:{ funds:120, rep:-3 }, result:"钱到账最快，胸前黄金广告位让了出去，球迷嘀咕了两天。" },
+      { label:"均衡长约", fx:{ funds:60, rep:3 }, result:"签了三年长约，不多不少，两边都睡了个踏实觉。" },
+      { label:"青训冠名约", fx:{ funds:20, rep:8, coachXp:15 }, result:"梯队球衣印上赞助商名字，青训家长群里一片叫好。" } ] },
+  { id:"af-ticket", tag:"票务", title:"下个主场门票定价", body:"票务部把三套定价方案摆上桌，等你一句话。",
+    opts:[
+      { label:"涨价一成", fx:{ funds:70, rep:-4 }, result:"收入涨了，论坛里「票贵了」的帖子也涨了。" },
+      { label:"亲民价不变", fx:{ funds:20, rep:5 }, result:"上座率稳稳的，老球迷说这才是过日子的俱乐部。" },
+      { label:"学生半价日", fx:{ funds:-15, rep:9 }, result:"看台上多了一整片校服，第二天本地新闻给了个镜头。" } ] },
+  { id:"af-academy", tag:"青训", title:"梯队名额分配", body:"今年梯队就三个重点培养名额，给谁是个得罪人的活。",
+    opts:[
+      { label:"拔尖的进一队合练", fx:{ coachXp:30, staminaAll:-2 }, result:"两个小将被一队的节奏冲得东倒西歪，但眼神变了。" },
+      { label:"打包外租练级", fx:{ funds:35 }, result:"租借费不多，胜在三个孩子都能踢上正式比赛。" },
+      { label:"请名宿回来带训", fx:{ funds:-40, coachXp:45 }, result:"名宿第一堂课只说了一句：先把鞋带系紧，再谈梦想。" } ] },
+  { id:"af-store", tag:"商业", title:"围巾新品上架", body:"球迷商店的新围巾到了，三种卖法，仓库只够备一种的量。",
+    opts:[
+      { label:"限量款，价高量少", fx:{ funds:65, rep:-2 }, result:"两天抢光，黄牛价翻了一倍，官方账号被@到冒烟。" },
+      { label:"平价款，走量", fx:{ funds:30, rep:4 }, result:"卖得不快不慢，看台上慢慢多了一片同款围巾。" },
+      { label:"球员联名款", fx:{ funds:40, rep:7, staminaAll:-2 }, result:"队长抽空拍了组照片，签名版半小时售罄。" } ] },
+  { id:"af-media", tag:"媒体", title:"媒体开放日安排", body:"十几家媒体报名了开放日，开放到什么程度，你定。",
+    opts:[
+      { label:"全开放，随便拍", fx:{ rep:8, staminaAll:-3 }, result:"素材多到剪不完，球员们被话筒追得满场跑。" },
+      { label:"只开放训练课", fx:{ rep:4, coachXp:10 }, result:"分寸刚好，战术课的部分被礼貌地挡在了门外。" },
+      { label:"闭门谢客，专心备战", fx:{ coachXp:22 }, result:"媒体吃了闭门羹，教练组换来了整整一天的安静。" } ] },
+  { id:"af-charity", tag:"公益", title:"慈善拍卖晚宴", body:"市慈善总会的晚宴邀请，拍卖的都是各队捐的签名装备。",
+    opts:[
+      { label:"全队出席站台", fx:{ funds:-30, rep:10 }, result:"合影上了晚报头版，主办方把感谢信裱起来寄了回来。" },
+      { label:"捐出签名球衣", fx:{ funds:15, rep:5 }, result:"队长的落场球衣拍出了全场最高价。" },
+      { label:"婉拒，安心备战", fx:{ coachXp:18 }, result:"回了封得体的信，训练计划一分钟没耽误。" } ] },
+  { id:"af-lights", tag:"设施", title:"训练场灯光改造", body:"夜训时灯光总有两盏闪，工程部报了三档改造方案。",
+    opts:[
+      { label:"顶配，一步到位", fx:{ funds:-80, staminaAll:5 }, result:"新灯亮起那晚，夜训的传球失误肉眼可见地少了。" },
+      { label:"够用就行", fx:{ funds:-30, coachXp:12 }, result:"换了灯管和镇流器，工程部顺手把线路图贴在了电房门上。" },
+      { label:"先不改，钱留着", fx:{ rep:-2, coachXp:8 }, result:"灯还闪，但预算保住了——教练组把夜训改到了黄昏。" } ] },
+  { id:"af-bus", tag:"球迷", title:"客场远征大巴", body:"下个客场有四百多名球迷要跟去，车队的事得俱乐部拿个主意。",
+    opts:[
+      { label:"俱乐部全包", fx:{ funds:-45, rep:8 }, result:"十辆大巴凌晨列队出发的照片，成了本赛季的名场面。" },
+      { label:"补贴一半，球迷AA", fx:{ funds:-20, rep:5 }, result:"报名半小时满员，球迷会长说这个分寸最舒服。" },
+      { label:"改办线上看球趴", fx:{ funds:10, rep:3 }, result:"主场大屏前聚了上千人，烧烤摊老板笑开了花。" } ] },
+];
+function affairOfToday(){
+  const s = mock.state; if(!s.founded) return null;
+  const day = seasonDayN();
+  if(s.dailyAffair && s.dailyAffair.day === day) return s.dailyAffair;
+  const def = AFFAIRS[(day * 7 + 2) % AFFAIRS.length];
+  s.dailyAffair = { day, id: def.id, done: false, pick: -1 };
+  return s.dailyAffair;
+}
+function pickAffair(i){
+  const s = mock.state, af = affairOfToday(); if(!af || af.done) return;
+  const def = AFFAIRS.find(x=>x.id === af.id); if(!def) return;
+  const opt = def.opts[i]; if(!opt) return;
+  applyChoiceFx(opt.fx);
+  af.done = true; af.pick = i;
+  s.log.push(`集团事务「${def.title}」：${opt.label}。`);
+  mock.save(); render();
+  toast("事务已办：" + opt.label);
+}
+window.pickAffair = pickAffair;
+
+function friendlyLeft(){ const f = friendlyState(); return Math.max(0, 4 + (f.ad ? 2 : 0) - f.used); }
 /*__SIM_ENGINE_BEGIN__*/
 /* SIM CORE — spatial match simulation (football + basketball). Pure JS, no DOM.
    Model: agent FSM + steering + ball physics; goals emerge from play (Buckland-style architecture, self-written).
@@ -3595,7 +3775,9 @@ function openLiveMatch(frTier, dayOverride){
     if(friendlyLeft() <= 0){ toast("今天的热身赛打满了，明天再来"); return; }
     const sorted = sp.leagues().slice().sort((a,b)=> sp.opp()[a] - sp.opp()[b]);
     const third = Math.max(1, Math.floor(sorted.length / 3));
-    const band = frTier === "弱" ? sorted.slice(0, third) : frTier === "强" ? sorted.slice(-third) : sorted.slice(third, sorted.length - third);
+    let tierEff = frTier;
+    if(friendlyModOf(dayN).id === "away") tierEff = frTier === "弱" ? "平" : "强";
+    const band = tierEff === "弱" ? sorted.slice(0, third) : tierEff === "强" ? sorted.slice(-third) : sorted.slice(third, sorted.length - third);
     opp = band[Math.floor(Math.random() * band.length)];
   } else {
     if(mock.state.played[sportId + ":" + dayN]){ toast("本轮已赛，明天再战"); return; }
@@ -3926,6 +4108,10 @@ function cockpitTodos(dayN){
   for(const sid of ["football", "basketball"]){
     if(!(s.played || {})[sid + ":" + dayN]) list.push({ u: 2, label: (sid === "football" ? "⚽ 足球" : "🏀 篮球") + "今日比赛还没打", act: "match:" + sid });
   }
+  const pcT = (typeof postChoiceOfToday === "function") ? postChoiceOfToday() : null;
+  if(pcT && !pcT.done) list.push({ u: 2, label: "🎙 赛后抉择待拍板", act: "choice" });
+  const afT = (typeof affairOfToday === "function") ? affairOfToday() : null;
+  if(afT && !afT.done) list.push({ u: 3, label: "🏢 今日集团事务待处理", act: "affair" });
   if(typeof packActive === "function" && packActive("2026-11-22")){ const left = 2 - (s.commCount || 0); if(left > 0) list.push({ u: 3, label: "拉练委托今日还可派 " + left + " 人", act: "squad" }); }
   return list.sort((a, b) => a.u - b.u);
 }
@@ -3934,6 +4120,8 @@ function cockpitGo(act){
   if(act === "club"){ switchTab("club"); return; }
   if(act === "squad"){ switchTab("squad"); return; }
   if(act === "market"){ switchTab("market"); return; }
+  if(act === "choice"){ switchTab("league"); const el = $("#todaySlot"); if(el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 60); return; }
+  if(act === "affair"){ switchTab("club"); const el = $("#eventList"); if(el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 60); return; }
   if(act.indexOf("match:") === 0){ const sid = act.split(":")[1];
     if(mock.state.sport !== sid){ mock.state.sport = sid; mock.save(); }
     switchTab("league"); render().then(() => { const el = $("#leagueCard"); if(el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }); }
@@ -4724,14 +4912,18 @@ function settleMatch(){
   if(isB && L.my === L.oppScore){ L.my += 2; pushLine(40, "加时赛一波小高潮，我方 +2 分险胜！", "goal"); }
   const res = L.my > L.oppScore ? "胜" : L.my === L.oppScore ? "平" : "负";
   const isFr = !!L.friendly;
+  const frMod = isFr ? friendlyModOf(L.dayN) : null;
   let frRep = 0;
-  if(isFr){ const base = res === "胜" ? FRIENDLY_CFG.repWin : res === "平" ? FRIENDLY_CFG.repDraw : 0; const fs2 = friendlyState(); frRep = Math.max(0, Math.min(base, FRIENDLY_CFG.repCapDay - (fs2.repGot || 0))); fs2.repGot = (fs2.repGot || 0) + frRep; }
-  const repD = isFr ? frRep : (res === "胜" ? 10 : res === "平" ? 4 : -2), fundD = isFr ? (res === "胜" ? 30 : res === "平" ? 10 : 0) : (res === "胜" ? 80 : res === "平" ? 30 : 0);
+  if(isFr){ let base = res === "胜" ? FRIENDLY_CFG.repWin : res === "平" ? FRIENDLY_CFG.repDraw : 0;
+    if(frMod.id === "derby") base *= 2; else if(frMod.id === "away") base = Math.round(base * 1.5);
+    const cap = frMod.id === "derby" ? 8 : FRIENDLY_CFG.repCapDay;
+    const fs2 = friendlyState(); frRep = Math.max(0, Math.min(base, cap - (fs2.repGot || 0))); fs2.repGot = (fs2.repGot || 0) + frRep; }
+  const repD = isFr ? frRep : (res === "胜" ? 10 : res === "平" ? 4 : -2), fundD = isFr ? Math.round((res === "胜" ? 30 : res === "平" ? 10 : 0) * ((frMod.id === "rain" || frMod.id === "away") ? 1.5 : 1)) : (res === "胜" ? 80 : res === "平" ? 30 : 0);
   s.rep = Math.max(0, s.rep + repD); s.balance += fundD;
   if(fundD){ ensureV2State(); s.buckets.match += fundD; }
   const ment = mentalityOf(L.sportId), tprof = s.tprof[L.sportId];
   if(!tprof.fam) tprof.fam = {}; tprof.fam[L.startMentality] = (tprof.fam[L.startMentality] || 0) + 1;
-  const stamMulAll = (ment.stam || 1) * instrFactor(L, "stam") * (isFr ? 0.5 : 1);
+  const stamMulAll = (ment.stam || 1) * instrFactor(L, "stam") * (isFr ? (frMod.id === "rain" ? 0.75 : 0.5) : 1);
   const maxMin = isB ? 40 : 90;
   const minsMap = Object.assign({}, L.playedMins || {});
   for(const x of L.onPitch) minsMap[x.pid] = (minsMap[x.pid] || 0) + (maxMin - (x.inMin || 0));
@@ -4748,11 +4940,12 @@ function settleMatch(){
     const ps = pstatOf(p.pid); const rest = ps.restDay === L.dayN;
     ps.stamina = Math.min(100, Math.round(ps.stamina + MATCH_CFG.staminaRestGain * (rest ? 2 : 1) * recSkill * (1 + 0.15 * fitLv)));
   }
-  const xpD = isFr ? (res === "胜" ? 50 : res === "平" ? 30 : 15) : (res === "胜" ? 100 : res === "平" ? 60 : 30);
+  const xpBase = isFr ? (res === "胜" ? 50 : res === "平" ? 30 : 15) : (res === "胜" ? 100 : res === "平" ? 60 : 30);
+  const xpD = (isFr && frMod.id === "youth") ? xpBase * 2 : xpBase;
   s.coach.xp = (s.coach.xp || 0) + xpD;
   const scoreTxt = L.my + ":" + L.oppScore;
   if(isFr){
-    s.log.push(`热身赛 ${res} ${L.opp}（${scoreTxt}）${fundD ? " · 奖金+" + fundD : ""}${frRep ? " · 声望+" + frRep : ""} · 教练经验+${xpD}`);
+    s.log.push(`热身赛 ${res} ${L.opp}（${scoreTxt}）· 词缀「${frMod.name}」${fundD ? " · 奖金+" + fundD : ""}${frRep ? " · 声望+" + frRep : ""} · 教练经验+${xpD}`);
   } else {
     s.played[L.sportId + ":" + L.dayN] = `${res} ${scoreTxt}`;
     if(L.catchup) s.catchup = (s.catchup || []).filter(c=>!(c.sport === L.sportId && c.day === L.dayN));
@@ -4776,7 +4969,7 @@ function settleMatch(){
   }
   const box = $("#matchNode");
   if(box) box.innerHTML = isFr
-    ? `<div class="nodebox"><div style="display:flex;gap:12px;align-items:center"><span class="seal ${res === "胜" ? "win" : res === "平" ? "draw" : "lose"}">${res}</span><div><div class="pname">热身赛结束：${scoreTxt} 对 ${L.opp}</div><div class="pmeta">战术「${ment.name}」熟练度 +1 · 不计积分榜，体能只扣一半</div></div></div><div style="margin-top:8px"><div class="kv"><span>声望</span><b data-count="${repD}">+${repD}</b></div><div class="kv"><span>比赛奖金</span><b data-count="${fundD}">+${fundD}</b></div><div class="kv"><span>教练经验</span><b>+${xpD}</b></div></div><div class="pmeta" style="margin-top:6px">进球：${L.scorers.length ? L.scorers.join("、") : "—"}<br>声望按胜负入账（每日上限 +4）。今日还可打 ${friendlyLeft()} 场。</div>${starHtml}<button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`
+    ? `<div class="nodebox"><div style="display:flex;gap:12px;align-items:center"><span class="seal ${res === "胜" ? "win" : res === "平" ? "draw" : "lose"}">${res}</span><div><div class="pname">热身赛结束：${scoreTxt} 对 ${L.opp}</div><div class="pmeta">战术「${ment.name}」熟练度 +1 · 不计积分榜，${frMod.id === "rain" ? "雨战体能扣 3/4" : "体能只扣一半"} · 今日词缀：${frMod.icon} ${frMod.name}</div></div></div><div style="margin-top:8px"><div class="kv"><span>声望</span><b data-count="${repD}">+${repD}</b></div><div class="kv"><span>比赛奖金</span><b data-count="${fundD}">+${fundD}</b></div><div class="kv"><span>教练经验</span><b>+${xpD}</b></div></div><div class="pmeta" style="margin-top:6px">进球：${L.scorers.length ? L.scorers.join("、") : "—"}<br>声望按胜负入账（每日上限 +${frMod.id === "derby" ? 8 : 4}）。今日还可打 ${friendlyLeft()} 场。</div>${starHtml}<button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`
     : `<div class="nodebox"><div style="display:flex;gap:12px;align-items:center"><span class="seal ${res === "胜" ? "win" : res === "平" ? "draw" : "lose"}">${res}</span><div><div class="pname">全场结束：${scoreTxt} 对 ${L.opp}</div><div class="pmeta">第${L.dayN}轮 · 战术「${ment.name}」熟练度 +1</div></div></div><div style="margin-top:8px"><div class="kv"><span>声望</span><b data-count="${repD}">${repD >= 0 ? "+" : ""}${repD}</b></div><div class="kv"><span>比赛奖金</span><b data-count="${fundD}">+${fundD}</b></div><div class="kv"><span>教练经验</span><b>+${xpD}</b></div></div><div class="pmeta" style="margin-top:6px">进球：${L.scorers.length ? L.scorers.join("、") : "—"}<br>首发体能已按出场时间扣除，未出场球员恢复 +${MATCH_CFG.staminaRestGain}。${friendlyLeft() > 0 ? "<br>老陈：正赛完了别散场，约场热身赛热热身——体能只算一半，输赢不记账。" : ""}</div>${starHtml}<button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`;
   countUps(box);
   renderMatchHead(); renderMatchTicker();
