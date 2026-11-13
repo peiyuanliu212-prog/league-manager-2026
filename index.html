@@ -41,6 +41,14 @@
   .tg-green { background:rgba(46,107,70,.10); } .tg-amber { background:rgba(176,125,43,.13); }
   .tg-blue { background:rgba(47,93,138,.10); } .tg-gray { background:rgba(96,88,72,.10); }
   .tg-red { background:rgba(168,50,38,.09); } .tg-teal { background:rgba(31,122,110,.10); }
+  .calstrip { display:flex; gap:6px; overflow-x:auto; padding:2px 0 6px; scrollbar-width:none; }
+  .calstrip::-webkit-scrollbar { display:none; }
+  .calchip { flex:0 0 auto; width:62px; text-align:center; border:1px solid var(--line); border-radius:10px; padding:6px 2px; background:var(--panel); opacity:.62; }
+  .calchip b { display:block; font-size:12px; }
+  .calchip span { display:block; font-size:10px; color:var(--dim); margin-top:2px; line-height:1.25; }
+  .calchip.done { opacity:.85; }
+  .calchip.today { opacity:1; border:2px solid var(--acc); background:#fdf3e3; }
+  .calchip.today span { color:var(--acc); font-weight:700; }
   .card { background-color:var(--panel); background-image:radial-gradient(rgba(122,96,32,.055) 1px, transparent 1.1px); background-size:7px 7px; border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px; box-shadow:0 1px 2px rgba(80,64,30,.07), 0 8px 16px -10px rgba(80,64,30,.22); }
   .row { display:flex; justify-content:space-between; align-items:center; gap:8px; }
   .pname { font-weight:700; font-size:15px; }
@@ -349,6 +357,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 </div>
 <section data-hseg="league" class="band band-green">
   <h2 data-no="01"><span class="eb">STAR LEAGUE</span>明星联赛 · 跨联赛对决</h2>
+  <div id="calSlot"></div>
   <div class="card" id="leagueCard"></div>
   <div id="friendlySlot"></div>
   <div id="tickerSlot"></div>
@@ -356,6 +365,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
   <div id="dailySlot"></div>
   <div id="tableSlot"></div>
   <div id="fixturesSlot"></div>
+  <div id="halfSlot"></div>
 </section>
 <div id="guideSlot" class="band band-red"></div>
 <div id="offlineSlot" class="band band-teal"></div>
@@ -1140,7 +1150,7 @@ let squadPosFilter = "";
 /* ---------- 内容包 1–4（日期门：北京时间；__LM_PACK_NOW 为测试钩子） ---------- */
 function packNow(){ return window.__LM_PACK_NOW || Date.now(); }
 function beijingDateStr(t){ return new Date(t || packNow()).toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" }); }
-const PACK_DAY = { "2026-11-19": 3, "2026-11-22": 6, "2026-11-26": 10, "2026-11-29": 13 };
+const PACK_DAY = { "2026-11-19": 3, "2026-11-21": 5, "2026-11-22": 6, "2026-11-26": 10, "2026-11-29": 13 };
 function packActive(dateStr){ const d = PACK_DAY[dateStr]; return d ? seasonDayN() >= d : beijingDateStr() >= dateStr; }
 const P1_PLAYERS = [
   { pid:"P301", name:"奥纳纳", pos:"GK", posGroup:"GK", ability:82, age:"29", club:"曼联", wage:"B", pot:"中", role:"首发" },
@@ -1157,15 +1167,17 @@ const P3_PLAYERS = [
   { pid:"P312", name:"卡塞米罗", pos:"DM", posGroup:"MF", ability:82, age:"33", club:"曼联", wage:"B", pot:"低", role:"首发" },
   { pid:"P313", name:"加克波", pos:"CF", posGroup:"FW", ability:83, age:"26", club:"利物浦", wage:"B", pot:"中", role:"首发" }
 ];
+const P1B_PLAYERS = P1_PLAYERS.slice(4);
 function packPlayersFor(sport){
   if(sport !== "football") return [];
   let out = [];
-  if(packActive("2026-11-19")) out = out.concat(P1_PLAYERS);
+  if(packActive("2026-11-19")) out = out.concat(P1_PLAYERS.slice(0, 4));
+  if(packActive("2026-11-21")) out = out.concat(P1B_PLAYERS);
   if(packActive("2026-11-26")) out = out.concat(P3_PLAYERS);
   return out;
 }
 function ratingOf(p){ const v = p.ability + (mock.state.growth[p.pid] || 0); return v >= 92 ? "S" : v >= 85 ? "A" : v >= 78 ? "B" : "C"; }
-function ratingBadge(p){ return packActive("2026-11-26") ? ` · 评级 <b>${ratingOf(p)}</b>` : ""; }
+function ratingBadge(p){ return seasonDayN() >= 8 ? ` · 评级 <b>${ratingOf(p)}</b>` : ""; }
 function effSignPrice(p){
   const base = signPrice(p);
   if(P3_PLAYERS.some(x => x.pid === p.pid) && packActive("2026-11-26") && !(mock.state.p3Used || {})[p.pid]) return Math.round(base * 0.8);
@@ -1739,7 +1751,7 @@ function renderMarket(){
     cStar.appendChild(head);
   }
   if(!free.length){ const d=document.createElement("div"); d.className="hint"; d.textContent="常规市场已无自由球员。"; cFree.appendChild(d); }
-  for(const p of free.slice(0, 12)){
+  const mkMarketCard = (p, parent) => {
     const price = effSignPrice(p); const afford = (mock.state.balance||0) >= price;
     const el = document.createElement("div"); el.className = "card";
     el.className = "card mcard";
@@ -1749,8 +1761,18 @@ function renderMarket(){
     const sb2 = document.createElement("button"); sb2.className = "mini"; sb2.style.marginTop = "8px"; sb2.textContent = "球探考察";
     sb2.onclick = ()=>{ startScout(p.pid); };
     el.appendChild(sb2);
-    cFree.appendChild(el);
+    parent.appendChild(el);
+  };
+  /* v67 新援上架：内容包球员置顶展示（否则被能力前 12 名淹没，新包等于没上） */
+  const packNew = (curSport().id === "football" && typeof packPlayersFor === "function") ? packPlayersFor("football").filter(p=>!isSigned(p)) : [];
+  if(packNew.length){
+    const ph = document.createElement("div"); ph.className = "card"; ph.style.borderColor = "#b07d2b";
+    ph.innerHTML = `<div class="pname">🆕 新援上架 · 球员包</div><div class="pmeta">本期新到 ${packNew.length} 名球员，置顶展示，不用翻市场慢慢找。</div>`;
+    cFree.appendChild(ph);
+    for(const p of packNew) mkMarketCard(p, cFree);
   }
+  const packPids = new Set(packNew.map(p=>p.pid));
+  for(const p of free.filter(p=>!packPids.has(p.pid)).slice(0, 12)) mkMarketCard(p, cFree);
   if(free.length > 12){ const d=document.createElement("div"); d.className="hint"; d.textContent = `市场共 ${free.length} 名自由球员，先显示能力最高的 12 名；签下后自动刷新。`; cFree.appendChild(d); }
   renderLoanMarket(cLoan); renderFreeAgents(cFa);
   if(!cStar.children.length){ const d=document.createElement("div"); d.className="hint"; d.textContent="巨星窗口暂无球员。"; cStar.appendChild(d); }
@@ -2144,6 +2166,7 @@ function todayItems(){
   const af2 = affairOfToday();
   items.push({ label:"🏢 每日集团事务", done: !!(af2 && af2.done), go:"affair" });
   if(typeof gearActive === "function" && gearActive()){ const gs2 = gearState(); items.push({ label:"🎁 装备包（今日免费包）", done: gs2.freeDay === d, go:"gear" }); }
+  if(d >= 9) items.push({ label:"📊 半程战报", done: !!mock.state.halfClaimed, go:"half" });
   const trI = (typeof travelOfToday === "function") ? travelOfToday() : null;
   if(trI) items.push({ label:"🚌 客场出行清单", done: !!trI.claimed, go:"choice" });
   const vrI = (typeof videoOfToday === "function") ? videoOfToday() : null;
@@ -2169,6 +2192,7 @@ function todayGo(go){
   if(go === "daily"){ switchTab("league"); const el = $("#dailySlot"); if(el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   if(go === "choice"){ const el = $("#todaySlot"); if(el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   if(go === "affair"){ switchTab("club"); const el = $("#eventList"); if(el) setTimeout(()=>el.scrollIntoView({ behavior:"smooth", block:"center" }), 60); return; }
+  if(go === "half"){ switchTab("league"); homeSeg("league"); const el = $("#halfSlot"); if(el) setTimeout(()=>el.scrollIntoView({ behavior:"smooth", block:"center" }), 60); return; }
   if(go === "gear"){ switchTab("club"); clubSeg("gear"); const el = $("#gearBody"); if(el) setTimeout(()=>el.scrollIntoView({ behavior:"smooth", block:"center" }), 60); return; }
   if(go === "video"){ switchTab("club"); const el = $("#eventList"); if(el) setTimeout(()=>el.scrollIntoView({ behavior:"smooth", block:"center" }), 60); return; }
   switchTab(go);
@@ -2675,7 +2699,7 @@ const MENTORS = {
   ],
 };
 const MENTOR_FEE = 200;
-function mentorOpen(){ return packActive("2026-11-26") && seasonDayN() >= 8; }
+function mentorOpen(){ return seasonDayN() >= 7; }
 function hireMentor(sportId, mid){
   const s = mock.state; ensureV2State();
   if(!mentorOpen() || s.mentor[sportId]) return;
@@ -2812,7 +2836,7 @@ function pickChain2(i){
 window.pickChain2 = pickChain2;
 
 /* ================= v42 装备包副线（张弛提案）：收藏/开包/双加成 ================= */
-const GEAR_CFG = { cost: 220, perPack: 3, paidPerDay: 3, powerCap: 5, incomeCap: 25, unlockDay: 3 };
+const GEAR_CFG = { cost: 220, perPack: 3, paidPerDay: 3, powerCap: 5, incomeCap: 25, unlockDay: 3, freeUnlockDay: 2 };
 const GEAR_RARITY = [
   { id: "C", name: "普通", color: "#8a8272", w: 58, dup: 25 },
   { id: "R", name: "稀有", color: "#2f5d8a", w: 28, dup: 45 },
@@ -2829,7 +2853,9 @@ const GEAR_ITEMS = [];
 for(const cat of ["coach", "shoes", "home"]) GEAR_NAMES[cat].forEach((name, i) => { const rar = i < 4 ? 0 : i < 7 ? 1 : i < 9 ? 2 : 3; GEAR_ITEMS.push({ id: "g_" + cat + "_" + (i + 1), cat, name, rar, val: (cat === "home" ? GEAR_VALS.income : GEAR_VALS.power)[rar] }); });
 function gearCatName(cat){ return cat === "coach" ? "🧠 战术顾问" : cat === "shoes" ? "👟 球鞋" : "🏟 主场设施"; }
 function fmtPct(v){ return Math.round(v * 10) / 10; }
-function gearActive(){ return seasonDayN() >= GEAR_CFG.unlockDay; }
+function gearActive(){ return seasonDayN() >= GEAR_CFG.freeUnlockDay; }
+function gearPaidActive(){ return seasonDayN() >= GEAR_CFG.unlockDay; }
+function gearCost(){ return seasonDayN() >= 12 ? 110 : GEAR_CFG.cost; }
 function gearState(){ ensureV2State(); const g = mock.state.gear; if(g.frags === undefined) g.frags = 0; if(!g.miles) g.miles = {}; if(!g.owned) g.owned = {}; if(g.pity === undefined) g.pity = 0; return g; }
 function gearItem(id){ return GEAR_ITEMS.find(x => x.id === id); }
 function gearSums(){
@@ -2884,8 +2910,9 @@ function openGearPack(){
   const freeAvail = g.freeDay !== d;
   let paid = false;
   if(!freeAvail){
+    if(!gearPaidActive()){ toast("付费装备包赛季第 " + GEAR_CFG.unlockDay + " 天开放，今天先开每日免费包"); return; }
     if(g.paidDay === d && g.paidCount >= GEAR_CFG.paidPerDay){ toast("今天的装备包开完了，明天再来"); return; }
-    if((s.balance || 0) < GEAR_CFG.cost){ toast("资金不足（需要 " + GEAR_CFG.cost + "）"); return; }
+    if((s.balance || 0) < gearCost()){ toast("资金不足（需要 " + gearCost() + "）"); return; }
     paid = true;
   }
   const results = []; let dupFunds = 0, frags = 0;
@@ -2900,8 +2927,9 @@ function openGearPack(){
     if(g.owned[it.id]){ const v = Math.floor(GEAR_RARITY[it.rar].dup * (1 + 0.25 * (typeof facLv === "function" ? facLv("kitroom") : 0))); dupFunds += v; frags += 1; results.push({ it, dup: true, val: v }); }
     else { g.owned[it.id] = 1; results.push({ it, dup: false }); }
   }
-  if(paid){ s.balance -= GEAR_CFG.cost; if(g.paidDay === d) g.paidCount += 1; else { g.paidDay = d; g.paidCount = 1; } g.pity = Math.max(...rolls) >= 2 ? 0 : (g.pity || 0) + 1; }
+  if(paid){ s.balance -= gearCost(); if(g.paidDay === d) g.paidCount += 1; else { g.paidDay = d; g.paidCount = 1; } g.pity = Math.max(...rolls) >= 2 ? 0 : (g.pity || 0) + 1; }
   else g.freeDay = d;
+  if(typeof bumpDaily === "function") bumpDaily("gear", 1);
   if(dupFunds){ s.balance += dupFunds; s.buckets.commercial += dupFunds; }
   g.frags = (g.frags || 0) + frags;
   g.lastPack = { day: d, ids: results.map(r => r.it.id), dupFunds, frags, paid };
@@ -2964,7 +2992,7 @@ function renderGear(){
   const el = $("#gearBody"); if(!el) return;
   const s = mock.state;
   if(!s.founded){ el.innerHTML = '<div class="hint">建队完成后开放。</div>'; return; }
-  if(!gearActive()){ el.innerHTML = `<div class="pmeta">🔒 赛季第 ${GEAR_CFG.unlockDay} 天开放。抽战术顾问、球鞋与主场设施，给全队战力和主场收益加成——球员永远只走签约市场，这里不抽人。</div>`; return; }
+  if(!gearActive()){ el.innerHTML = `<div class="pmeta">🔒 赛季第 ${GEAR_CFG.freeUnlockDay} 天开放。抽战术顾问、球鞋与主场设施，给全队战力和主场收益加成——球员永远只走签约市场，这里不抽人。</div>`; return; }
   const g = gearState(), d = seasonDayN(), sums = gearSums();
   const freeAvail = g.freeDay !== d;
   const paidLeft = g.paidDay === d ? Math.max(0, GEAR_CFG.paidPerDay - g.paidCount) : GEAR_CFG.paidPerDay;
@@ -2972,7 +3000,7 @@ function renderGear(){
   <div class="kv"><span>全队战力加成（封顶 +5%）</span><b>+${fmtPct(sums.power)}%</b></div>
   <div class="kv"><span>主场收益加成（封顶 +25%）</span><b>+${fmtPct(sums.income)}%</b></div>
   <div class="hint">每包 3 件：战术顾问与球鞋给战力、主场设施给收益；重复收藏自动折算资金（普通 25 / 稀有 45 / 史诗 80 / 传说 140）并 +1 藏品碎片。概率：普通 58% · 稀有 28% · 史诗 11% · 传说 3%。</div>
-  <div style="margin-top:8px"><button style="width:100%" ${(!freeAvail && paidLeft <= 0) ? "disabled" : ""} onclick="openGearPack()">${freeAvail ? "🎁 开今日免费包（3 件）" : paidLeft > 0 ? "再开一包 · " + GEAR_CFG.cost + " 资金（今日还剩 " + paidLeft + " 包）" : "今日已开完，明天再来"}</button></div>` + ((g.pity || 0) > 0 ? `<div class="hint" style="margin-top:4px">付费包保底进度 ${g.pity}/10：付费包连续未出史诗以上时计数，再 ${10 - (g.pity || 0)} 包必出。</div>` : "");
+  <div style="margin-top:8px"><button style="width:100%" ${(!freeAvail && paidLeft <= 0) ? "disabled" : ""} onclick="openGearPack()">${freeAvail ? "🎁 开今日免费包（3 件）" : !gearPaidActive() ? "付费包赛季第 3 天开放" : paidLeft > 0 ? "再开一包 · " + gearCost() + " 资金（今日还剩 " + paidLeft + " 包）" : "今日已开完，明天再来"}</button></div>` + ((g.pity || 0) > 0 ? `<div class="hint" style="margin-top:4px">付费包保底进度 ${g.pity}/10：付费包连续未出史诗以上时计数，再 ${10 - (g.pity || 0)} 包必出。</div>` : "");
   h += `<div class="pname" style="font-size:13px;margin-top:10px">套装（计入封顶内）</div>
   <div class="pmeta">${sums.sets.coach ? "✅" : "⬜"} 战术顾问全套 → 战力 +1% · ${sums.sets.shoes ? "✅" : "⬜"} 球鞋全套 → 战力 +1% · ${sums.sets.home ? "✅" : "⬜"} 主场全套 → 收益 +5% · ${sums.sets.collector ? "✅" : "⬜"} 史诗+传说 ≥6 件（现 ${sums.epicLegend}）→ 战力 +0.5% / 收益 +2%</div>
   <div class="pname" style="font-size:13px;margin-top:10px">🧩 藏品碎片 · ${g.frags || 0}</div>
@@ -5011,6 +5039,7 @@ function cockpitTodos(dayN){
   if(mcT && !mcT.pick) list.push({ u: 2, label: "🌅 今日晨检还没做", act: "choice" });
   if(!(s.devSession && s.devSession.day === dayN)) list.push({ u: 3, label: "🏋 今日个人发展课还没上", act: "squad" });
   if(typeof gearActive === "function" && gearActive() && gearState().freeDay !== dayN) list.push({ u: 2, label: "🎁 今日免费装备包还没开", act: "gear" });
+  if(dayN >= 9 && !s.halfClaimed) list.push({ u: 2, label: "📊 半程战报待领取（+100）", act: "league" });
   const spC = (typeof surpriseOfToday === "function") ? surpriseOfToday() : null;
   if(spC && !spC.done) list.push({ u: 2, label: "⚡ 今日突发待处理", act: "affair" });
   const c2t = (typeof chain2View === "function") ? chain2View() : null;
@@ -5868,7 +5897,7 @@ function settleMatch(){
     s.matchFunds.total += fundD;
     if(typeof applyTableResult === "function") applyTableResult(L.sportId, L.opp, L.my, L.oppScore);
   }
-  if(typeof bumpDaily === "function"){ bumpDaily("goals", L.myGoals); if(res === "胜") bumpDaily("win", 1); }
+  if(typeof bumpDaily === "function"){ bumpDaily("goals", L.myGoals); if(res === "胜"){ bumpDaily("win", 1); if(isFr) bumpDaily("frwin", 1); else bumpDaily("sprint", 1); } }
   s.lastTicker = { sportId: L.sportId, dayN: L.dayN, opp: L.opp, res, score: scoreTxt, fundD, friendly: isFr, lines: L.lines.slice(-10) };
   mock.save();
   /* —— v33 结算仪式：本场之星（进球/得分最多者，无进球取场上评分最高） —— */
@@ -6073,13 +6102,18 @@ const DAILY_POOL = [
   { id:"train", label:"迎接 2 名球员归队", target:2 },
   { id:"scout", label:"推进 1 次球探考察", target:1 },
   { id:"sign", label:"完成 1 笔签约", target:1 },
-  { id:"sub", label:"比赛中完成 1 次换人", target:1 }
+  { id:"sub", label:"比赛中完成 1 次换人", target:1 },
+  { id:"frwin", label:"热身赛赢下 1 场", target:1, fromDay:4 },
+  { id:"gear", label:"打开 1 个装备包", target:1, fromDay:4 },
+  { id:"sprint", label:"冲刺：赢下一场联赛正赛", target:1, reward:80 }
 ];
 function ensureDaily(){
   const s = mock.state, today = beijingDateStr();
   if(!s.daily || s.daily.day !== today){
+    const pool = DAILY_POOL.filter(d=>d.id !== "sprint" && (!d.fromDay || seasonDayN() >= d.fromDay));
     const h = hashN(today), ids = [];
-    for(let i = 0; i < DAILY_POOL.length && ids.length < 3; i++){ const d = DAILY_POOL[(h + i * 2) % DAILY_POOL.length]; if(!ids.includes(d.id)) ids.push(d.id); }
+    for(let i = 0; i < pool.length && ids.length < 3; i++){ const d = pool[(h + i * 2) % pool.length]; if(!ids.includes(d.id)) ids.push(d.id); }
+    if(seasonDayN() >= 11) ids.push("sprint");
     s.daily = { day: today, ids, prog: {}, claimed: {}, bonus: false };
   }
   return s.daily;
@@ -6094,19 +6128,47 @@ function bumpDaily(kind, n){
 function claimDaily(id){
   ensureV2State(); const s = mock.state, d = ensureDaily(), def = DAILY_POOL.find(x=>x.id===id);
   if(!def || d.claimed[id] || (d.prog[id] || 0) < def.target) return;
-  d.claimed[id] = 1; s.balance += 40; s.buckets.commercial += 40;
+  const rw = def.reward || 40; d.claimed[id] = 1; s.balance += rw; s.buckets.commercial += rw;
   if(d.ids.every(x=>d.claimed[x]) && !d.bonus){ d.bonus = true; s.coach.xp = (s.coach.xp || 0) + 50; toast("每日挑战全清！奖励 40 资金 · 教练经验 +50"); }
-  else toast("挑战达成：+40 资金");
+  else toast("挑战达成：+" + rw + " 资金");
   mock.save(); render();
 }
 function renderDaily(){
   const el = $("#dailySlot"); if(!el) return;
   if(!mock.state.founded){ el.innerHTML = ""; return; }
   const d = ensureDaily();
-  el.innerHTML = `<div class="card" style="margin-top:10px"><div class="pname">每日挑战（每项 +40 资金，全清另得教练经验 +50）</div>` +
+  el.innerHTML = `<div class="card" style="margin-top:10px"><div class="pname">每日挑战（每项 +40 资金起，全清另得教练经验 +50）</div>` +
     d.ids.map(id=>{ const def = DAILY_POOL.find(x=>x.id===id), pr = Math.min(d.prog[id] || 0, def.target), done = (d.prog[id] || 0) >= def.target;
-      return `<div class="row" style="margin-top:5px"><span class="pmeta">${def.label}（${pr}/${def.target}）</span>${d.claimed[id] ? '<span class="tag back">已领取</span>' : done ? `<button class="mini" onclick="claimDaily('${id}')">领取 40</button>` : '<span class="hint">进行中</span>'}</div>`; }).join("") + `</div>`;
+      return `<div class="row" style="margin-top:5px"><span class="pmeta">${def.label}（${pr}/${def.target}）</span>${d.claimed[id] ? '<span class="tag back">已领取</span>' : done ? `<button class="mini" onclick="claimDaily('${id}')">领取 ${def.reward || 40}</button>` : '<span class="hint">进行中</span>'}</div>`; }).join("") + `</div>`;
 }
+
+/* ================= v67 每日新内容日历 + 半程战报 ================= */
+const SEASON_CAL = [[1,"建队启程"],[2,"装备免费包"],[3,"球员包·壹"],[4,"挑战扩池"],[5,"球员包·贰"],[6,"拉练委托"],[7,"特邀导师"],[8,"球员评级"],[9,"半程战报"],[10,"球探包"],[11,"冲刺任务"],[12,"幸运周"],[13,"收官预告"],[14,"赛季结算"]];
+function renderCalendar(){
+  const el = $("#calSlot"); if(!el) return;
+  const s = mock.state; if(!s.founded){ el.innerHTML = ""; return; }
+  const d = seasonDayN();
+  el.innerHTML = `<div class="card" style="padding:10px 12px"><div class="row"><span class="pname" style="font-size:14px">📅 赛季日历 · 第 ${d}/14 天</span><span class="hint">每天都有新东西</span></div><div class="calstrip" style="margin-top:8px">${SEASON_CAL.map(([n, t])=>`<div class="calchip ${n < d ? "done" : n === d ? "today" : ""}"><b>${n < d ? "✓" : n === d ? "NEW" : "D" + n}</b><span>${t}</span></div>`).join("")}</div></div>`;
+  const today = el.querySelector(".calchip.today"); if(today) today.scrollIntoView({ inline:"center", block:"nearest" });
+}
+function renderHalfReport(){
+  const el = $("#halfSlot"); if(!el) return;
+  const s = mock.state;
+  if(!s.founded || seasonDayN() < 9){ el.innerHTML = ""; return; }
+  const line = sp => { const t = s.table && s.table[sp]; if(!t || !t.rows || !t.rows["__ME__"]) return null; const r = t.rows["__ME__"]; return { rank: myRank(sp), w: r.w, d: r.d, l: r.l, gf: r.gf, ga: r.ga }; };
+  const f = line("football"), b = line("basketball");
+  let gName = "—", gVal = 0;
+  for(const pid of Object.keys(s.growth || {})){ const v = s.growth[pid] || 0; if(v > gVal){ const pl = findPlayer(pid); if(pl){ gVal = v; gName = pl.name; } } }
+  const row = (icon, nm, r, isB) => r ? `<div class="kv"><span>${icon} ${nm}</span><b>第 ${r.rank} 名 · ${r.w} 胜${isB ? "" : " " + r.d + " 平"} ${r.l} 负 · 进 ${r.gf} / 失 ${r.ga}</b></div>` : `<div class="kv"><span>${icon} ${nm}</span><b>暂无战绩</b></div>`;
+  el.innerHTML = `<div class="card" style="border-color:#1f7a6e"><div class="pname">📊 半程战报 · 赛季过半盘点</div>
+    <div style="margin-top:6px">${row("⚽", "足球一队", f, false)}${row("🏀", "篮球一队", b, true)}<div class="kv"><span>🌱 成长之星</span><b>${gName}${gVal ? "（成长 +" + gVal + "）" : ""}</b></div></div>
+    <div class="row" style="margin-top:8px"><span class="hint">半程纪念奖励 100 资金</span>${s.halfClaimed ? '<span class="tag back">已领取</span>' : '<button class="mini" onclick="claimHalfReport()">领取 100</button>'}</div></div>`;
+}
+function claimHalfReport(){
+  const s = mock.state; if(!s.founded || s.halfClaimed || seasonDayN() < 9) return;
+  s.halfClaimed = true; s.balance += 100; s.buckets.commercial += 100; mock.save(); render(); toast("半程战报纪念奖励：+100 资金");
+}
+window.claimHalfReport = claimHalfReport;
 const WHEEL_TIERS = [ { pct:10, w:22 }, { pct:20, w:20 }, { pct:30, w:18 }, { pct:40, w:14 }, { pct:50, w:10 }, { pct:60, w:8 }, { pct:80, w:5 }, { pct:100, w:3 } ];
 function wheelState(){ const s = mock.state; if(!s.wheel || s.wheel.day !== seasonDayN()) s.wheel = { day: seasonDayN(), used: false, pct: 0, prize: 0 }; return s.wheel; }
 function spinWheel(){
@@ -6126,7 +6188,7 @@ function spinWheel(){
       let tot = 0; for(const t of WHEEL_TIERS) tot += t.w;
       let r = Math.random() * tot, pick = WHEEL_TIERS[0];
       for(const t of WHEEL_TIERS){ r -= t.w; if(r <= 0){ pick = t; break; } }
-      w.used = true; w.spinning = false; w.pct = pick.pct; w.prize = Math.round(base * pick.pct / 100);
+      w.used = true; w.spinning = false; w.pct = pick.pct; w.prize = Math.round(base * pick.pct / 100) * (seasonDayN() >= 12 ? 2 : 1);
       s.balance += w.prize; ensureV2State(); s.buckets.match += w.prize;
       mock.save(); render();
       toast("球迷幸运日：今日比赛奖金 +" + pick.pct + "%，到账 " + w.prize + " 资金");
@@ -6139,7 +6201,7 @@ function renderWheel(){
   const playedToday = ["football", "basketball"].some(sp=>s.played[sp + ":" + seasonDayN()]);
   if(w.used) el.innerHTML = `<div class="pmeta">今天已抽过：比赛奖金 +${w.pct}%（+${w.prize} 资金）。明天打完首场比赛再来。</div>`;
   else if(!playedToday) el.innerHTML = `<div class="pmeta">每天打完第一场比赛后开启：抽取今日比赛奖金的 10%–100% 额外加成（免费 1 次）。今天还没开赛。</div>`;
-  else el.innerHTML = `<div class="row"><div><span class="pname" style="font-size:15px">今日加成 <span id="wheelPct" style="color:var(--acc)">${w.spinning ? "…" : "10%–100%"}</span></span><div class="pmeta">奖池选项：${WHEEL_TIERS.map(t=>t.pct + "%").join(" / ")}，基数＝今日比赛奖金（保底 ${MATCH_CFG.wheelBase}）</div></div><button id="wheelBtn" ${w.spinning ? "disabled" : ""} onclick="spinWheel()">${w.spinning ? "抽取中…" : "抽一次（免费）"}</button></div>`;
+  else el.innerHTML = `<div class="row"><div><span class="pname" style="font-size:15px">今日加成 <span id="wheelPct" style="color:var(--acc)">${w.spinning ? "…" : "10%–100%"}</span></span><div class="pmeta">奖池选项：${WHEEL_TIERS.map(t=>t.pct + "%").join(" / ")}，基数＝今日比赛奖金（保底 ${MATCH_CFG.wheelBase}）${seasonDayN() >= 12 ? " · 🎉 收官幸运周：到账翻倍！" : ""}</div></div><button id="wheelBtn" ${w.spinning ? "disabled" : ""} onclick="spinWheel()">${w.spinning ? "抽取中…" : "抽一次（免费）"}</button></div>`;
 }
 function starText(p){
   const v = Math.max(0.5, Math.min(5, Math.round((p.ability - 62) / 7 * 2) / 2));
@@ -6223,7 +6285,7 @@ async function render(){
   else fs.innerHTML="";
   const hr2=new Date().getHours(); $("#eveningBar").classList.toggle("hidden", !(hr2>=19&&hr2<23));
   const sq=$("#squadList"); sq.innerHTML="";
-  healCheck(); ensureCatchup(); renderToday(); renderSquad(); renderTactics(); renderTable(); renderCoach(); renderDaily(); renderWheel();
+  healCheck(); ensureCatchup(); renderToday(); renderSquad(); renderTactics(); renderTable(); renderCoach(); renderDaily(); renderWheel(); renderCalendar(); renderHalfReport();
   renderFinance(); renderFacility(); renderGear(); renderGuide(); renderOffline(h);
   renderEvents(); renderScout(); renderLoanPending(); renderFriendly(); renderTickerCard(); renderFixtures(); drawPreviewPitch();
   if(!inShell) renderBoard();
