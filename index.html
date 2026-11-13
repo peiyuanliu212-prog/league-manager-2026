@@ -864,7 +864,9 @@ function ensureV2State(){
   if(!s.buckets) s.buckets = { match:0, commercial:0, broadcast:0 };
   if(s.wagePaid === undefined) s.wagePaid = 0;
   if(!s.log) s.log = [];
-  if(s.founded === undefined && s.clubName && !s.founding){ s.founded = true; s.lastWageDay = seasonDayN(); }
+  /* v73: founded 只能凭真实进度证据补判（已签班底/已赛场次）。壳内新号的服务器默认名「新星联队」
+     同步进本地时 clubName 非空，曾把新玩家误判为老档、整条建队链被跳过（资金0/战力0/无引导）。 */
+  if(s.founded === undefined && !s.founding && ((s.signed && s.signed.length) || (s.played && Object.keys(s.played).length))){ s.founded = true; s.lastWageDay = seasonDayN(); }
   if(s.lastWageDay === undefined) s.lastWageDay = 1;
   if(!s.loansIn) s.loansIn = {};
   if(!s.loansOut) s.loansOut = {};
@@ -6616,7 +6618,7 @@ $("#nameOk").onclick = async () => {
     if(!okAd){ toast("广告未完成，改名未生效（原名保留）"); return; }
   }
   const r = await api("/api/club-name", { name: $("#nameInput").value });
-  if(r.ok){ $("#nameModal").classList.add("hidden"); window.__renameMode = false; if(!mock.state.founded && !mock.state.founding){ startFounding(); } else { render(); if(isRename) toast("改名成功！新名字已经挂上俱乐部大门"); } }
+  if(r.ok){ if(r.clubName){ mock.state.clubName = r.clubName; mock.save(); } $("#nameModal").classList.add("hidden"); window.__renameMode = false; if(!mock.state.founded && !mock.state.founding){ startFounding(); } else { render(); if(isRename) toast("改名成功！新名字已经挂上俱乐部大门"); } }
   else toast("名字太长了（最多 10 字）");
 };
 async function watchRenameAd(){
@@ -6995,7 +6997,6 @@ async function switchToSlot(n){
       if(r && r.ok && r.payload){ const st = unwrapState(r.payload); localStorage.setItem("lm_active_slot", String(n)); mock.state = st; mock.save(); sessionStorage.setItem("lm_boot_skip", "1"); location.reload(); return; }
       toast("读取存档 " + n + " 失败，请稍后再试"); const bs = document.querySelector("#bootScreen"); if(bs) bs.remove(); return;
     }
-    if(inShell){ toast("壳内空档新开将在正式版开放，先用当前档"); const bs = document.querySelector("#bootScreen"); if(bs) bs.remove(); return; }
     localStorage.removeItem("lm_mock"); localStorage.setItem("lm_active_slot", String(n)); sessionStorage.setItem("lm_boot_skip", "1"); location.reload();
   }catch(e){ toast("切换存档失败，请稍后再试"); const bs = document.querySelector("#bootScreen"); if(bs) bs.remove(); }
 }
@@ -7004,13 +7005,16 @@ window.shareClub = shareClub; window.addDesktop = addDesktop;
 
 (async function boot(){
   const h = await api("/api/home");
-  if(inShell && h && h.clubName && !mock.state.clubName){ mock.state.clubName = h.clubName; mock.save(); }
+  /* v73: 壳内 /api/home 会给新 puid 自动建档并回默认名，未建队玩家若把默认名同步进本地，
+     会被误判已建队；只给已建队/建队中的存档回填服务器名，新玩家本地名保持空、走起名建队链。 */
+  if(inShell && h && h.clubName && !mock.state.clubName && (mock.state.founded || mock.state.founding)){ mock.state.clubName = h.clubName; mock.save(); }
   ensureV2State();
-  if(!inShell && !mock.state.clubName){ $("#nameModal").classList.remove("hidden"); }
+  if(!mock.state.founded && !mock.state.founding){ $("#nameModal").classList.remove("hidden"); }
   await render();
   renderBootSlots();
   if(mock.state.founding){ openFounding(); }
   await doSettle(true);
+  try{ tourAutoStart(); }catch(e){}
 })();
 </script>
 </body>
