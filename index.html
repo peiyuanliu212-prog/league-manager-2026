@@ -17,6 +17,30 @@
   .funds small { color:var(--dim); font-weight:400; font-size:11px; display:block; text-align:right; font-family:-apple-system,"PingFang SC",sans-serif; }
   section { padding:16px 16px 6px; }
   h2 { font-size:15px; color:var(--ink); margin-bottom:10px; font-weight:800; letter-spacing:1px; border-left:4px solid var(--acc); padding-left:8px; position:relative; }
+  /* v66 分区底色带：每区一色（淡底＋同色标题竖条/眉题），滑到哪区一眼认出 */
+  .band-green { background:rgba(46,107,70,.09); --racc:#2e6b46; }
+  .band-amber { background:rgba(176,125,43,.11); --racc:#b07d2b; }
+  .band-blue  { background:rgba(47,93,138,.09); --racc:#2f5d8a; }
+  .band-gray  { background:rgba(96,88,72,.085);  --racc:#605848; }
+  .band-red   { background:rgba(168,50,38,.085);  --racc:#a83226; }
+  .band-teal  { background:rgba(31,122,110,.10); --racc:#1f7a6e; }
+  section.band { border-top:3px solid var(--racc); }
+  section.band h2, h2[data-cseg] { border-left-color:var(--racc, var(--acc)); }
+  section.band h2 .eb, h2[data-cseg] .eb { color:var(--racc, var(--acc)); }
+  #guideSlot.band, #offlineSlot.band { padding:12px 16px 6px; border-top:3px solid var(--racc); }
+  .card[data-cseg="events"] { background-color:#fbf1e8; } .card[data-cseg="office"] { background-color:#faf3e0; }
+  .card[data-cseg="gear"] { background-color:#edf2f8; } .card[data-cseg="desk"] { background-color:#edf4ee; }
+  .card[data-cseg="save"] { background-color:#f2efe8; }
+  h2[data-cseg="events"] { --racc:#a83226; } h2[data-cseg="office"] { --racc:#b07d2b; }
+  h2[data-cseg="gear"] { --racc:#2f5d8a; } h2[data-cseg="desk"] { --racc:#2e6b46; } h2[data-cseg="save"] { --racc:#605848; }
+  [data-mseg] { border-radius:12px; padding:10px; }
+  [data-mseg="regular"] { background:rgba(96,88,72,.05); } [data-mseg="star"] { background:rgba(176,125,43,.075); }
+  [data-mseg="loan"] { background:rgba(47,93,138,.055); } [data-mseg="free"] { background:rgba(46,107,70,.055); }
+  .tgroup { display:block; margin:10px -4px 4px; padding:5px 8px; border-radius:8px; font-weight:700; font-size:13px; color:var(--ink); }
+  .tsub { margin-top:10px; padding:8px; border-radius:10px; }
+  .tg-green { background:rgba(46,107,70,.10); } .tg-amber { background:rgba(176,125,43,.13); }
+  .tg-blue { background:rgba(47,93,138,.10); } .tg-gray { background:rgba(96,88,72,.10); }
+  .tg-red { background:rgba(168,50,38,.09); } .tg-teal { background:rgba(31,122,110,.10); }
   .card { background-color:var(--panel); background-image:radial-gradient(rgba(122,96,32,.055) 1px, transparent 1.1px); background-size:7px 7px; border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px; box-shadow:0 1px 2px rgba(80,64,30,.07), 0 8px 16px -10px rgba(80,64,30,.22); }
   .row { display:flex; justify-content:space-between; align-items:center; gap:8px; }
   .pname { font-weight:700; font-size:15px; }
@@ -323,7 +347,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
     <button class="mini" data-hbtn="boards" onclick="homeSeg('boards')">📊 排行榜</button>
   </div>
 </div>
-<section data-hseg="league">
+<section data-hseg="league" class="band band-green">
   <h2 data-no="01"><span class="eb">STAR LEAGUE</span>明星联赛 · 跨联赛对决</h2>
   <div class="card" id="leagueCard"></div>
   <div id="friendlySlot"></div>
@@ -333,9 +357,9 @@ body.touring #matchModal .sheet{padding-bottom:330px}
   <div id="tableSlot"></div>
   <div id="fixturesSlot"></div>
 </section>
-<div id="guideSlot"></div>
-<div id="offlineSlot"></div>
-<section data-hseg="daily" style="display:none">
+<div id="guideSlot" class="band band-red"></div>
+<div id="offlineSlot" class="band band-teal"></div>
+<section data-hseg="daily" class="band band-amber" style="display:none">
   <h2 data-no="02"><span class="eb">DAILY</span>每日补给</h2>
   <div class="card">
     <div class="pname">球迷幸运日</div>
@@ -348,12 +372,12 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 </section>
 <section id="settleSlot"></section>
 
-<section data-hseg="returns" style="display:none">
+<section data-hseg="returns" class="band band-blue" style="display:none">
   <h2 data-no="03"><span class="eb">RETURNS</span>待归队</h2>
   <div id="pendingList"><div class="hint">暂无。把球员派去集训或外租，归队日他会自己回来。</div></div>
 </section>
 
-<section data-hseg="boards" style="display:none">
+<section data-hseg="boards" class="band band-gray" style="display:none">
   <h2 data-no="04"><span class="eb">RANKING</span>排行榜</h2>
   <div class="card">
     <div class="row"><div class="pname" style="font-size:15px">双榜</div>
@@ -383,18 +407,18 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 </div>
 
 <div class="page" data-page="scout">
-<section>
+<section class="band band-amber">
   <h2 data-no="01"><span class="eb">SCOUTING</span>球探部</h2>
   <div id="scoutList"></div>
 </section>
 </div>
 
 <div class="page" data-page="squad">
-<section>
+<section class="band band-green">
   <h2 data-no="01"><span class="eb">TACTICS</span>战术与排阵</h2>
   <div id="tacticsSlot"></div>
 </section>
-<section>
+<section class="band band-blue">
   <h2 data-no="02"><span class="eb">SQUAD</span>一线队 · 安排明日计划</h2>
   <div id="devSlot"></div>
   <div class="card" style="padding:10px 12px">
@@ -416,7 +440,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 </div>
 
 <div class="page" data-page="market">
-<section>
+<section class="band band-gray">
   <h2 data-no="01"><span class="eb">TRANSFER MARKET</span>签约市场 <span class="hint" id="marketHint"></span></h2>
   <div id="marketList"></div>
 </section>
@@ -2166,7 +2190,7 @@ function renderToday(){
   let h = `<div class="card"><div class="row"><div><span class="pname">📋 今日清单 · 赛季第 ${d} 天</span><div class="pmeta">每天十几分钟，把两支队都照顾到——已完成 ${doneN}/${items.length}</div></div></div><div style="margin-top:8px">`;
   let lastG = "";
   for(const it of items){
-    if(it.g && it.g !== lastG){ lastG = it.g; h += `<div class="hint" style="margin-top:9px;font-weight:700">${{ match: "⚽ 今日比赛", ops: "🏢 每日运营", grow: "🌱 成长与收藏" }[it.g] || ""}</div>`; }
+    if(it.g && it.g !== lastG){ lastG = it.g; h += `<div class="tgroup ${{ match: "tg-green", ops: "tg-amber", grow: "tg-blue" }[it.g] || "tg-gray"}">${{ match: "⚽ 今日比赛", ops: "🏢 每日运营", grow: "🌱 成长与收藏" }[it.g] || ""}</div>`; }
     h += `<div class="row" style="padding:3px 0;border-top:1px dashed var(--line)"><span>${it.done ? "✅" : "⬜"} ${it.label}</span>${it.done ? "" : `<button class="mini ghost" onclick="todayGo('${it.go}')">去完成</button>`}</div>`;
   }
   h += `</div>`;
@@ -2174,7 +2198,7 @@ function renderToday(){
   /* catch-up fixtures */
   const cu = (s.catchup || []).slice().sort((a, b)=>a.day - b.day);
   if(cu.length){
-    h += `<div style="margin-top:10px"><span class="pname">⏪ 补赛（${cu.length} 场）</span><div class="pmeta">错过的轮次不作废，随时补打，按原轮次计入积分。</div>`;
+    h += `<div class="tsub tg-gray"><span class="pname">⏪ 补赛（${cu.length} 场）</span><div class="pmeta">错过的轮次不作废，随时补打，按原轮次计入积分。</div>`;
     for(const c of cu){
       const sp = SPORT_PACKS[c.sport];
       const opp = sp.leagues()[(c.day - 1) % sp.leagues().length];
@@ -2185,7 +2209,7 @@ function renderToday(){
   /* morning check (v41 wave1) */
   const tr = (typeof travelOfToday === "function") ? travelOfToday() : null;
   if(tr){
-    h += `<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><span class="pname">🚌 客场出行清单</span><div class="pmeta" style="margin:2px 0 6px">今天是客场轮，后勤三件事逐项勾完有奖励。</div>`;
+    h += `<div class="tsub tg-blue"><span class="pname">🚌 客场出行清单</span><div class="pmeta" style="margin:2px 0 6px">今天是客场轮，后勤三件事逐项勾完有奖励。</div>`;
     h += TRAVEL_ITEMS.map(x => `<div class="row" style="margin-top:4px"><span class="pmeta">${tr.checks[x.id] ? "✅" : "⬜"} ${x.label} · ${x.desc}</span><button class="mini ${tr.checks[x.id] ? "ghost" : ""}" onclick="toggleTravel('${x.id}')">${tr.claimed ? "已就绪" : tr.checks[x.id] ? "取消" : "勾上"}</button></div>`).join("");
     if(tr.claimed) h += `<div class="hint" style="margin-top:4px">全部就绪，奖励已发：全队体能 +${2 + (typeof facLv === "function" ? facLv("kitroom") : 0)} · 声望 +1。</div>`;
     h += `</div>`;
@@ -2193,7 +2217,7 @@ function renderToday(){
   const mc = morningOfToday();
   if(mc){
     const ro = morningReadout();
-    h += `<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><span class="pname">🌅 今日晨检</span><div class="pmeta" style="margin:2px 0 6px">`;
+    h += `<div class="tsub tg-amber"><span class="pname">🌅 今日晨检</span><div class="pmeta" style="margin:2px 0 6px">`;
     h += ro.tired.length ? `体能告急 ${ro.tired.length} 人：${ro.tired.slice(0, 4).map(p => p.name + "（" + ro.stam(p) + "）").join("、")}。` : `全队体能都在 60 以上，状态在线。`;
     if(ro.injured.length) h += ` 伤缺：${ro.injured.map(p => p.name + "（至第 " + ((s.pstat[p.pid] || {}).injUntil || "?") + " 天）").join("、")}。`;
     h += `</div>`;
@@ -2210,7 +2234,7 @@ function renderToday(){
   if(dc){
     const def = DAILY_CHOICES.find(x=>x.id === dc.id);
     if(def){
-      h += `<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><span class="pname">🗳 今日抉择 · ${def.tag}</span><div class="pmeta" style="margin:2px 0 6px"><b>${def.title}</b>——${def.body}</div>`;
+      h += `<div class="tsub tg-red"><span class="pname">🗳 今日抉择 · ${def.tag}</span><div class="pmeta" style="margin:2px 0 6px"><b>${def.title}</b>——${def.body}</div>`;
       if(!dc.done){
         h += `<div class="tiers" style="grid-template-columns:1fr 1fr"><button onclick="pickDailyChoice('a')">${def.a.label}<br><span class="hint">${fxText(def.a.fx)}</span></button><button onclick="pickDailyChoice('b')">${def.b.label}<br><span class="hint">${fxText(def.b.fx)}</span></button></div>`;
       } else {
