@@ -389,6 +389,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 
 <section data-hseg="boards" class="band band-gray" style="display:none">
   <h2 data-no="04"><span class="eb">RANKING</span>排行榜</h2>
+  <div id="globalSlot"></div>
   <div class="card">
     <div class="row"><div class="pname" style="font-size:15px">双榜</div>
       <div><button class="mini act" id="tabRep">声望榜</button> <button class="mini" id="tabOut">训练产出榜</button> <button class="mini" id="tabWin">胜场榜</button></div></div>
@@ -1983,6 +1984,43 @@ document.addEventListener("click",e=>{
   if(e.target&&e.target.id==="tabOut"){boardTab="output";renderBoard();}
   if(e.target&&e.target.id==="tabWin"){boardTab="wins";renderBoard();}
 });
+
+
+/* ---------- v71 全服协作目标（真数据进度，BFF 计数；贡献按人每日封顶在服务端） ---------- */
+let globalCache = null;
+async function renderGlobal(){
+  const el = $("#globalSlot"); if(!el) return;
+  if(!inShell){ el.innerHTML = `<div class="card"><div class="pname" style="font-size:15px">🌍 全服协力 · 一起把赛季打热</div><div class="pmeta" style="margin-top:4px">所有经理打完的正赛都会汇成全服进度，达标后人人能领声望礼。进度只算真实比赛——在虎扑 App 内打开即可看到全服累计。</div></div>`; return; }
+  if(!globalCache){
+    try{ const r = await api("/api/global/progress"); if(r && r.ok) globalCache = r; }catch(e){}
+  }
+  const g = globalCache;
+  if(!g){ el.innerHTML = `<div class="card"><div class="pname" style="font-size:15px">🌍 全服协力</div><div class="hint" style="margin-top:4px">进度读取失败，稍后再来看看。</div></div>`; return; }
+  const next = g.tiers.find(t => !t.claimed) || null;
+  const prevAt = g.claimedCount > 0 ? g.tiers[g.claimedCount - 1].at : 0;
+  let bar = "", action = "";
+  if(next){
+    const pct = Math.max(2, Math.min(100, Math.round((g.total - prevAt) / Math.max(1, next.at - prevAt) * 100)));
+    bar = `<div class="obar"><i style="width:${pct}%"></i></div><div class="row"><span class="hint">全服已完赛 <b>${fmtN(g.total)}</b> 场</span><span class="hint">下一档 ${fmtN(next.at)} 场 · 达标礼 声望 +${next.rep}</span></div>`;
+    action = next.open ? `<button class="mini" onclick="claimGlobal()">领取达标礼（声望 +${next.rep}）</button>` : `<span class="hint">达标后回来这里领礼</span>`;
+  } else {
+    bar = `<div class="row"><span class="hint">全服已完赛 <b>${fmtN(g.total)}</b> 场 · 三档协力礼已全领 🎉</span></div>`;
+  }
+  el.innerHTML = `<div class="card" style="border-color:#605848"><div class="row"><div class="pname" style="font-size:15px">🌍 全服协力 · 一起把赛季打热</div>${action}</div><div style="margin-top:6px">${bar}</div></div>`;
+}
+async function claimGlobal(){
+  try{
+    const g = globalCache; if(!g) return;
+    const idx = g.claimedCount;
+    const r = await api("/api/global/claim", { tier: idx });
+    if(r && r.ok){
+      mock.state.rep = (mock.state.rep || 0) + (r.rep || 0);
+      mock.save(); globalCache = null;
+      toast(`全服协力达标礼：声望 +${r.rep}`); renderGlobal(); submitBoards();
+    } else toast("还没达标或已领取，去打场比赛再来");
+  }catch(e){ toast("领取失败，稍后再试"); }
+}
+window.claimGlobal = claimGlobal;
 
 /* ---------- v3 比赛引擎：六段管线＋直播屏＋临场节点（H 节冻结口径） ---------- */
 function hashStr(s){ let h = 2166136261; for(let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return Math.abs(h); }
@@ -5935,6 +5973,7 @@ function settleMatch(){
   if(box) box.innerHTML = isFr
     ? `<div class="nodebox"><div style="display:flex;gap:12px;align-items:center"><span class="seal ${res === "胜" ? "win" : res === "平" ? "draw" : "lose"}">${res}</span><div><div class="pname">热身赛结束：${scoreTxt} 对 ${L.opp}</div><div class="pmeta">战术「${ment.name}」熟练度 +1 · 不计积分榜，${frMod.id === "rain" ? "雨战体能扣 3/4" : "体能只扣一半"} · 今日词缀：${frMod.icon} ${frMod.name}</div></div></div><div style="margin-top:8px"><div class="kv"><span>声望</span><b data-count="${repD}">+${repD}</b></div><div class="kv"><span>比赛奖金</span><b data-count="${fundD}">+${fundD}</b></div><div class="kv"><span>教练经验</span><b>+${xpD}</b></div></div><div class="pmeta" style="margin-top:6px">${isB ? "得分" : "进球"}：${L.scorers.length ? L.scorers.join("、") : "—"}<br>声望按胜负入账（每日上限 +${frMod.id === "derby" ? 8 : 4}）。今日还可打 ${friendlyLeft()} 场。</div>${starHtml}<button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`
     : `<div class="nodebox"><div style="display:flex;gap:12px;align-items:center"><span class="seal ${res === "胜" ? "win" : res === "平" ? "draw" : "lose"}">${res}</span><div><div class="pname">全场结束：${scoreTxt} 对 ${L.opp}</div><div class="pmeta">第${L.dayN}轮 · 战术「${ment.name}」熟练度 +1</div></div></div><div style="margin-top:8px"><div class="kv"><span>声望</span><b data-count="${repD}">${repD >= 0 ? "+" : ""}${repD}</b></div><div class="kv"><span>比赛奖金</span><b data-count="${fundD}">+${fundD}</b></div><div class="kv"><span>教练经验</span><b>+${xpD}</b></div></div><div class="pmeta" style="margin-top:6px">${isB ? "得分" : "进球"}：${L.scorers.length ? L.scorers.join("、") : "—"}<br>首发体能已按出场时间扣除，未出场球员恢复 +${MATCH_CFG.staminaRestGain}。${friendlyLeft() > 0 ? "<br>老陈：正赛完了别散场，约场热身赛热热身——体能只算一半，输赢不记账。" : ""}</div>${starHtml}<div id="pressSlot"></div><button class="ghost" style="width:100%;margin-top:8px" onclick="closeMatch();openPosters('report')">🖼 生成战报海报</button><button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`;
+  if(inShell && !isFr){ try{ api("/api/global/contribute", { matches: 1 }).then(()=>{ globalCache = null; }).catch(()=>{}); }catch(e){} }
   countUps(box);
   try{ renderPress(); }catch(e){}
   tourHook("settle");
@@ -6386,7 +6425,7 @@ async function render(){
   const sq=$("#squadList"); sq.innerHTML="";
   healCheck(); ensureCatchup(); renderToday(); renderSquad(); renderTactics(); renderTable(); renderCoach(); renderDaily(); renderWheel(); renderCalendar(); renderHalfReport();
   renderFinance(); renderFacility(); renderGear(); renderGuide(); renderOffline(h);
-  renderEvents(); renderScout(); renderLoanPending(); renderFriendly(); renderTickerCard(); renderFixtures(); drawPreviewPitch();
+  renderEvents(); renderScout(); renderLoanPending(); renderFriendly(); renderTickerCard(); renderFixtures(); drawPreviewPitch(); try{ renderGlobal(); }catch(e){}
   if(!inShell) renderBoard();
   const hb=$("#heroBand");
   if(hb){ let dots=""; for(let d=1;d<=14;d++) dots+='<i class="'+(d<=dayN?"on":"")+'"></i>';
