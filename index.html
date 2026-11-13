@@ -2213,10 +2213,11 @@ function renderToday(){
   const d = seasonDayN(), items = todayItems();
   const doneN = items.filter(i=>i.done).length;
   let h = `<div class="card"><div class="row"><div><span class="pname">📋 今日清单 · 赛季第 ${d} 天</span><div class="pmeta">每天十几分钟，把两支队都照顾到——已完成 ${doneN}/${items.length}</div></div></div><div style="margin-top:8px">`;
-  let lastG = "";
+  let lastG = "", recUsed = false;
   for(const it of items){
     if(it.g && it.g !== lastG){ lastG = it.g; h += `<div class="tgroup ${{ match: "tg-green", ops: "tg-amber", grow: "tg-blue" }[it.g] || "tg-gray"}">${{ match: "⚽ 今日比赛", ops: "🏢 每日运营", grow: "🌱 成长与收藏" }[it.g] || ""}</div>`; }
-    h += `<div class="row" style="padding:3px 0;border-top:1px dashed var(--line)"><span>${it.done ? "✅" : "⬜"} ${it.label}</span>${it.done ? "" : `<button class="mini ghost" onclick="todayGo('${it.go}')">去完成</button>`}</div>`;
+    const rec = !it.done && it.go && !recUsed ? (recUsed = true, ' <span class="tag" style="background:#fdf3d0;color:#8a6d1a">⭐ 助教推荐</span>') : "";
+    h += `<div class="row" style="padding:3px 0;border-top:1px dashed var(--line)"><span>${it.done ? "✅" : "⬜"} ${it.label}${rec}</span>${it.done ? "" : `<button class="mini ghost" onclick="todayGo('${it.go}')">去完成</button>`}</div>`;
   }
   h += `</div>`;
   if(doneN === items.length) h += `<div class="hint" style="margin-top:6px">今日全清 ✅ 明天的比赛、抉择和新面孔都在路上了，早点休息，明天见。</div>`;
@@ -3000,7 +3001,7 @@ function renderGear(){
   let h = `<div class="kv"><span>收藏进度</span><b>${sums.owned} / 30</b></div>
   <div class="kv"><span>全队战力加成（封顶 +5%）</span><b>+${fmtPct(sums.power)}%</b></div>
   <div class="kv"><span>主场收益加成（封顶 +25%）</span><b>+${fmtPct(sums.income)}%</b></div>
-  <div class="hint">每包 3 件：战术顾问与球鞋给战力、主场设施给收益；重复收藏自动折算资金（普通 25 / 稀有 45 / 史诗 80 / 传说 140）并 +1 藏品碎片。概率：普通 58% · 稀有 28% · 史诗 11% · 传说 3%。</div>
+  <div class="hint">每包 3 件：战术顾问与球鞋给战力、主场设施给收益；重复收藏自动折算资金（普通 25 / 稀有 45 / 史诗 80 / 传说 140，装备间每升 1 级再 +25%）并 +1 藏品碎片。概率：普通 58% · 稀有 28% · 史诗 11% · 传说 3%。</div>
   <div style="margin-top:8px"><button style="width:100%" ${(!freeAvail && paidLeft <= 0) ? "disabled" : ""} onclick="openGearPack()">${freeAvail ? "🎁 开今日免费包（3 件）" : !gearPaidActive() ? "付费包赛季第 3 天开放" : paidLeft > 0 ? "再开一包 · " + gearCost() + " 资金（今日还剩 " + paidLeft + " 包）" : "今日已开完，明天再来"}</button></div>` + ((g.pity || 0) > 0 ? `<div class="hint" style="margin-top:4px">付费包保底进度 ${g.pity}/10：付费包连续未出史诗以上时计数，再 ${10 - (g.pity || 0)} 包必出。</div>` : "");
   h += `<div class="pname" style="font-size:13px;margin-top:10px">套装（计入封顶内）</div>
   <div class="pmeta">${sums.sets.coach ? "✅" : "⬜"} 战术顾问全套 → 战力 +1% · ${sums.sets.shoes ? "✅" : "⬜"} 球鞋全套 → 战力 +1% · ${sums.sets.home ? "✅" : "⬜"} 主场全套 → 收益 +5% · ${sums.sets.collector ? "✅" : "⬜"} 史诗+传说 ≥6 件（现 ${sums.epicLegend}）→ 战力 +0.5% / 收益 +2%</div>
@@ -5913,11 +5914,88 @@ function settleMatch(){
   const box = $("#matchNode");
   if(box) box.innerHTML = isFr
     ? `<div class="nodebox"><div style="display:flex;gap:12px;align-items:center"><span class="seal ${res === "胜" ? "win" : res === "平" ? "draw" : "lose"}">${res}</span><div><div class="pname">热身赛结束：${scoreTxt} 对 ${L.opp}</div><div class="pmeta">战术「${ment.name}」熟练度 +1 · 不计积分榜，${frMod.id === "rain" ? "雨战体能扣 3/4" : "体能只扣一半"} · 今日词缀：${frMod.icon} ${frMod.name}</div></div></div><div style="margin-top:8px"><div class="kv"><span>声望</span><b data-count="${repD}">+${repD}</b></div><div class="kv"><span>比赛奖金</span><b data-count="${fundD}">+${fundD}</b></div><div class="kv"><span>教练经验</span><b>+${xpD}</b></div></div><div class="pmeta" style="margin-top:6px">${isB ? "得分" : "进球"}：${L.scorers.length ? L.scorers.join("、") : "—"}<br>声望按胜负入账（每日上限 +${frMod.id === "derby" ? 8 : 4}）。今日还可打 ${friendlyLeft()} 场。</div>${starHtml}<button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`
-    : `<div class="nodebox"><div style="display:flex;gap:12px;align-items:center"><span class="seal ${res === "胜" ? "win" : res === "平" ? "draw" : "lose"}">${res}</span><div><div class="pname">全场结束：${scoreTxt} 对 ${L.opp}</div><div class="pmeta">第${L.dayN}轮 · 战术「${ment.name}」熟练度 +1</div></div></div><div style="margin-top:8px"><div class="kv"><span>声望</span><b data-count="${repD}">${repD >= 0 ? "+" : ""}${repD}</b></div><div class="kv"><span>比赛奖金</span><b data-count="${fundD}">+${fundD}</b></div><div class="kv"><span>教练经验</span><b>+${xpD}</b></div></div><div class="pmeta" style="margin-top:6px">${isB ? "得分" : "进球"}：${L.scorers.length ? L.scorers.join("、") : "—"}<br>首发体能已按出场时间扣除，未出场球员恢复 +${MATCH_CFG.staminaRestGain}。${friendlyLeft() > 0 ? "<br>老陈：正赛完了别散场，约场热身赛热热身——体能只算一半，输赢不记账。" : ""}</div>${starHtml}<button class="ghost" style="width:100%;margin-top:8px" onclick="closeMatch();openPosters('report')">🖼 生成战报海报</button><button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`;
+    : `<div class="nodebox"><div style="display:flex;gap:12px;align-items:center"><span class="seal ${res === "胜" ? "win" : res === "平" ? "draw" : "lose"}">${res}</span><div><div class="pname">全场结束：${scoreTxt} 对 ${L.opp}</div><div class="pmeta">第${L.dayN}轮 · 战术「${ment.name}」熟练度 +1</div></div></div><div style="margin-top:8px"><div class="kv"><span>声望</span><b data-count="${repD}">${repD >= 0 ? "+" : ""}${repD}</b></div><div class="kv"><span>比赛奖金</span><b data-count="${fundD}">+${fundD}</b></div><div class="kv"><span>教练经验</span><b>+${xpD}</b></div></div><div class="pmeta" style="margin-top:6px">${isB ? "得分" : "进球"}：${L.scorers.length ? L.scorers.join("、") : "—"}<br>首发体能已按出场时间扣除，未出场球员恢复 +${MATCH_CFG.staminaRestGain}。${friendlyLeft() > 0 ? "<br>老陈：正赛完了别散场，约场热身赛热热身——体能只算一半，输赢不记账。" : ""}</div>${starHtml}<div id="pressSlot"></div><button class="ghost" style="width:100%;margin-top:8px" onclick="closeMatch();openPosters('report')">🖼 生成战报海报</button><button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`;
   countUps(box);
+  try{ renderPress(); }catch(e){}
   tourHook("settle");
   renderMatchHead(); renderMatchTicker();
 }
+
+/* ================= v69 赛后发布会 + 球迷热议（学《足坛经理2026》赛后闭环，表达全原创） ================= */
+const PRESS_Q = {
+  "胜": { q: "记者：这场拿下之后，球队是不是可以喊争冠了？", opts: [
+    { t: "低调攒人品：「联赛还长，一场一场来。」", fx: { xp: 15 }, note: "教练经验 +15" },
+    { t: "正面硬刚：「我们就是冲着冠军来的。」", fx: { rep: 2 }, note: "声望 +2" },
+    { t: "功劳推给球员：「我只是排了个阵，踢球的是他们。」", fx: { funds: 20, rep: 1 }, note: "资金 +20 · 声望 +1" } ] },
+  "平": { q: "记者：只拿到一分，这个结果能接受吗？", opts: [
+    { t: "稳住军心：「一分也是一分，先把不败守住。」", fx: { xp: 10 }, note: "教练经验 +10" },
+    { t: "不甘心：「我们本该拿三分，下场补回来。」", fx: { rep: 1 }, note: "声望 +1" },
+    { t: "先夸对手：「对面今天踢得值得这一分。」", fx: { funds: 15 }, note: "资金 +15（赞助商就爱这个体面）" } ] },
+  "负": { q: "记者：输球之后，更衣室气氛怎么样？", opts: [
+    { t: "揽下责任：「责任在我，球员没有问题。」", fx: { rep: 1 }, note: "声望 +1" },
+    { t: "放话加练：「今晚复盘，明天加练，下场见。」", fx: { xp: 15 }, note: "教练经验 +15" },
+    { t: "暗示补强：「该补的位置，我心里有数了。」", fx: { xp: 5, rep: 1 }, note: "教练经验 +5 · 声望 +1" } ] }
+};
+const FAN_NICKS = ["北看台老赵", "远征军小队长", "卖烤肠的球探", "战术板研究生", "主队队歌领唱", "数据控阿May", "替补席观察员", "老球迷陈伯"];
+const FAN_LINES = {
+  "胜": ["这场看得我嗓子都喊哑了，{star}就是大腿本腿！", "{opp}今天完全被我们的节奏牵着走，舒服。", "积分榜又往上爬了，截图发群里嘚瑟一下。", "教练这个换人绝了，刚换上来就建功的味儿。", "赢球的夜晚，连晚市的风都是甜的。"],
+  "平": ["一分到手不亏，就是最后那脚差点意思。", "{star}今天被盯得太死了，对面明显做过功课。", "不败金身还在，下场主场必须拿下。", "这场属于谁赢谁孙子……咳，谁赢谁运气好。"],
+  "负": ["输球不输阵，下场把场子找回来。", "今天这个哨子我不评价，我怕被禁言。", "{star}尽力了，问题不在前场。", "把录像好好看一遍吧，这场学费不能白交。", "散场时全场还在喊队名，这才是主场。"]
+};
+function fanBuzzFor(key, res, starName, opp){
+  let h = 0; for(const c of key) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const pool = FAN_LINES[res] || FAN_LINES["平"];
+  const out = [];
+  for(let i = 0; i < 3; i++){
+    const li = pool[(h >> (i * 3)) % pool.length];
+    if(out.some(x => x.text === li)) continue;
+    out.push({ nick: FAN_NICKS[(h >> (i * 5)) % FAN_NICKS.length], text: li.replaceAll("{star}", starName || "全队").replaceAll("{opp}", opp || "对手"), likes: 12 + ((h >> (i * 7)) % 880) });
+  }
+  return out;
+}
+function pressState(key){
+  const s = mock.state; if(!s.press || s.press.key !== key) s.press = { key, pick: -1, liked: {} };
+  return s.press;
+}
+function renderPress(){
+  const el = $("#pressSlot"); if(!el) return;
+  const L = LIVE; if(!L || L.friendly){ el.innerHTML = ""; return; }
+  const s = mock.state, key = L.sportId + ":" + L.dayN, ps = pressState(key);
+  const res = L.my > L.oppScore ? "胜" : L.my === L.oppScore ? "平" : "负";
+  const def = PRESS_Q[res];
+  const starName = (L.scorers && L.scorers[0]) || "";
+  let h = `<div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:8px"><div class="pname" style="font-size:14px">🎙 赛后发布会</div><div class="pmeta" style="margin:2px 0 6px">${def.q}</div>`;
+  if(ps.pick < 0){
+    h += def.opts.map((o, i) => `<button class="ghost" style="width:100%;margin-top:5px;text-align:left" onclick="pickPress(${i})">${o.t}<br><span class="hint">${o.note}</span></button>`).join("");
+  } else {
+    h += `<div class="hint">你答道：${def.opts[ps.pick].t}（${def.opts[ps.pick].note}，已入账）</div>`;
+  }
+  h += `<div class="pname" style="font-size:14px;margin-top:10px">💬 球迷热议</div>`;
+  h += fanBuzzFor(key, res, starName, L.opp).map((c, i) => `<div class="row" style="margin-top:5px;align-items:flex-start"><div style="flex:1;min-width:0"><span class="tag">${esc(c.nick)}</span> <span style="font-size:13px">${esc(c.text)}</span></div><button class="mini ${ps.liked[i] ? "" : "ghost"}" onclick="likeFan(${i})">👍 ${c.likes + (ps.liked[i] ? 1 : 0)}</button></div>`).join("");
+  h += `</div>`;
+  el.innerHTML = h;
+}
+function pickPress(i){
+  const L = LIVE; if(!L) return;
+  const s = mock.state, key = L.sportId + ":" + L.dayN, ps = pressState(key);
+  if(ps.pick >= 0) return;
+  const res = L.my > L.oppScore ? "胜" : L.my === L.oppScore ? "平" : "负";
+  const o = PRESS_Q[res].opts[i]; if(!o) return;
+  ps.pick = i;
+  ensureV2State();
+  if(o.fx.rep) s.rep = (s.rep || 0) + o.fx.rep;
+  if(o.fx.xp) s.coach.xp = (s.coach.xp || 0) + o.fx.xp;
+  if(o.fx.funds){ s.balance += o.fx.funds; s.buckets.commercial += o.fx.funds; }
+  mock.save(); renderPress(); renderCockpit();
+  toast("发布会发言已见报：" + o.note);
+}
+function likeFan(i){
+  const L = LIVE; if(!L) return;
+  const ps = pressState(L.sportId + ":" + L.dayN);
+  ps.liked[i] = ps.liked[i] ? 0 : 1; mock.save(); renderPress();
+}
+window.pickPress = pickPress; window.likeFan = likeFan;
+
 function closeMatch(){ const m = $("#matchModal"); if(m) m.classList.add("hidden"); SFX.crowd(false); LIVE = null; render(); BGM.start(); if(typeof submitBoards === "function") submitBoards(); tourHook("close"); }
 
 /* ---------- v3 战术与排阵 UI（五档心态/指令开关/阵型/球场图摆位） ---------- */
