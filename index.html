@@ -489,6 +489,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
   </div>
   <div class="card" id="saveCard" data-cseg="save" style="display:none">
     <div class="row"><div><div class="pname">存档</div><div class="pmeta" id="saveInfo">本地自动保存中</div></div><span class="hint" id="activeSlotHint"></span></div>
+    <div class="row" style="margin-top:8px"><span class="hint">把游戏加到手机桌面，明天一键回来。</span><button class="mini ghost" onclick="addDesktop()">添加到桌面</button></div>
     <div id="slotsBody" style="margin-top:8px"><div class="hint">档位加载中…</div></div>
     <div class="row" style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px"><div style="flex:1;min-width:140px"><div class="pname" style="font-size:14px">删档重开</div><div class="pmeta">清空当前进度，从起名建队重新开始。上面 5 个档位槽里存过的备份不会被删，随时能读回来。</div></div><button class="mini ghost" onclick="wipeSaveClick(this)">🗑 删档重开</button></div>
     <div class="row" style="margin-top:12px"><div><div class="pname" style="font-size:14px">云端短码</div><div class="pmeta">8 位短码永久有效，凭码在任何设备取回；与档位槽互通。发码/取码每小时合计 10 次。</div></div><button id="codeIssueBtn">生成短码</button></div>
@@ -6539,6 +6540,7 @@ function renderOffline(h){
     <div class="row"><span class="hint">仓储已攒约 <b>${accrued}</b> / ${capFunds} 资金（${tier} 小时档）</span><span class="hint">${accrued >= capFunds ? "已满仓！回来正好收，别让它溢出" : "约 " + fmtDur(remainMs) + " 后满仓"}</span></div>
     <div class="row" style="margin-top:6px"><span class="hint">${awayN ? `🏃 ${awayN} 人在外成长中` : "🏃 还没派人出去成长"}${pendN ? ` · 🎉 ${pendN} 人已归队待迎接` : ""}</span><button class="mini" onclick="switchTab('squad')">去安排球员</button></div>
     ${inWin ? "" : `<div class="hint" style="margin-top:4px">今晚 19:00–23:00 晚市窗：离线产出 ×1.5（90 / 小时）。</div>`}
+    <div class="row" style="margin-top:8px;border-top:1px dashed var(--line);padding-top:8px"><span class="hint">把球队放桌面上，回来收菜不用翻 App。</span><button class="mini ghost" onclick="addDesktop()">添加到桌面</button></div>
   </div>`;
 }
 function openRules(){ $("#rulesModal").classList.remove("hidden"); }
@@ -6664,9 +6666,26 @@ function shareClub(){
   }catch(e){}
   toast("分享面板在虎扑 App 内打开；试玩版先把链接发给朋友也一样");
 }
+/* 添加到桌面：仅玩家点击时调用（官方技能 colorbox-add-to-desktop 口径）。
+   结果判定：code 200 不等于已创建；安卓 alreadyAdded→已添加过；bridgeResult.result===false→errorMsg；
+   安卓 result===true→已添加，其他平台成功静默；回调为空静默；异常→message/默认文案。 */
 function addDesktop(){
-  try{ if(window.ColorboxAI && window.ColorboxAI.addToDesktop){ const r = window.ColorboxAI.addToDesktop(); if(r && r.then) r.then(res=>{ if(res && res.code!==200) toast("添加到桌面没成功，稍后再试"); else toast("已添加到桌面，明天一键回来"); }).catch(()=>toast("添加到桌面没成功，稍后再试")); return r; } }catch(e){}
-  toast("添加到桌面在虎扑 App 内可用");
+  const fail = m => toast(m || "添加到桌面失败，请稍后重试");
+  try{
+    if(!(window.ColorboxAI && typeof window.ColorboxAI.addToDesktop === "function")){ toast("请在虎扑 App 内使用「添加到桌面」"); return; }
+    const r = window.ColorboxAI.addToDesktop();
+    if(r && typeof r.then === "function"){
+      r.then(res=>{
+        if(!res) return;
+        if(res.code !== 200){ fail(res.message); return; }
+        const data = res.data || {};
+        if(data.platform === "android" && data.alreadyAdded === true){ toast("已添加过，请勿重复添加"); return; }
+        const cb = data.bridgeResult;
+        if(cb && cb.result === false){ fail(cb.errorMsg); return; }
+        if(data.platform === "android" && cb && cb.result === true){ toast("已添加到桌面，明天一键回来"); }
+      }).catch(()=>fail());
+    }
+  }catch(e){ fail(); }
 }
 
 /* ---------- 开始页选档 ---------- */
