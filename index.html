@@ -392,7 +392,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
   <div id="globalSlot"></div>
   <div class="card">
     <div class="row"><div class="pname" style="font-size:15px">双榜</div>
-      <div><button class="mini act" id="tabRep">声望榜</button> <button class="mini" id="tabOut">训练产出榜</button> <button class="mini" id="tabWin">胜场榜</button></div></div>
+      <div><button class="mini act" id="tabRep">声望榜</button> <button class="mini" id="tabOut">训练产出榜</button> <button class="mini" id="tabWin">胜场榜</button> <button class="mini" id="tabFan">人气榜</button></div></div>
     <div id="boardList" style="margin-top:8px"></div>
     <div class="hint" id="boardMe"></div>
     <div class="hint">同分先到先得；赢球与特训后实时上榜。</div>
@@ -475,6 +475,10 @@ body.touring #matchModal .sheet{padding-bottom:330px}
   <div class="card" id="gearCard" data-cseg="gear" style="display:none">
     <div class="pname">装备收藏馆</div>
     <div id="gearBody" style="margin-top:6px"></div>
+  </div>
+  <div class="card" id="chalCard" data-cseg="desk" style="display:none">
+    <div class="pname" style="font-size:15px">⚔️ 战书台 · 和其他经理真刀真枪</div>
+    <div id="chalSlot" style="margin-top:6px"></div>
   </div>
   <div class="card" id="deskCard" data-cseg="desk" style="display:none">
     <div class="pname">经理台</div>
@@ -568,6 +572,12 @@ body.touring #matchModal .sheet{padding-bottom:330px}
   </div>
 </div>
 
+<div id="visitModal" class="hidden" style="position:fixed;inset:0;background:rgba(20,16,10,.55);z-index:88;display:flex;align-items:flex-end;justify-content:center">
+  <div style="background:#fbf7ec;width:100%;max-width:480px;max-height:86vh;overflow:auto;border-radius:14px 14px 0 0;padding:16px">
+    <div id="visitBody"></div>
+    <button class="ghost" style="width:100%;margin-top:10px" onclick="document.querySelector('#visitModal').classList.add('hidden')">关闭</button>
+  </div>
+</div>
 <div class="modal hidden" id="posterModal">
   <div class="sheet" id="posterSheet"></div>
 </div>
@@ -1935,7 +1945,7 @@ document.addEventListener("change", e=>{ if(e.target && e.target.id==="importSlo
 let boardTab = "rep";
 const fmtN = (n) => Number(n || 0).toLocaleString("zh-CN");
 const esc = (x) => String(x == null ? "" : x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const NPC_BOARDS = { rep:[["铁血教头",86],["南桥经理人",64],["北看台主席",41]], output:[["铁血教头",1250],["数据狂人",980],["南桥经理人",640]], wins:[["铁血教头",12],["数据狂人",9],["南桥经理人",7]] };
+const NPC_BOARDS = { rep:[["铁血教头",86],["南桥经理人",64],["北看台主席",41]], output:[["铁血教头",1250],["数据狂人",980],["南桥经理人",640]], wins:[["铁血教头",12],["数据狂人",9],["南桥经理人",7]], fans:[] };
 /* v70 真实昵称/头像（auth.getUserInfo，仅壳内、取一次缓存；榜单展示用，服务端身份仍以 puid 为准） */
 let boardUser = null, boardUserTried = false;
 async function fetchBoardUser(){
@@ -1963,7 +1973,7 @@ async function submitBoards(){
 async function renderBoard(){
   const el=$("#boardList"); if(!el) return;
   const me=$("#boardMe");
-  $("#tabRep").className="mini"+(boardTab==="rep"?" act":""); $("#tabOut").className="mini"+(boardTab==="output"?" act":""); const tw = $("#tabWin"); if(tw) tw.className="mini"+(boardTab==="wins"?" act":"");
+  $("#tabRep").className="mini"+(boardTab==="rep"?" act":""); $("#tabOut").className="mini"+(boardTab==="output"?" act":""); const tw = $("#tabWin"); if(tw) tw.className="mini"+(boardTab==="wins"?" act":""); const tf = $("#tabFan"); if(tf) tf.className="mini"+(boardTab==="fans"?" act":"");
   noteBest(); const bst = mock.state.best || { rep: 0, output: 0, wins: 0 };
   const meCard = `<div class="kv"><span>🏅 我的历史最佳</span><b>声望 ${fmtN(bst.rep)} · 产出 ${fmtN(bst.output)} · 胜场 ${fmtN(bst.wins)}</b></div>`;
   if(inShell){
@@ -1974,7 +1984,7 @@ async function renderBoard(){
       return;
     }catch(e){ el.innerHTML='<div class="hint">榜单读取失败，稍后再试。</div>'; return; }
   }
-  const myScore = boardTab==="rep" ? mock.state.rep : boardTab==="wins" ? myWinsTotal() : mock.state.output;
+  const myScore = boardTab==="rep" ? mock.state.rep : boardTab==="wins" ? myWinsTotal() : boardTab==="fans" ? 0 : mock.state.output;
   const rows = NPC_BOARDS[boardTab].map(([n,sc])=>({n,s:sc})).concat([{n:"我（"+(mock.state.clubName||"新星联队")+"）",s:myScore,me:true}])
     .sort((a,b)=>b.s-a.s).map((x,i)=>`<div class="brow"><span>${i+1}. ${esc(x.n)}${x.me?" ★":""}</span><b>${fmtN(x.s)}</b></div>`).join("");
   el.innerHTML = meCard + rows; me.textContent = "本地演示榜；进游戏壳后切换为全服真实榜。";
@@ -1983,6 +1993,7 @@ document.addEventListener("click",e=>{
   if(e.target&&e.target.id==="tabRep"){boardTab="rep";renderBoard();}
   if(e.target&&e.target.id==="tabOut"){boardTab="output";renderBoard();}
   if(e.target&&e.target.id==="tabWin"){boardTab="wins";renderBoard();}
+  if(e.target&&e.target.id==="tabFan"){boardTab="fans";renderBoard();}
 });
 
 
@@ -2021,6 +2032,119 @@ async function claimGlobal(){
   }catch(e){ toast("领取失败，稍后再试"); }
 }
 window.claimGlobal = claimGlobal;
+
+
+/* ---------- v72 战书码挑战＋参观＋点赞（快照冻结、零掠夺；后端已部署） ---------- */
+function buildSnap(){
+  const s = mock.state;
+  const sports = {};
+  for(const spId of ["football", "basketball"]){
+    const sp = SPORT_PACKS[spId];
+    const clean = sanitizeLineup(spId);
+    const players = clean.starters.map(x => { const pl = findPlayer(x.pid); if(!pl) return null;
+      return { name: pl.name, group: slotGroupOf(pl, spId), ovr: Math.round(effBase(pl)) }; }).filter(Boolean);
+    sports[spId] = { players, pow: players.length ? Math.round(players.reduce((a, b) => a + b.ovr, 0) / players.length) : 0 };
+  }
+  return { v: 1, sports };
+}
+function renderChallenge(){
+  const el = $("#chalSlot"); if(!el) return;
+  const s = mock.state;
+  if(!inShell){ el.innerHTML = `<div class="pmeta">战书码是真人对战：把你的阵容冻结成一张码发给朋友，对方输码就能参观你的俱乐部、给你点赞，或用他的双队来挑战你。胜负只记战书墙与少量声望，谁也不掉东西。在虎扑 App 内打开后可用。</div>`; return; }
+  const wall = (s.chalWall || []).slice(0, 5).map(w => `<div class="kv"><span>${w.win ? "🏆 胜" : "🤝 赛毕"} vs ${esc(w.opp)}</span><b>${w.my} : ${w.op}</b></div>`).join("");
+  el.innerHTML = `
+    ${s.chalCode ? `<div class="kv"><span>我的战书码（7 天有效）</span><b style="font-size:17px;letter-spacing:2px">${esc(s.chalCode)}</b></div>
+    <div class="row" style="margin-top:4px"><button class="mini" onclick="issueChallenge()">换一张新码</button><span class="hint">发到群里或参赛帖，谁输码谁就能来战</span></div>`
+    : `<div class="row"><button class="mini" onclick="issueChallenge()">生成我的战书码</button><span class="hint">把当前双队阵容冻结成码，7 天有效</span></div>`}
+    <div class="row" style="margin-top:8px"><input id="chalInput" placeholder="输入对方 6 位战书码" maxlength="6" style="flex:1;text-transform:uppercase">
+    <button class="mini" onclick="visitChallenge()">参观</button><button class="mini act" onclick="startChallengeFlow()">下战书</button></div>
+    ${wall ? `<div style="margin-top:8px"><div class="pname" style="font-size:13px">战书墙 · 近 5 场</div>${wall}</div>` : ""}`;
+}
+async function issueChallenge(){
+  try{
+    const u = (await fetchBoardUser()) || {};
+    const r = await api("/api/challenge/issue", { nickname: u.nickname || "", clubName: mock.state.clubName || "", snap: buildSnap() });
+    if(r && r.ok){ mock.state.chalCode = r.code; mock.save(); renderChallenge(); toast("战书码已生成：" + r.code); }
+    else toast("生成失败（太频繁或阵容异常），稍后再试");
+  }catch(e){ toast("生成失败，稍后再试"); }
+}
+let visitRec = null;
+async function fetchChallengeRec(){
+  const code = ($("#chalInput").value || "").trim().toUpperCase();
+  if(!/^[A-Z2-9]{6}$/.test(code)){ toast("先输入 6 位战书码"); return null; }
+  try{
+    const r = await api("/api/challenge/fetch", { code });
+    if(r && r.ok) return r;
+    toast(r && r.code === "NOT_FOUND" ? "这个码不存在或已过期" : "读取失败，稍后再试");
+  }catch(e){ toast("读取失败，稍后再试"); }
+  return null;
+}
+async function visitChallenge(){
+  const r = await fetchChallengeRec(); if(!r) return;
+  visitRec = r;
+  const sq = spId => (r.snap.sports[spId].players || []).map(pl => `<div class="kv"><span>${esc(pl.name)} · ${esc(pl.group)}</span><b>${pl.ovr}</b></div>`).join("");
+  $("#visitBody").innerHTML = `<div class="pname" style="font-size:16px">🏟 ${esc(r.clubName || "无名俱乐部")}</div>
+    <div class="pmeta">经理：${esc(r.nickname || "匿名经理")} · 阵容按发码时刻冻结</div>
+    <div class="pname" style="font-size:13px;margin-top:8px">⚽ 足球队（均能 ${r.snap.sports.football.pow || 0}）</div>${sq("football")}
+    <div class="pname" style="font-size:13px;margin-top:8px">🏀 篮球队（均能 ${r.snap.sports.basketball.pow || 0}）</div>${sq("basketball")}
+    <div class="row" style="margin-top:10px">${r.mine ? '<span class="hint">这是你自己的战书码</span>' : `<button class="mini" onclick="likeVisit()">👍 点赞（每日 1 次）</button><button class="mini act" onclick="challengeFromVisit()">⚔️ 就打这个阵容</button>`}</div>`;
+  $("#visitModal").classList.remove("hidden");
+}
+async function likeVisit(){
+  if(!visitRec) return;
+  try{
+    const code = ($("#chalInput").value || "").trim().toUpperCase();
+    const r = await api("/api/challenge/like", { code });
+    if(r && r.ok) toast("点赞成功，对方人气 +1");
+    else toast(r && r.code === "ALREADY" ? "今天已经赞过啦" : "点赞失败");
+  }catch(e){ toast("点赞失败"); }
+}
+async function startChallengeFlow(){
+  const r = await fetchChallengeRec(); if(!r) return;
+  if(r.mine){ toast("这是你自己的码，换个对手的试试"); return; }
+  openChallengeMatch(r);
+}
+function challengeFromVisit(){ $("#visitModal").classList.add("hidden"); if(visitRec) openChallengeMatch(visitRec); }
+function simOppTeamFromSnap(sportId, snapSport){
+  const players = (snapSport.players || []).map((pl, i) => ({ pid: "snap" + i, name: pl.name, group: pl.group, skill: simSkillRaw(pl.ovr, pl.group, sportId, "snap:" + pl.name + ":" + i) }));
+  return { formation: players.map(x => x.group), players };
+}
+function openChallengeMatch(rec){
+  ensureV2State();
+  const sportId = mock.state.sport || "football";
+  const snapSport = rec.snap && rec.snap.sports && rec.snap.sports[sportId];
+  if(!snapSport || !snapSport.players || snapSport.players.length < 5){ toast("对方这支队伍阵容不全，换个码试试"); return; }
+  const clean = sanitizeLineup(sportId);
+  const sp = SPORT_PACKS[sportId];
+  if(clean.starters.length < Math.min(sp.powerN, 5)){ toast("可用球员不足，先去市场补强阵容"); return; }
+  PENDING_MATCH = { chal: { code: rec.code, snap: rec.snap, clubName: rec.clubName || "对手" }, sportId, dayN: seasonDayN(), opp: rec.clubName || "对手", clean };
+  $("#matchModal").classList.remove("hidden"); BGM.pause();
+  renderMatchGate();
+}
+async function settleChallenge(){
+  const L = LIVE, s = mock.state;
+  const win = L.my > L.oppScore;
+  const res = win ? "胜" : L.my === L.oppScore ? "平" : "负";
+  let rep = 0;
+  if(inShell){ try{ const r = await api("/api/challenge/report", { code: L.challenge.code, win }); if(r && r.ok) rep = r.rep || 0; }catch(e){} }
+  if(rep > 0){ s.rep = (s.rep || 0) + rep; }
+  if(!s.chalWall) s.chalWall = [];
+  s.chalWall.unshift({ opp: L.challenge.clubName, my: L.my, op: L.oppScore, win, at: Date.now() });
+  s.chalWall = s.chalWall.slice(0, 10);
+  mock.save();
+  const star = L.scorers && L.scorers.length ? L.scorers[0] : "全队";
+  const node = $("#matchNode");
+  node.innerHTML = `<div class="nodebox"><div class="pname">⚔️ 战书赛 · 全场结束</div>
+    <div class="bigscore" style="margin-top:6px">${L.my} <span style="color:#8a7f63">:</span> ${L.oppScore}</div>
+    <div class="pmeta">${res === "胜" ? "拿下！你的球队赢下了这场跨服较量。" : res === "平" ? "握手言和，谁也没占到便宜。" : "惜败——阵容冻结的是对方发码那一刻，回去练兵再战。"} 本场之星：${esc(star)}</div>
+    <div class="kv"><span>战书奖励</span><b>${rep > 0 ? "声望 +" + rep : "今日奖励已达上限（只记战绩）"}</b></div>
+    <div class="kv"><span>口径</span><b>不计积分榜 · 不耗体能结算 · 对方零损失</b></div>
+    <div style="display:flex;gap:8px;margin-top:10px"><button style="flex:1;padding:12px" onclick="closeMatch()">回俱乐部</button></div></div>`;
+  try{ renderChallenge(); }catch(e){}
+  tourHook("settle");
+}
+window.issueChallenge = issueChallenge; window.visitChallenge = visitChallenge; window.startChallengeFlow = startChallengeFlow;
+window.likeVisit = likeVisit; window.challengeFromVisit = challengeFromVisit;
 
 /* ---------- v3 比赛引擎：六段管线＋直播屏＋临场节点（H 节冻结口径） ---------- */
 function hashStr(s){ let h = 2166136261; for(let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return Math.abs(h); }
@@ -4782,13 +4906,13 @@ function renderMatchGate(){
   const mp = $("#matchPitch"); if(mp) mp.style.display = "";
   renderGatePitch();
   const mn0 = $("#matchNode"); if(mn0) mn0.style.position = "static";
-  const kind = P.frTier ? "热身赛" : P.dayOverride ? "补赛" : "正赛";
+  const kind = P.chal ? "战书赛" : P.frTier ? "热身赛" : P.dayOverride ? "补赛" : "正赛";
   const fm = P.frTier ? friendlyModOf(P.dayN) : null;
   const node = $("#matchNode");
   if(node) node.innerHTML = `<div class="nodebox"><div class="pname">赛前准备 · ${kind} 对 ${P.opp}</div>
-    <div style="margin-top:8px"><div class="kv"><span>实力对比</span><b>我方 ${teamPower()} · 对手 ${sp.opp()[P.opp]}</b></div>
+    <div style="margin-top:8px"><div class="kv"><span>实力对比</span><b>我方 ${teamPower()} · 对手 ${P.chal ? (P.chal.snap.sports[P.sportId].pow || 0) + "（阵容快照）" : sp.opp()[P.opp]}</b></div>
     <div class="kv"><span>打法</span><b>我方「${ment.name}」 对 「${om.name}」${cd > 0 ? "（克制 +" + cd + "）" : cd < 0 ? "（被克制 " + cd + "）" : ""}</b></div>
-    <div class="kv"><span>本场奖金</span><b>${P.frTier ? "赢 +30 资金 · 教练经验减半 · 不计积分榜" : "胜 80 · 平 30 资金"}</b></div>
+    <div class="kv"><span>本场奖金</span><b>${P.chal ? "胜 +3 声望 · 败 +1（每日上限）· 不计积分榜 · 对方零损失" : P.frTier ? "赢 +30 资金 · 教练经验减半 · 不计积分榜" : "胜 80 · 平 30 资金"}</b></div>
     ${fm ? `<div class="kv"><span>今日词缀</span><b>${fm.icon} ${fm.name}</b></div>` : ""}
     ${P.frTier ? `<div class="kv"><span>今日热身赛剩余</span><b>${friendlyLeft()} 场</b></div>` : ""}
     <div class="kv"><span>首发体能</span><b>${lowSt.length ? "⚠ " + lowSt.map(p => p.name).join("、") + " 体能偏低（易受伤），先去阵容页轮休或换人" : "全队健康"}</b></div></div>
@@ -4798,17 +4922,17 @@ function renderMatchGate(){
 }
 function startLiveMatch(){
   const P = PENDING_MATCH; if(!P) return; PENDING_MATCH = null;
-  const frTier = P.frTier, dayOverride = P.dayOverride, sportId = P.sportId, dayN = P.dayN, opp = P.opp, clean = P.clean;
+  const frTier = P.frTier, dayOverride = P.dayOverride, sportId = P.sportId, dayN = P.dayN, opp = P.opp, clean = P.clean, chal = P.chal || null;
   const sp = SPORT_PACKS[sportId];
   const F = window.__LM_FORCE || {}; window.__LM_FORCE = {};
   if(frTier){ friendlyState().used += 1; mock.save(); }
-  LIVE = { sportId, dayN, opp, friendly: frTier || null, catchup: !!dayOverride, oppMent: oppMentalityFor(sportId, dayN, opp), oppForm: oppFormOf(sportId, opp, dayN), minute: 0, my: 0, oppScore: 0, yc: 0,
+  LIVE = { sportId, dayN, opp, friendly: frTier || null, challenge: chal, catchup: !!dayOverride, oppMent: chal ? { id: "bal" } : oppMentalityFor(sportId, dayN, opp), oppForm: chal ? null : oppFormOf(sportId, opp, dayN), minute: 0, my: 0, oppScore: 0, yc: 0,
     lines: [], onPitch: clean.starters.map(x=>({ pid: x.pid, slot: x.slot, inMin: 0 })), bench: clean.rotation.slice(),
     subsLeft: 3, settled: false, timer: null, speed: 1, scorers: [], myGoals: 0, segMy: [], segOpp: [], _segCursor: 0, _tally: {}, _fouls: [0, 0],
     startMentality: mock.state.tprof[sportId].mentality, paused: false, playedMins: {}, timeouts: 2, _inMin: {}, _slotMap: {}, _evCursor: 0, _lastBuildTick: -999, _lastShotTick: -999, _acc: 0, S: null, forceQueue: [] };
   for(const x of LIVE.onPitch){ LIVE._inMin[x.pid] = 0; LIVE._slotMap[x.pid] = x.slot; }
   const seed = (dayN * 7919 + (frTier ? 131 : 0) + Math.floor(Math.random() * 1e9)) >>> 0;
-  LIVE.S = SIMCORE.createSim({ sport: sportId, seed, myTeam: simMyTeam(sportId, clean.starters), oppTeam: simOppTeam(sportId, opp, LIVE.oppForm),
+  LIVE.S = SIMCORE.createSim({ sport: sportId, seed, myTeam: simMyTeam(sportId, clean.starters), oppTeam: chal ? simOppTeamFromSnap(sportId, chal.snap.sports[sportId]) : simOppTeam(sportId, opp, LIVE.oppForm),
     myMent: mock.state.tprof[sportId].mentality, myInstr: Object.assign({}, mock.state.tprof[sportId].instr || {}),
     oppMent: (LIVE.oppMent && LIVE.oppMent.id) || "bal", oppInstr: {}, homeSide: sportId === "football" ? (dayN % 2 === 1 ? 0 : 1) : null });
   if(F.duel) LIVE.forceQueue.push({ type: "duel" });
@@ -5906,6 +6030,7 @@ function countUps(scope){
 }
 function settleMatch(){
   const L = LIVE; if(!L || L.settled) return; L.settled = true; if(L.sportId === "basketball") SFX.buzzer(); else SFX.whistle(3);
+  if(L.challenge){ try{ settleChallenge(); }catch(e){} return; }
   const s = mock.state, isB = L.sportId === "basketball";
   const B = segBounds(L);
   if(!isB && L.my === L.oppScore){ /* 平局直接成立 */ }
@@ -6018,7 +6143,7 @@ function pressState(key){
 }
 function renderPress(){
   const el = $("#pressSlot"); if(!el) return;
-  const L = LIVE; if(!L || L.friendly){ el.innerHTML = ""; return; }
+  const L = LIVE; if(!L || L.friendly || L.challenge){ el.innerHTML = ""; return; }
   const s = mock.state, key = L.sportId + ":" + L.dayN, ps = pressState(key);
   const res = L.my > L.oppScore ? "胜" : L.my === L.oppScore ? "平" : "负";
   const def = PRESS_Q[res];
@@ -6425,7 +6550,7 @@ async function render(){
   const sq=$("#squadList"); sq.innerHTML="";
   healCheck(); ensureCatchup(); renderToday(); renderSquad(); renderTactics(); renderTable(); renderCoach(); renderDaily(); renderWheel(); renderCalendar(); renderHalfReport();
   renderFinance(); renderFacility(); renderGear(); renderGuide(); renderOffline(h);
-  renderEvents(); renderScout(); renderLoanPending(); renderFriendly(); renderTickerCard(); renderFixtures(); drawPreviewPitch(); try{ renderGlobal(); }catch(e){}
+  renderEvents(); renderScout(); renderLoanPending(); renderFriendly(); renderTickerCard(); renderFixtures(); drawPreviewPitch(); try{ renderGlobal(); }catch(e){} try{ renderChallenge(); }catch(e){}
   if(!inShell) renderBoard();
   const hb=$("#heroBand");
   if(hb){ let dots=""; for(let d=1;d<=14;d++) dots+='<i class="'+(d<=dayN?"on":"")+'"></i>';
@@ -6781,6 +6906,7 @@ async function drawPoster(){
     else line(d >= 14 ? "收官日已到，去联赛页办告别赛与典礼。" : "赛季尚未收官（第 14 天开启），这张是中途盘点。");
     gap(10); line(posterVerdict(rec, s));
   }
+  if(s.chalCode){ ctx.fillStyle = "#a83226"; ctx.font = "700 21px sans-serif"; ctx.fillText("⚔ 战书码 " + s.chalCode + " · 在游戏战书台输码来战我", cx, H - 96); }
   ctx.fillStyle = "#7a7261"; ctx.font = "15px sans-serif";
   ctx.fillText("足球＋篮球双队同营 · 离线也在成长 · 14 天一个赛季", cx, H - 66);
   wrap.innerHTML = ""; wrap.appendChild(cv);
