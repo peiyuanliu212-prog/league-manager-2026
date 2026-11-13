@@ -391,7 +391,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
   <h2 data-no="04"><span class="eb">RANKING</span>排行榜</h2>
   <div class="card">
     <div class="row"><div class="pname" style="font-size:15px">双榜</div>
-      <div><button class="mini act" id="tabRep">声望榜</button> <button class="mini" id="tabOut">训练产出榜</button></div></div>
+      <div><button class="mini act" id="tabRep">声望榜</button> <button class="mini" id="tabOut">训练产出榜</button> <button class="mini" id="tabWin">胜场榜</button></div></div>
     <div id="boardList" style="margin-top:8px"></div>
     <div class="hint" id="boardMe"></div>
     <div class="hint">同分先到先得；赢球与特训后实时上榜。</div>
@@ -1934,34 +1934,54 @@ document.addEventListener("change", e=>{ if(e.target && e.target.id==="importSlo
 let boardTab = "rep";
 const fmtN = (n) => Number(n || 0).toLocaleString("zh-CN");
 const esc = (x) => String(x == null ? "" : x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const NPC_BOARDS = { rep:[["铁血教头",86],["南桥经理人",64],["北看台主席",41]], output:[["铁血教头",1250],["数据狂人",980],["南桥经理人",640]] };
+const NPC_BOARDS = { rep:[["铁血教头",86],["南桥经理人",64],["北看台主席",41]], output:[["铁血教头",1250],["数据狂人",980],["南桥经理人",640]], wins:[["铁血教头",12],["数据狂人",9],["南桥经理人",7]] };
+/* v70 真实昵称/头像（auth.getUserInfo，仅壳内、取一次缓存；榜单展示用，服务端身份仍以 puid 为准） */
+let boardUser = null, boardUserTried = false;
+async function fetchBoardUser(){
+  if(boardUserTried) return boardUser; boardUserTried = true;
+  try{
+    if(window.ColorboxAI && window.ColorboxAI.auth && window.ColorboxAI.auth.getUserInfo){
+      const r = await window.ColorboxAI.auth.getUserInfo();
+      if(r && r.code === 200 && r.data && r.data.nickname) boardUser = { nickname: String(r.data.nickname).slice(0, 24), avatar: String(r.data.avatar || r.data.userHeadUrl || "").slice(0, 300) };
+    }
+  }catch(e){}
+  return boardUser;
+}
+function myWinsTotal(){ const s = mock.state; let w = 0; for(const sp of ["football", "basketball"]){ const t = s.table && s.table[sp]; if(t && t.rows && t.rows["__ME__"]) w += t.rows["__ME__"].w || 0; } return w; }
+function noteBest(){ const s = mock.state; if(!s.best) s.best = { rep: 0, output: 0, wins: 0 }; s.best.rep = Math.max(s.best.rep || 0, s.rep || 0); s.best.output = Math.max(s.best.output || 0, s.output || 0); s.best.wins = Math.max(s.best.wins || 0, myWinsTotal()); }
 async function submitBoards(){
+  noteBest();
   if(inShell){
-    try{ await api("/api/leaderboard/submit",{board:"rep",score:mock.state.rep,nickname:"",avatar:""}); }catch(e){}
-    try{ await api("/api/leaderboard/submit",{board:"output",nickname:"",avatar:""}); }catch(e){}
+    const u = (await fetchBoardUser()) || {};
+    try{ await api("/api/leaderboard/submit",{board:"rep",score:mock.state.rep,nickname:u.nickname||"",avatar:u.avatar||""}); }catch(e){}
+    try{ await api("/api/leaderboard/submit",{board:"output",nickname:u.nickname||"",avatar:u.avatar||""}); }catch(e){}
+    try{ await api("/api/leaderboard/submit",{board:"wins",score:myWinsTotal(),nickname:u.nickname||"",avatar:u.avatar||""}); }catch(e){}
   }
   renderBoard();
 }
 async function renderBoard(){
   const el=$("#boardList"); if(!el) return;
   const me=$("#boardMe");
-  $("#tabRep").className="mini"+(boardTab==="rep"?" act":""); $("#tabOut").className="mini"+(boardTab==="output"?" act":"");
+  $("#tabRep").className="mini"+(boardTab==="rep"?" act":""); $("#tabOut").className="mini"+(boardTab==="output"?" act":""); const tw = $("#tabWin"); if(tw) tw.className="mini"+(boardTab==="wins"?" act":"");
+  noteBest(); const bst = mock.state.best || { rep: 0, output: 0, wins: 0 };
+  const meCard = `<div class="kv"><span>🏅 我的历史最佳</span><b>声望 ${fmtN(bst.rep)} · 产出 ${fmtN(bst.output)} · 胜场 ${fmtN(bst.wins)}</b></div>`;
   if(inShell){
     try{
       const r = await api("/api/leaderboard",{board:boardTab,limit:20});
-      el.innerHTML = ((r&&r.top)||[]).map(x=>`<div class="brow"><span>${x.rank}. ${esc(x.nickname||("经理"+String(x.puid).slice(-4)))}</span><b>${fmtN(x.score)}</b></div>`).join("") || '<div class="hint">暂无数据，来打第一场。</div>';
+      el.innerHTML = meCard + (((r&&r.top)||[]).map(x=>`<div class="brow"><span>${x.rank}. ${esc(x.nickname||("经理"+String(x.puid).slice(-4)))}</span><b>${fmtN(x.score)}</b></div>`).join("") || '<div class="hint">暂无数据，来打第一场。</div>');
       me.textContent = (r&&r.me) ? `我的名次：第 ${r.me.rank} 名（${fmtN(r.me.score)}）` : "我还没上榜，先赢一场或完成一次结算。";
       return;
     }catch(e){ el.innerHTML='<div class="hint">榜单读取失败，稍后再试。</div>'; return; }
   }
-  const myScore = boardTab==="rep" ? mock.state.rep : mock.state.output;
+  const myScore = boardTab==="rep" ? mock.state.rep : boardTab==="wins" ? myWinsTotal() : mock.state.output;
   const rows = NPC_BOARDS[boardTab].map(([n,sc])=>({n,s:sc})).concat([{n:"我（"+(mock.state.clubName||"新星联队")+"）",s:myScore,me:true}])
     .sort((a,b)=>b.s-a.s).map((x,i)=>`<div class="brow"><span>${i+1}. ${esc(x.n)}${x.me?" ★":""}</span><b>${fmtN(x.s)}</b></div>`).join("");
-  el.innerHTML = rows; me.textContent = "本地演示榜；进游戏壳后切换为全服真实榜。";
+  el.innerHTML = meCard + rows; me.textContent = "本地演示榜；进游戏壳后切换为全服真实榜。";
 }
 document.addEventListener("click",e=>{
   if(e.target&&e.target.id==="tabRep"){boardTab="rep";renderBoard();}
   if(e.target&&e.target.id==="tabOut"){boardTab="output";renderBoard();}
+  if(e.target&&e.target.id==="tabWin"){boardTab="wins";renderBoard();}
 });
 
 /* ---------- v3 比赛引擎：六段管线＋直播屏＋临场节点（H 节冻结口径） ---------- */
