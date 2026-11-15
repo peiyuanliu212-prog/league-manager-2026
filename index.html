@@ -1158,14 +1158,21 @@ async function growPlayer(p){
   mock.state.balance-=cost; mock.state.growth[p.pid]=g+1; mock.state.output+=10; if(mock.state.commSynergy) mock.state.commSynergy=false; mock.save();
   toast(`${p.name} 特训完成，能力 ${p.ability}→${p.ability+g+1}（训练产出 +10）`); render(); submitBoards();
 }
+const arrangeInFlight = new Set();
 async function arrange(p, tierKey, tier){
-  const body = tier.kind==="loan" ? { loans:[{playerId:p.pid, tier:tierKey, kind:"loan"}] } : { jobs:[{playerId:p.pid, tier:tierKey, kind:tier.kind||"training"}] };
-  const r = await api("/api/arrange", body);
-  if(r.ok){ guideFlag("arranged"); awayMap.set(p.pid, tier.label+"中");
-    if(tierKey === "T0"){ mock.state.t0Used = true; mock.save(); toast(`🎓 教学拉练完成：${p.name} 已归队，去联赛页迎接他！`); }
-    else toast(`${p.name} 已出发：${tier.label}（${tier.dur}后归队）`);
-    render(); tourHook("arrange"); }
-  else toast("安排失败："+(r.code||""));
+  /* 在途防连点：壳内请求往返慢，连点会叠出重复工单（2026-11-15 真壳第 9 步连点 20 秒的教训） */
+  if(arrangeInFlight.has(p.pid)) return;
+  arrangeInFlight.add(p.pid);
+  try{
+    const body = tier.kind==="loan" ? { loans:[{playerId:p.pid, tier:tierKey, kind:"loan"}] } : { jobs:[{playerId:p.pid, tier:tierKey, kind:tier.kind||"training"}] };
+    const r = await api("/api/arrange", body);
+    if(r.ok){ guideFlag("arranged"); awayMap.set(p.pid, tier.label+"中");
+      if(tierKey === "T0"){ mock.state.t0Used = true; mock.save(); toast(`🎓 教学拉练完成：${p.name} 已归队，去联赛页迎接他！`); }
+      else toast(`${p.name} 已出发：${tier.label}（${tier.dur}后归队）`);
+      render(); tourHook("arrange"); }
+    /* 失败只给玩家话术、不漏内部错误码；状态一概不动，引导停在原步可直接重试 */
+    else toast("安排没成功，可能是网络或服务暂时不稳，请再点一次");
+  } finally { arrangeInFlight.delete(p.pid); }
 }
 async function claimReturn(c){
   const p = findPlayer(c.playerId);
@@ -1173,18 +1180,21 @@ async function claimReturn(c){
     const r = await api("/api/return/claim", { playerId:c.playerId, plannedReturnEpoch:c.plannedReturnEpoch, baseReward:150 });
     if(r.ok && !r.replayed){ guideFlag("claimed"); tourHook("claim"); ensureV2State(); if(typeof bumpDaily === "function") bumpDaily("train", 1); mock.state.output += 25; mock.state.commSynergy = true; mock.state.buckets.commercial += (r.reward||180); mock.state.lastReturn = { pid: c.playerId, name: p ? p.name : c.playerId, kind: "拉练委托", reward: r.reward || 180, day: seasonDayN() }; mock.save(); toast(`${p?p.name:c.playerId} 委托归队！委托费 ${r.reward||180} 到账、训练产出 +25、下一次特训 -20%（默契加成）`); }
     else if(r.ok){ toast("已领过啦"); }
+    /* 领取失败不许静默、更不许清 away 状态假装已归队：给提示、原样保留待重试 */
+    else { toast("迎接没成功，请再点一次"); return; }
     awayMap.delete(c.playerId); render(); return;
   }
   const base = 40 + Math.round((p?p.ability:70)/2);
   const r = await api("/api/return/claim", { playerId:c.playerId, plannedReturnEpoch:c.plannedReturnEpoch, baseReward:base });
   if(r.ok && !r.replayed){ guideFlag("claimed"); tourHook("claim"); ensureV2State(); if(typeof bumpDaily === "function") bumpDaily("train", 1); mock.state.buckets.commercial += (r.reward||0); mock.state.lastReturn = { pid: c.playerId, name: p ? p.name : c.playerId, kind: "成长归队", reward: r.reward || 0, day: seasonDayN() }; mock.save(); toast(`${p?p.name:c.playerId} 归队！${RETURN_LINES[Math.floor(Math.random()*RETURN_LINES.length)]} 奖励 ${r.reward} 资金（践约加成 +${r.promiseBonus}）`); }
   else if(r.ok){ toast("已领过啦"); }
+  else { toast("迎接没成功，请再点一次"); return; }
   awayMap.delete(c.playerId); render();
 }
 function fmtDur(ms){ const m=Math.floor(ms/60000); if(m<60) return m+" 分钟"; const h=Math.floor(m/60); return h+" 小时 "+(m%60)+" 分钟"; }
 async function doSettle(showSheet){
   const r = await api("/api/settle", { trigger:"login" });
-  if(!r.ok){ if(showSheet) toast("结算失败："+(r.code||"")); return; }
+  if(!r.ok){ if(showSheet) toast("结算没成功，稍后再试"); return; }
   let gearBonus = 0, gearInc = 0;
   if(r.totalFunds){ ensureV2State(); mock.state.buckets.commercial += r.totalFunds;
     gearInc = (typeof gearSums === "function") ? gearSums().income : 0;
@@ -1283,7 +1293,7 @@ async function arrangeCommission(p){
   const club = commClubToday();
   const r = await api("/api/arrange", { jobs: [{ playerId: p.pid, tier: "CX", kind: "commission" }] });
   if(r.ok){ guideFlag("arranged"); s.commCount += 1; mock.save(); awayMap.set(p.pid, "拉练委托中"); toast(`${club} 的委托函已接下：${p.name} 外出拉练 12 小时，归队结算委托费 180＋产出 25`); render(); }
-  else toast("委托安排失败：" + (r.code || ""));
+  else toast("委托安排没成功，请稍后再试");
 }
 /* ---------- v3 设施注册表（等级单源：训练场→facilityLv、仓储→tier、医疗室→fac.medical） ---------- */
 function facLv(id){
@@ -1947,12 +1957,16 @@ async function applyImportedState(st, rawPayload){
 }
 let slotsCache = null;
 async function refreshSlots(){
+  /* 槽面摘要必须对位当前进度：先把现行档同步到「当前槽」再列表。
+     v76 修：旧自动迁移写死 1 号槽——在 2 号槽建队时，摘要被挂到 1 号槽卡上、
+     2 号槽反而显示空档（2026-11-15 真壳实锤）；迁移目标与同步目标都只认当前槽。 */
+  if(mock.state && mock.state.clubName){ try{ await api("/api/slots/save", { slot: activeSlot(), payload: savePayload() }); }catch(e){} }
   const r = await api("/api/slots/list");
   if(r && r.ok){
     slotsCache = r.slots;
     if(!localStorage.getItem("lm_slots_migrated") && slotsCache.every(x=>!x.meta)){
       localStorage.setItem("lm_slots_migrated", "1");
-      await api("/api/slots/save", { slot: 1, payload: savePayload() });
+      await api("/api/slots/save", { slot: activeSlot(), payload: savePayload() });
       const r2 = await api("/api/slots/list"); if(r2 && r2.ok) slotsCache = r2.slots;
     }
   }
@@ -6725,18 +6739,25 @@ function tourAutoStart(){
   tourShow();
 }
 function tourStart(manual){ const s = mock.state; const prev = s.tour || {}; s.tour = { i:0, done:false, rewarded: !!prev.rewarded }; mock.save(); tourShow(); }
+let TOUR_GEN = 0;
 function tourShow(){
   const t = tourState(); if(t.done){ tourHide(); return; }
   let step = TOUR_STEPS[t.i]; if(!step){ tourFinish(true); return; }
-  /* 比赛段步骤（开始→结算）依赖比赛弹窗在场；弹窗不在就退回「进直播间」步等玩家，不许对着空页面乱指 */
-  const MATCH_SEG = ["start","settle"];
+  /* 比赛段步骤（讲解三步＋开始＋结算）依赖比赛弹窗在场；弹窗不在时：
+     还能进直播间就退回「进直播间」步等玩家；本场已打完（重看引导时）则整段跳过到派人步，
+     不许对着空页面乱指、更不许在 play 与 brief 之间来回弹 */
+  const MATCH_SEG = ["brief1","brief2","brief3","start","settle"];
   const mm = $("#matchModal");
   if(MATCH_SEG.includes(step.id) && mm && mm.classList.contains("hidden")){
-    t.i = TOUR_STEPS.findIndex(x => x.id === "play"); mock.save(); step = TOUR_STEPS[t.i];
+    t.i = TOUR_STEPS.findIndex(x => x.id === ($("#playBtn") ? "play" : "arrange")); mock.save(); step = TOUR_STEPS[t.i];
   }
   if(step.tab) switchTab(step.tab);
+  /* 代际守卫：每次 tourShow 自增一代，旧步遗留的重试链过期作废——否则旧链落笔时
+     步号已是新步、文案还是旧步，出现串字花屏（2026-11-15 重看引导实锤） */
+  const gen = ++TOUR_GEN;
   let tries = 0;
   const attempt = () => {
+    if(gen !== TOUR_GEN) return;
     const el = step.target ? step.target() : null;
     if(!el && step.target && tries++ < 10){ setTimeout(attempt, 250); return; }
     /* 小栏目守卫：高亮目标若藏在未选中的栏目里，先切到它所在的栏目再指 */
@@ -6745,6 +6766,9 @@ function tourShow(){
       const ms = el.closest("[data-mseg]"); if(ms && ms.style.display === "none"){ marketSeg = ms.dataset.mseg; renderMarket(); }
       const hs = el.closest("[data-hseg]"); if(hs && hs.style.display === "none") homeSeg(hs.dataset.hseg);
     }
+    /* 派人步：金色教学按钮要等阵容按「当前步=派人」重渲染后才出现，先等它到场再渲染气泡，
+       否则会抢先按无按钮降级（v76 基线 v60 实锤的竞态）；超时仍无（重看时已用过）才降级讲解版 */
+    if(step.id === "arrange" && !document.querySelector("#tourT0Btn") && tries++ < 10){ setTimeout(attempt, 250); return; }
     /* 迎接归队步：教学拉练的归队卡由首页数据异步渲染，给它留出到场时间再决定用实操版还是讲解版文案 */
     if(step.id === "claim" && !document.querySelector("#pendingList .card") && tries++ < 10){ setTimeout(attempt, 250); return; }
     tourRender(step, el);
@@ -6755,12 +6779,19 @@ function tourShow(){
 }
 function tourRender(step, el){
   const t = tourState(), bub = $("#tourBubble"); if(!bub) return;
+  /* 过期渲染一律丢弃：渲染的步必须与当前步同 id，杜绝步号/文案错位串字 */
+  if(!step || !TOUR_STEPS[t.i] || TOUR_STEPS[t.i].id !== step.id) return;
   document.body.classList.add("touring");
   if(step.id === "claim"){
     const live = !!document.querySelector("#pendingList .card");
     step = Object.assign({}, step, live ? { body: step.bodyLive || step.body } : { action: undefined });
   }
-  const actHint = { play:"👆 点上面高亮的按钮，点了自动继续", start:"👆 点高亮的「开始比赛」，点了自动继续", close:"👆 看完点弹窗里的「完成」，点了自动继续", arrange:"👆 点第一名球员卡上金色的「🎓 教学拉练」，点了自动继续", claim:"👆 点归队卡上的「迎接归队」，点了自动继续" }[step.action];
+  /* 动作步的实操控件不在场（重看引导时本场已打完、教学拉练已用过）时降级为讲解步：
+     给「下一步」而不是指着不存在的按钮让玩家干点 */
+  let actionLive = !!step.action;
+  if(step.action === "arrange" && !document.querySelector("#tourT0Btn")) actionLive = false;
+  else if(step.action && !el) actionLive = false;
+  const actHint = actionLive ? { play:"👆 点上面高亮的按钮，点了自动继续", start:"👆 点高亮的「开始比赛」，点了自动继续", close:"👆 看完点弹窗里的「完成」，点了自动继续", arrange:"👆 点第一名球员卡上金色的「🎓 教学拉练」，点了自动继续", claim:"👆 点归队卡上的「迎接归队」，点了自动继续" }[step.action] : undefined;
   const right = actHint
     ? `<span class="pmeta" style="align-self:center">${actHint}</span>`
     : `<button class="mini" onclick="tourNext()">${t.i === TOUR_STEPS.length - 1 ? "完成引导" : "下一步"}</button>`;
@@ -6789,7 +6820,7 @@ function tourFinish(completed){
   if(completed && !t.rewarded){ t.rewarded = true; s.coach.xp = (s.coach.xp || 0) + 30; toast("新手引导完成：教练经验 +30"); }
   mock.save(); tourHide();
 }
-function tourHide(){ const r = $("#tourRing"), b = $("#tourBubble"); if(r) r.style.display = "none"; if(b) b.style.display = "none"; document.body.classList.remove("touring"); if(TOUR_TIMER){ clearInterval(TOUR_TIMER); TOUR_TIMER = null; } }
+function tourHide(){ TOUR_GEN++; const r = $("#tourRing"), b = $("#tourBubble"); if(r) r.style.display = "none"; if(b) b.style.display = "none"; document.body.classList.remove("touring"); if(TOUR_TIMER){ clearInterval(TOUR_TIMER); TOUR_TIMER = null; } }
 function tourHook(ev){
   const s = mock.state; if(!s.tour || s.tour.done) return;
   const t = s.tour, step = TOUR_STEPS[t.i]; if(!step) return;
@@ -7044,6 +7075,8 @@ window.replayTour = replayTour; window.gotoSave = gotoSave; window.backToStart =
 let bootPick = null; const bootMetas = {};
 async function renderBootSlots(){
   const box = document.querySelector("#bootSlots"); if(!box) return;
+  /* 与 refreshSlots 同口径：当前进度先同步到当前槽，开始页槽面摘要才对位 */
+  if(mock.state && mock.state.clubName){ try{ await api("/api/slots/save", { slot: activeSlot(), payload: savePayload() }); }catch(e){} }
   let r = null; try{ r = await api("/api/slots/list"); }catch(e){}
   const act = activeSlot(); if(bootPick === null) bootPick = act;
   const slots = (r && r.slots) ? r.slots : [1,2,3,4,5].map(n=>({ slot:n, meta:null }));
