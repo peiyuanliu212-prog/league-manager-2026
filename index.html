@@ -694,7 +694,7 @@ const mock = {
     if(path==="/api/arrange"){
       const durMs={T0:0,T1:120000,T2:900000,T3:7200000,T4:28800000,T5:79200000,CX:43200000};
       const made=[];
-      for(const it of [...(body.jobs||[]),...(body.loans||[])]){ if(it.playerId){ const pr=now+durMs[it.tier]; s.contracts[it.playerId+"|"+pr]={playerId:it.playerId,plannedReturnEpoch:pr,state:"away",kind:it.kind}; made.push({plannedReturnEpoch:pr}); } }
+      for(const it of [...(body.jobs||[]),...(body.loans||[])]){ if(it.playerId){ const pr=now+durMs[it.tier]; s.contracts[it.playerId+"|"+pr]={playerId:it.playerId,plannedReturnEpoch:pr,state:"away",kind:it.kind,tier:it.tier,focus:it.focus||null}; made.push({plannedReturnEpoch:pr}); } }
       this.save(); return { ok:true, jobs:made };
     }
     if(path==="/api/return/claim"){
@@ -757,6 +757,8 @@ const RETURN_LINES = ["回来时鞋钉上还沾着客场的草屑。","行李都
  * 必填：id/label/icon/positions/powerN/players/leagues/oppPower；
  * terms 为该运动的术语覆盖（缺省用通用词）。电竞等后续包照此结构接入（见 docs/运动包扩展设计.md）。 */
 const STARTER_SQUADS = {"football": ["P008", "P045", "P040", "P039", "P070", "P072", "P087", "P096", "P118", "P085", "P036"], "basketball": ["B16", "B22", "B39", "B36", "B59", "B134", "B87", "B88", "B113", "B147"]};
+/* 文案同源（v78 ⑤）：renderScout/renderMarket 的签约费公式明示文本与 SIGN_CFG、scoutAction 的
+ * 询价浮动 0.95–1.25、还价 0.85 同源——改这里的常量必须同步改那两处文案 */
 const SIGN_CFG = { base: 60, quad: 0.9, min: 60 };
 function signPrice(p){ return Math.max(SIGN_CFG.min, Math.round(Math.pow(Math.max(0, p.ability - SIGN_CFG.base), 2) * SIGN_CFG.quad)); }
 function signedSet(){ if(!mock.state.signed) mock.state.signed = mock.state.clubName ? [...STARTER_SQUADS.football, ...STARTER_SQUADS.basketball] : []; return mock.state.signed; }
@@ -802,6 +804,41 @@ const MENTALITIES = [
 const STYLE_BEATS = { def:"atk", atk:"bal", bal:"def" };
 function counterDelta(myStyle, oppStyle){ if(STYLE_BEATS[myStyle]===oppStyle) return MATCH_CFG.counterBonus; if(STYLE_BEATS[oppStyle]===myStyle) return -MATCH_CFG.counterBonus; return 0; }
 function mentalityOf(sportId){ const t = mock.state.tprof && mock.state.tprof[sportId]; return MENTALITIES.find(m=>m.id===(t&&t.mentality)) || MENTALITIES[2]; }
+/* v78 ③克制量化面板辅助：depF 与 instrFactor 同口径（同 depAvg 来源、同 clamp 公式），面板只呈现不改引擎 */
+const STYLE_CN = { def: "守式", atk: "攻式", bal: "衡式" };
+function instrDepFFor(sp, def){
+  const lu = lineupOf(sp);
+  const form = FORMATIONS[sp].find(f=>f.id===lu.formation) || FORMATIONS[sp][0];
+  const on = lu.starters.map((pid, i)=>({ p: pid ? findPlayer(pid) : null, slot: form.slots[i] })).filter(x=>x.p);
+  const allEff = on.length ? on.reduce((t, x)=>t + effAbility(x.p, x.slot), 0) / on.length : 80;
+  let depAvg = allEff;
+  if(def.depGroups && def.depGroups.length) depAvg = groupAvgEff(on, def.depGroups, sp) || allEff;
+  if(def.depPos && def.depPos.length){ const xs = on.filter(x=>def.depPos.includes(x.p.pos)); if(xs.length) depAvg = xs.reduce((t, x)=>t + effAbility(x.p, x.slot), 0) / xs.length; }
+  return Math.max(0.4, Math.min(1.2, 0.6 + (depAvg - 75) / 25));
+}
+function instrEffectText(sp, def, depF, oppStyle){
+  const pct = v => (v >= 0 ? "+" : "−") + Math.abs(Math.round(v * 100)) + "%";
+  switch(def.id){
+    case "counter": case "fastbreak":
+      if(oppStyle === "atk") return `对攻式对手：我方期望 ${pct(0.15 * depF)}`;
+      if(oppStyle === "def") return `对守式对手：我方期望 ${pct(-0.05 * depF)}`;
+      return "对衡式对手：无额外加成";
+    case "possess": return `我方期望 ${pct(0.08 * depF)} · 对方期望 ${pct(-0.06 * depF)}`;
+    case "zonal": return `对方期望 ${pct(-0.12 * depF)}`;
+    case "press": case "fullpress": return "我方期望 +8% · 对方期望 −6% · 体能消耗 ×1.25（定值，不随首发变）";
+    case "outside": case "inside": return `我方期望 ${pct(0.10 * depF)}`;
+    case "wings": return `我方期望 ${pct(0.07 * depF)} · 对方期望 ${pct(0.04 * depF)}`;
+    case "longball": return `我方期望 ${pct(0.05 * depF)} · 对方期望 ${pct(0.02 * depF)}`;
+    case "halfspace": return `我方期望 ${pct(0.08 * depF)}`;
+    case "mark": return `对方期望 ${pct(-0.07 * depF)} · 体能消耗 ×1.1`;
+    case "elevator": return `我方期望 ${pct(0.06 * depF)}`;
+    case "hammer": return `我方期望 ${pct(0.05 * depF)}`;
+    case "spain": return `我方期望 ${pct(0.07 * depF)}`;
+    case "box1": return `对方期望 ${pct(-0.05 * depF)} · 体能消耗 ×1.08`;
+    case "hack": return `双方期望 ${pct(0.02 * depF)}`;
+    default: return "";
+  }
+}
 const INSTRUCTIONS = {
   football: [
     { id:"counter", name:"反击", dep:"吃边锋速度位", depGroups:["WG"] },
@@ -1140,6 +1177,17 @@ function playerCard(p){
   const meta = p.club ? `${p.pos} · 能力 ${p.ability+g} · ${p.club} · ${p.age}岁 · 工资${p.wage}档${p.pot!=="无(即战力)"?" · 潜力"+p.pot:""}${p.role!=="首发"?" · "+p.role:""}` : `${p.pos} · 能力 ${p.ability+g} · 日薪 ${wageOf(p)}`;
   el.innerHTML = `<div class="row" style="justify-content:flex-start;align-items:stretch"><div class="ovr" style="background:${tierColor(p.ability+g)}"><b>${p.ability+g}</b><small>${p.pos}</small>${g?'<i>+'+g+'</i>':''}</div><div class="bust">${bustSVG(p)}</div><div style="flex:1;min-width:0"><span class="pname">${p.name}</span> ${away?'<span class="tag away">'+away+'</span>':''}${isArrived(p)?'':'<span class="tag away">回租中 · 赛季第 '+arriveDay()+' 天到队</span>'}${isOut(p.pid)?'<span class="tag away">租出练级中 · 赛季第 '+mock.state.loansOut[p.pid].returnDay+' 天归队</span>':''}${(mock.state.loansIn||{})[p.pid]?'<span class="tag away">租入 · 赛季末回母队</span>':''}<div class="pmeta">${meta}${ratingBadge(p)}</div>${staminaBar(p)}</div></div>`;
   if(!away && isArrived(p) && !isOut(p.pid)){
+    /* v78 ②训练方向 chips（默认综合）＋上限明示：只决定归队成长分配，不改归队时间与资金奖励 */
+    const fc=document.createElement("div"); fc.className="tiers focusrow"; fc.style.gridTemplateColumns="repeat(5,1fr)"; fc.style.marginBottom="6px";
+    for(const f of FOCUS_DEFS){
+      const b=document.createElement("button"); b.className = focusOf(p.pid) === f.id ? "" : "ghost"; b.dataset.focus = f.id; b.textContent = f.name;
+      b.onclick=()=>{ focusSel.set(p.pid, f.id); [...fc.children].forEach(x=>{ x.className = x.dataset.focus === f.id ? "" : "ghost"; }); };
+      fc.appendChild(b);
+    }
+    el.appendChild(fc);
+    const fh2=document.createElement("div"); fh2.className="hint"; fh2.style.marginBottom="6px";
+    fh2.textContent = "训练方向：只决定归队成长分到哪一项，不改归队时间和资金奖励；每向攒满 100 升 1 点成长，全队成长上限 +5（与发展课同规）。恢复向不攒成长，归队直接回 50 体能。";
+    el.appendChild(fh2);
     const t=document.createElement("div"); t.className="tiers tiers5";
     const t0ok = (()=>{ try{ const ts = mock.state.tour; return ts && !ts.done && !mock.state.t0Used && TOUR_STEPS[ts.i] && TOUR_STEPS[ts.i].id === "arrange"; }catch(e){ return false; } })();
     if(t0ok){
@@ -1174,13 +1222,33 @@ async function growPlayer(p){
   mock.state.balance-=cost; mock.state.growth[p.pid]=g+1; mock.state.output+=10; if(mock.state.commSynergy) mock.state.commSynergy=false; mock.save();
   toast(`${p.name} 特训完成，能力 ${p.ability}→${p.ability+g+1}（训练产出 +10）`); render(); submitBoards();
 }
+/* v78 ②训练方向：对齐现行成长三向 atk/def/fit＋综合 bal＋恢复 rec（评估文档 2026-11-16）。
+ * focus 只是归队成长的分配标签：不改资金公式/时长/工单 rate；总量按档位 amt 表卡在现行日课量级。
+ * 老合同无 focus → 按综合；无 tier（或 T0/CX）→ amt 0 不产出。 */
+const FOCUS_DEFS = [ { id:"atk", name:"进攻" }, { id:"def", name:"防守" }, { id:"fit", name:"体能" }, { id:"bal", name:"综合" }, { id:"rec", name:"恢复" } ];
+const FOCUS_CN = { atk:"进攻", def:"防守", fit:"体能", bal:"综合", rec:"恢复" };
+const focusSel = new Map();
+function focusOf(pid){ return focusSel.get(pid) || "bal"; }
+const TRAIN_AMT = { T1:10, T2:20, T3:34, T4:50, T5:70 };
+function applyTrainFocus(c, p){
+  if(!p) return null;
+  const amt = TRAIN_AMT[c.tier] || 0;
+  if(!amt) return null;
+  const focus = c.focus || "bal";
+  if(focus === "rec"){ const ps = pstatOf(p.pid); ps.stamina = Math.min(100, (ps.stamina || 100) + 50); mock.save(); return { focus, amt: 0, rec: true }; }
+  if(focus === "bal"){ const each = Math.floor(amt / 3), rem = amt - each * 3; addDevProgress(p.pid, each + rem, "atk"); addDevProgress(p.pid, each, "def"); addDevProgress(p.pid, each, "fit"); }
+  else addDevProgress(p.pid, amt, focus);
+  mock.save();
+  return { focus, amt };
+}
 const arrangeInFlight = new Set();
 async function arrange(p, tierKey, tier){
   /* 在途防连点：壳内请求往返慢，连点会叠出重复工单（2026-11-15 真壳第 9 步连点 20 秒的教训） */
   if(arrangeInFlight.has(p.pid)) return;
   arrangeInFlight.add(p.pid);
   try{
-    const body = tier.kind==="loan" ? { loans:[{playerId:p.pid, tier:tierKey, kind:"loan"}] } : { jobs:[{playerId:p.pid, tier:tierKey, kind:tier.kind||"training"}] };
+    const focus = focusOf(p.pid);
+    const body = tier.kind==="loan" ? { loans:[{playerId:p.pid, tier:tierKey, kind:"loan", focus}] } : { jobs:[{playerId:p.pid, tier:tierKey, kind:tier.kind||"training", focus}] };
     const r = await api("/api/arrange", body);
     if(r.ok){ guideFlag("arranged"); awayMap.set(p.pid, tier.label+"中");
       if(tierKey === "T0"){ mock.state.t0Used = true; mock.save(); toast(`🎓 教学拉练完成：${p.name} 已归队，去联赛页迎接他！`); }
@@ -1202,7 +1270,7 @@ async function claimReturn(c){
   }
   const base = 40 + Math.round((p?p.ability:70)/2);
   const r = await api("/api/return/claim", { playerId:c.playerId, plannedReturnEpoch:c.plannedReturnEpoch, baseReward:base });
-  if(r.ok && !r.replayed){ guideFlag("claimed"); tourHook("claim"); ensureV2State(); if(typeof bumpDaily === "function") bumpDaily("train", 1); mock.state.buckets.commercial += (r.reward||0); mock.state.lastReturn = { pid: c.playerId, name: p ? p.name : c.playerId, kind: "成长归队", reward: r.reward || 0, day: seasonDayN() }; mock.save(); toast(`${p?p.name:c.playerId} 归队！${RETURN_LINES[Math.floor(Math.random()*RETURN_LINES.length)]} 奖励 ${r.reward} 资金（践约加成 +${r.promiseBonus}）`); }
+  if(r.ok && !r.replayed){ guideFlag("claimed"); tourHook("claim"); ensureV2State(); if(typeof bumpDaily === "function") bumpDaily("train", 1); mock.state.buckets.commercial += (r.reward||0); mock.state.lastReturn = { pid: c.playerId, name: p ? p.name : c.playerId, kind: "成长归队", reward: r.reward || 0, day: seasonDayN() }; const tf = applyTrainFocus(c, p); mock.save(); toast(`${p?p.name:c.playerId} 归队！${RETURN_LINES[Math.floor(Math.random()*RETURN_LINES.length)]} 奖励 ${r.reward} 资金（践约加成 +${r.promiseBonus}）${tf ? (tf.rec ? " · 恢复向：体能 +50" : ` · ${FOCUS_CN[tf.focus]}向成长进度 +${tf.amt}${tf.focus === "bal" ? "（三向均分）" : ""}`) : ""}`); }
   else if(r.ok){ toast("已领过啦"); }
   else { toast("迎接没成功，请再点一次"); return; }
   awayMap.delete(c.playerId); render();
@@ -1597,8 +1665,13 @@ function renderScout(){
     if(q) actions += `<span class="pmeta">对方报价 ${q.final || q.ask} 资金 ${q.final ? "（还价成功）" : ""}</span> <button class="mini" data-act="sign">按此价签约</button>${!q.countered ? ' <button class="mini" data-act="counter">还价 -15%</button>' : ""}`;
     const grade = p.ability >= 90 ? "S" : p.ability >= 85 ? "A" : p.ability >= 80 ? "B" : "C";
     const conf = [0, 30, 60, 90][sc.stage] || 0;
+    /* v78 ⑤：阶段≥2 明示潜力评级＋成长同规（pot 只是评级标注、不参与计算，不编数值区间）；
+       阶段 3 询价前明示签约费公式与预估区间（与 signPrice/scoutAction 同源） */
+    let extra = "";
+    if(sc.stage >= 2 && p.pot) extra += `<div class="pmeta" style="margin-top:6px">潜力评级：${p.pot} · 成长靠训练攒进度，每向满 100 升 1 点，全队上限 +5</div>`;
+    if(sc.stage >= 3 && !q){ const sp0 = signPrice(p); extra += `<div class="pmeta" style="margin-top:6px">签约费公式：(能力 − 60)² × 0.9，最低 60；询价在公式价的 95%–125% 间浮动，还价成功再打 85 折，报价当日有效。预估区间 ${Math.round(sp0 * 0.95)}–${Math.round(sp0 * 1.25)} 资金</div>`; }
     const bars = `<div style="margin-top:8px;display:grid;gap:5px">${sc.stage >= 3 ? `<div style="display:flex;align-items:center;gap:8px"><span class="pmeta" style="flex:0 0 66px">能力 ${p.ability}</span><span class="sbar"><u style="width:${p.ability}%"></u></span></div>` : ""}<div style="display:flex;align-items:center;gap:8px"><span class="pmeta" style="flex:0 0 66px">置信度 ${conf}%</span><span class="sbar"><u style="width:${conf}%;background:#c9962e"></u></span></div></div>`;
-    card.innerHTML = `<div class="stamp ${sc.stage >= 3 ? "" : "unk"}">${sc.stage >= 3 ? grade : "？"}</div><div class="row"><div class="bust">${bustSVG(p)}</div><div style="flex:1;min-width:0"><span class="pname">${p.name}</span> <span class="tag">${stageName}</span>${sc.stage < 3 ? ' <span class="tag away">待揭晓</span>' : ""}<div class="pmeta">${p.pos} · ${scoutInfo(p, sc)}</div></div></div>${bars}<div style="margin-top:8px">${actions}</div>`;
+    card.innerHTML = `<div class="stamp ${sc.stage >= 3 ? "" : "unk"}">${sc.stage >= 3 ? grade : "？"}</div><div class="row"><div class="bust">${bustSVG(p)}</div><div style="flex:1;min-width:0"><span class="pname">${p.name}</span> <span class="tag">${stageName}</span>${sc.stage < 3 ? ' <span class="tag away">待揭晓</span>' : ""}<div class="pmeta">${p.pos} · ${scoutInfo(p, sc)}</div></div></div>${bars}${extra}<div style="margin-top:8px">${actions}</div>`;
     card.querySelectorAll("button").forEach(b => { b.onclick = () => scoutAction(pid, b.dataset.act); });
     if(sc.stage < 3){ const rb = document.createElement("button"); rb.className = "mini ghost"; rb.style.marginTop = "6px"; rb.textContent = "看广告提前揭晓（今日 " + ((mock.state.scoutAdDay === beijingDateStr()) ? (mock.state.scoutAdCount || 0) : 0) + "/2）"; rb.onclick = () => scoutReveal(pid); card.appendChild(rb); }
     trio.appendChild(card);
@@ -1862,6 +1935,9 @@ function renderMarket(){
     const sb2 = document.createElement("button"); sb2.className = "mini"; sb2.style.marginTop = "8px"; sb2.textContent = "球探考察";
     sb2.onclick = ()=>{ startScout(p.pid); };
     el.appendChild(sb2);
+    /* v78 ⑤：市场卡价格行下补签约费公式小字（与 SIGN_CFG 同源） */
+    const fh = document.createElement("div"); fh.className = "hint"; fh.style.marginTop = "6px"; fh.textContent = "签约费公式：(能力 − 60)² × 0.9，最低 60";
+    el.appendChild(fh);
     parent.appendChild(el);
   };
   /* v67 新援上架：内容包球员置顶展示（否则被能力前 12 名淹没，新包等于没上） */
@@ -2481,6 +2557,32 @@ function fxText(fx){
   if(fx.coachXp) parts.push("教练经验 +" + fx.coachXp);
   return parts.join(" · ");
 }
+/* v78 ①首页近失展示：数据源严格限于现行真实状态派生（评估文档 2026-11-16），不新造数值；
+   优先级 保底＞成长＞全服＞每日挑战，最多 2 条；无符合项整条不渲染 */
+function nearMissItems(){
+  const s = mock.state, out = [];
+  const pity = gearState().pity || 0;
+  if(pity >= 7) out.push(`装备保底进度 ${pity}/10，再开 ${10 - pity} 包必出史诗以上`);
+  let growthHit = null;
+  for(const pid of Object.keys(s.devSpec || {})){
+    if((s.growth[pid] || 0) >= 5) continue;
+    const p = findPlayer(pid); if(!p) continue;
+    for(const f of ["atk", "def", "fit"]){ const v = (s.devSpec[pid] || {})[f] || 0; if(v >= 70){ growthHit = `${p.name} 的${devFocusName(f)}还差 ${100 - v} 点满格，满格能力 +1`; break; } }
+    if(growthHit) break;
+  }
+  if(!growthHit){
+    for(const pid of signedSet()){ const p = findPlayer(pid); if(!p) continue; const eff = effBase(p); if(eff % 10 === 9){ growthHit = `${p.name} 有效能力 ${eff}，再 +1 就破 ${eff + 1}`; break; } }
+  }
+  if(growthHit) out.push(growthHit);
+  const g = (typeof globalCache !== "undefined") ? globalCache : null;
+  if(g && g.tiers && typeof g.total === "number"){
+    const nx = g.tiers.find(t => g.total < t.at);
+    if(nx && nx.at - g.total <= 30) out.push(`全服还差 ${nx.at - g.total} 场，解锁下一档 +${nx.rep} 声望（达标全服可领）`);
+  }
+  const d = ensureDaily();
+  for(const id of (d.ids || [])){ const def = DAILY_POOL.find(x => x.id === id); if(def && def.target >= 2 && (d.prog[id] || 0) === def.target - 1){ out.push(`每日挑战『${def.label}』已完成 ${def.target - 1}/${def.target}，再完成 1 次就成`); break; } }
+  return out.slice(0, 2);
+}
 function renderToday(){
   const el = $("#todaySlot"); if(!el) return;
   const s = mock.state;
@@ -2569,6 +2671,9 @@ function renderToday(){
     const unlock = nd === 2 ? "新的一天：每日日常刷新，派出去的人陆续归队" : nd === 3 ? "仓储扩到 12 小时档 · 装备收藏馆开启" : nd === 7 ? "巨星指定窗口开启（梅西、詹姆斯这个级别，2 倍价竞签）" : nd >= 14 ? "收官日：老将告别赛＋冠军典礼" : "双场正赛＋每日日常刷新";
     h += `<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><span class="pname">🌙 明日预告 · 第 ${Math.min(nd, 14)} 天</span><div class="pmeta" style="margin-top:2px">${unlock}。</div>${awayNames.length ? `<div class="pmeta">在外未归：${awayNames.join("、")}，到点回联赛页迎接。</div>` : `<div class="pmeta">现在没人在外面——睡前派一两个长档出去，明天回来正好迎接。</div>`}<button class="mini ghost" style="margin-top:6px" onclick="addDesktop()">📲 把俱乐部放到桌面，明天一键回来</button></div>`;
   }
+  /* v78 ①近失展示（今日清单卡底） */
+  const nm = nearMissItems();
+  if(nm.length) h += `<div id="nearMiss" style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><span class="pname">🎯 就差一点</span>${nm.map(t => `<div class="pmeta" style="margin-top:2px">${t}</div>`).join("")}</div>`;
   /* pre-season test accelerator (auto-hidden from 2026-11-17) */
   if(beijingDateStr() < "2026-11-17") h += `<div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:8px"><button class="mini ghost" onclick="testAdvanceDay()">推进一天（测试 · 11/17 开赛后自动消失）</button></div>`;
   h += `</div>`;
@@ -6327,10 +6432,23 @@ function renderTactics(){
   const om = oppMentalityFor(sp, seasonDayN(), opp);
   const cd = counterDelta(ment.style, om.style);
   const fam = Math.min((tp.fam && tp.fam[tp.mentality]) || 0, MATCH_CFG.famMaxUse);
+  /* v78 ③克制量化面板（只呈现既有公式：STYLE_BEATS / counterBonus / MENTALITIES / instrFactor 同口径 depF） */
+  const ringTxt = Object.entries(STYLE_BEATS).map(([a, b])=>`${STYLE_CN[a]} 克 ${STYLE_CN[b]}`).join(" · ");
+  const mentRows = MENTALITIES.map(m=>`<div class="pmeta">${tp.mentality === m.id ? "<b>" : ""}${m.name}：进攻 ×${m.atk} · 防守 ×${m.def} · 体能 ×${m.stam}${tp.mentality === m.id ? "（当前）</b>" : ""}</div>`).join("");
+  const insOn = INSTRUCTIONS[sp].filter(d => tp.instr && tp.instr[d.id]);
+  const insRows = insOn.length ? insOn.map(d => { const depF = instrDepFFor(sp, d); const eff = instrEffectText(sp, d, depF, om.style); const fixed = d.id === "press" || d.id === "fullpress"; return `<div class="pmeta">${d.name}：${fixed ? "" : `依赖系数 ×${depF.toFixed(2)}（${d.dep}）→ `}${eff}</div>`; }).join("") : `<div class="pmeta">当前未开启附加指令，开启后这里按当前首发实时折算每条的加成。</div>`;
   let h = `<div class="card">
     <div class="pname">比赛心态（当前：${ment.name} · 熟练度 ${fam}/10）</div>
     <div class="tiers" style="grid-template-columns:repeat(5,1fr);margin-top:6px">${MENTALITIES.map(m=>`<button class="${tp.mentality === m.id ? "" : "ghost"}" onclick="setMentality('${m.id}')">${mentIcon(m.style)}${m.name}</button>`).join("")}</div>
     <div class="hint">${ment.desc}。赛前情报：${opp} 近期偏「${om.name}」打法${cd > 0 ? "，你的风格正克制他（有效能力 +" + cd + "）" : cd < 0 ? "，你的风格被他克制（有效能力 " + cd + "），考虑换档" : "，风格上互不克制"}。</div>
+    <div class="pname" style="margin-top:10px">📐 克制关系（量化）</div>
+    <div id="counterPanel">
+      <div class="pmeta">克制环：${ringTxt}。克制＝有效能力当量 +${MATCH_CFG.counterBonus}，被克制 −${MATCH_CFG.counterBonus}。</div>
+      <div class="pmeta">本场：我方「${ment.name}」（${STYLE_CN[ment.style]}）对 ${opp}「${om.name}」（${STYLE_CN[om.style]}）→ ${cd > 0 ? "克制对方，有效能力当量 +" + cd : cd < 0 ? "被对方克制，有效能力当量 " + cd : "互不克制"}。</div>
+      ${mentRows}
+      ${insRows}
+      <div class="hint">均为期望口径，按当前首发实时折算，换人会变；不保证单场结果。</div>
+    </div>
     <div class="pname" style="margin-top:10px">附加指令（可多开，每条都写明代价）</div>
     <div class="tiers" style="grid-template-columns:1fr 1fr;margin-top:6px">${INSTRUCTIONS[sp].map(d=>`<button class="${tp.instr && tp.instr[d.id] ? "" : "ghost"}" onclick="toggleInstr('${d.id}')">${d.name}<br><span class="hint">${d.dep}${d.id === "press" || d.id === "fullpress" ? " · 体能消耗 +25%" : ""}</span></button>`).join("")}</div>
     <div class="row" style="margin-top:10px"><div class="pname" style="flex:0 0 auto;white-space:nowrap">阵型 ${form.name}</div><div>${FORMATIONS[sp].map(f=>`<button class="mini ${f.id === form.id ? "act" : ""}" onclick="setFormation('${f.id}')">${f.name}</button>`).join(" ")} <button class="mini ghost" onclick="autoLineupBtn()">一键最强阵</button></div></div>
