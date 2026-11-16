@@ -590,6 +590,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
     <h2 style="color:var(--ink);font-size:16px;">⚙️ 设置</h2>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
       <button id="setNoticeBtn" class="ghost" style="width:100%;text-align:left" onclick="openNotice()">📣 更新公告</button>
+      <button id="setFeedbackBtn" class="ghost" style="width:100%;text-align:left" onclick="openFeedback()">💬 意见反馈</button>
       <button id="setTourBtn" class="ghost" style="width:100%;text-align:left" onclick="replayTour()">🧭 重看新手引导</button>
       <button id="setSaveBtn" class="ghost" style="width:100%;text-align:left" onclick="gotoSave()">💾 存档管理</button>
       <button id="setDesktopBtn" class="ghost" style="width:100%;text-align:left" onclick="addDesktop()">🖥 添加到桌面</button>
@@ -623,6 +624,20 @@ body.touring #matchModal .sheet{padding-bottom:330px}
     <div class="kv"><span><b>设置栏（就是这里）</b></span></div>
     <div class="hint">顶栏齿轮打开：更新公告、重看新手引导、存档管理、返回开始页、退出游戏，一处齐活。</div>
     <div style="margin-top:14px;"><button id="noticeClose" style="width:100%;" onclick="closeNotice()">知道了</button></div>
+  </div>
+</div>
+
+<div class="modal hidden" id="feedbackModal">
+  <div class="sheet" style="max-height:92vh;overflow-y:auto">
+    <h2 style="color:var(--ink);font-size:16px;">💬 意见反馈</h2>
+    <div class="hint" style="margin-bottom:6px">哪里不好玩、想要什么新功能，直接写给我们看。认真提的第一条反馈，有 100 资金奖励；被采纳的建议会登上鸣谢名单。</div>
+    <textarea id="fbText" rows="5" maxlength="2200" placeholder="写下你的想法（1–2000 字）" style="width:100%" oninput="updateFbCount()"></textarea>
+    <div class="hint" style="margin-top:2px;text-align:right"><span id="fbCharCount">0/2000</span></div>
+    <button id="fbSubmit" style="width:100%;margin-top:6px" onclick="submitFeedback()">提交反馈</button>
+    <div id="fbStatus" style="margin-top:12px"></div>
+    <div class="pname" style="margin-top:14px;font-size:14px">🏅 鸣谢名单</div>
+    <div id="fbHonors" style="margin-top:4px"></div>
+    <div style="margin-top:14px;"><button id="fbClose" style="width:100%;" onclick="closeFeedback()">关闭</button></div>
   </div>
 </div>
 
@@ -933,6 +948,7 @@ function ensureV2State(){
   if(!s.loansOut) s.loansOut = {};
   if(!s.wageMul) s.wageMul = {};
   if(!s.scout) s.scout = {};
+  if(!s.feedback) s.feedback = { count:0, granted:false };
   if(!s.quotes) s.quotes = {};
   if(!s.customPlayers) s.customPlayers = [];
   if(!s.facilityLv) s.facilityLv = 1;
@@ -7070,6 +7086,67 @@ function exitGame(){
 }
 window.openSettings = openSettings; window.closeSettings = closeSettings; window.openNotice = openNotice; window.closeNotice = closeNotice;
 window.replayTour = replayTour; window.gotoSave = gotoSave; window.backToStart = backToStart; window.exitGame = exitGame;
+
+/* ---------- v77 意见反馈（自建 BFF 收单：/api/feedback；壳外诚实降级，不编造成功） ---------- */
+function feedbackState(){ ensureV2State(); const s = mock.state; if(!s.feedback) s.feedback = { count:0, granted:false }; return s.feedback; }
+function openFeedback(){ closeSettings(); $("#feedbackModal").classList.remove("hidden"); renderFeedback(); }
+function closeFeedback(){ $("#feedbackModal").classList.add("hidden"); }
+function fbMsg(code){
+  switch(code){
+    case "FB_EMPTY": return "先写点什么再提交吧";
+    case "FB_TOO_LONG": return "太长啦，最多 2000 字，精简一下再发";
+    case "FB_DUPLICATE": return "这条我们已经收到了，正在处理中——换个说法或等处理完再发";
+    case "FB_RATE_LIMITED": return "发得有点勤，先歇一会儿再来（10 分钟内最多 5 条）";
+    default: return "提交没成功，请稍后再试";
+  }
+}
+function updateFbCount(){ const ta = $("#fbText"), c = $("#fbCharCount"); if(ta && c) c.textContent = [...(ta.value || "")].length + "/2000"; }
+async function renderFeedback(){
+  const st = feedbackState();
+  const box = $("#fbStatus"); if(!box) return;
+  if(inShell){
+    try{ const m = await api("/api/feedback/mine"); if(m && m.ok){ st.count = m.count || 0; st.granted = !!m.granted; mock.save(); } }catch(e){}
+  }
+  box.innerHTML = `<div class="kv"><span>我提交的反馈</span><b>${st.count} 条</b></div>`
+    + `<div class="kv"><span>首提奖励（+100 资金）</span><b>${st.granted ? "已领取" : "未领取 · 提交第一条即可领"}</b></div>`
+    + (inShell ? "" : `<div class="hint" style="margin-top:6px">现在是网页预览，反馈要在虎扑 App 里打开游戏后提交。</div>`);
+  const hb = $("#fbHonors"); if(!hb) return;
+  if(!inShell){ hb.innerHTML = `<div class="hint">进虎扑 App 里能看到最新鸣谢名单。</div>`; return; }
+  hb.innerHTML = `<div class="hint">正在整理名单…</div>`;
+  try{
+    const r = await api("/api/feedback/honors");
+    const list = (r && r.ok && Array.isArray(r.honors)) ? r.honors : [];
+    hb.innerHTML = list.length ? list.map(x=>`<div class="kv"><span>${esc(x.nickname || "热心经理")}</span><b>采纳 ${x.count} 条</b></div>`).join("") : `<div class="hint">暂无——期待你的建议第一个被采纳。</div>`;
+  }catch(e){ hb.innerHTML = `<div class="hint">暂无——期待你的建议第一个被采纳。</div>`; }
+}
+async function submitFeedback(){
+  const ta = $("#fbText"); if(!ta) return;
+  const text = (ta.value || "").trim();
+  if(!text){ toast(fbMsg("FB_EMPTY")); return; }
+  if([...text].length > 2000){ toast(fbMsg("FB_TOO_LONG")); return; }
+  if(!inShell){ toast("反馈要在虎扑 App 里提交——打开游戏后从设置里发给我们"); return; }
+  const btn = $("#fbSubmit"); if(btn) btn.disabled = true;
+  let r = null;
+  try{
+    const u = (typeof fetchBoardUser === "function") ? (await fetchBoardUser()) || {} : {};
+    r = await api("/api/feedback", { text, nickname: u.nickname || "" });
+  }catch(e){ r = null; }
+  if(btn) btn.disabled = false;
+  if(r && r.ok){
+    const st = feedbackState();
+    st.count = (typeof r.count === "number") ? r.count : st.count + 1;
+    if(r.grant && r.grant.funds && !st.granted){
+      st.granted = true;
+      mock.state.balance = (mock.state.balance || 0) + r.grant.funds;
+      ensureV2State(); if(mock.state.buckets) mock.state.buckets.commercial += r.grant.funds;
+      toast(`反馈收到！首提奖励 +${r.grant.funds} 资金已到账`);
+    } else toast("反馈收到，谢谢你！我们会认真看");
+    ta.value = ""; updateFbCount(); mock.save(); renderFeedback(); render();
+  } else {
+    toast(fbMsg(r && r.code));
+  }
+}
+window.openFeedback = openFeedback; window.closeFeedback = closeFeedback; window.submitFeedback = submitFeedback; window.updateFbCount = updateFbCount;
 
 /* ---------- 开始页选档 ---------- */
 let bootPick = null; const bootMetas = {};
