@@ -581,6 +581,9 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 <div class="modal hidden" id="posterModal">
   <div class="sheet" id="posterSheet"></div>
 </div>
+<div class="modal hidden" id="memoModal">
+  <div class="sheet" id="memoSheet"></div>
+</div>
 <div class="modal hidden" id="settleModal">
   <div class="sheet" id="settleSheet"></div>
 </div>
@@ -803,6 +806,23 @@ const MENTALITIES = [
 ];
 const STYLE_BEATS = { def:"atk", atk:"bal", bal:"def" };
 function counterDelta(myStyle, oppStyle){ if(STYLE_BEATS[myStyle]===oppStyle) return MATCH_CFG.counterBonus; if(STYLE_BEATS[oppStyle]===myStyle) return -MATCH_CFG.counterBonus; return 0; }
+/* ---------- v79 每日环境匹配（评估 docs/评估-每日环境匹配-20261117.md：全服同日同环境＋双方对称±3%＋只作用于临场表现层、不改保底与结算账目；战书赛排除） ---------- */
+const ENV_CFG = {
+  enabled: true, bonusPct: 3, penaltyPct: 3,
+  pool: [
+    { id:"sunny", icon:"☀️", name:"晴空万里", fav:"atk", weak:"def", note:"草皮干爽、视野通透，攻式传切如鱼得水，龟缩的守式最难受。" },
+    { id:"night", icon:"🌙", name:"灯光夜场", fav:"atk", weak:"bal", note:"夜场节奏快、气氛燥，攻式占先手；不温不火的衡式容易被带乱。" },
+    { id:"rain", icon:"🌧", name:"雨战泥泞", fav:"def", weak:"atk", note:"场地泥泞、球路打折，守式稳坐钓鱼台，攻式的配合先湿一半。" },
+    { id:"wind", icon:"💨", name:"大风呼啸", fav:"def", weak:"bal", note:"长传吊球全看天意，守式低位最稳，衡式的调度被吹得七零八落。" },
+    { id:"heat", icon:"🔥", name:"高温酷暑", fav:"bal", weak:"atk", note:"拼的是消耗账，衡式分配体力最划算，攻式狂奔先把自己跑干。" },
+    { id:"frost", icon:"❄️", name:"寒风凛冽", fav:"bal", weak:"def", note:"手脚发僵、失误变多，衡式容错最高，守式蹲得太深一僵就出洞。" }
+  ]
+};
+function envDayNum(d){ const t = d || new Date(); return Math.floor(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()) / 86400000); }
+function envForDayNum(n){ const p = ENV_CFG.pool; return p[((n % p.length) + p.length) % p.length]; }
+function envOfToday(){ return envForDayNum(envDayNum()); }
+function envMatchPct(style, env){ const e = env || envOfToday(); if(!ENV_CFG.enabled || !style) return 0; if(style === e.fav) return ENV_CFG.bonusPct; if(style === e.weak) return -ENV_CFG.penaltyPct; return 0; }
+function envMulFor(style, env){ return 1 + envMatchPct(style, env) / 100; }
 function mentalityOf(sportId){ const t = mock.state.tprof && mock.state.tprof[sportId]; return MENTALITIES.find(m=>m.id===(t&&t.mentality)) || MENTALITIES[2]; }
 /* v78 ③克制量化面板辅助：depF 与 instrFactor 同口径（同 depAvg 来源、同 clamp 公式），面板只呈现不改引擎 */
 const STYLE_CN = { def: "守式", atk: "攻式", bal: "衡式" };
@@ -1796,7 +1816,7 @@ function renderEvents(){
     storyHead();
     any = true;
     const card = document.createElement("div"); card.className = "card";
-    card.innerHTML = `<div class="pname">📓 球探手记 · 未完</div><div class="pmeta">球探带着报告回来了：全队评级已公布（名单卡上可见），京多安、卡塞米罗、加克波 3 人列入推荐签约（8 折，只此一次）。附：另有一份『特邀导师』旧档案——内容包开放且赛季满 8 天后，可在事务区正式聘请。</div><div class="tiers"><button>收下报告</button></div>`;
+    card.innerHTML = `<div class="pname">📓 球探手记 · 未完</div><div class="pmeta">球探带着报告回来了：全队评级已公布（名单卡上可见），京多安、卡塞米罗、加克波 3 人列入推荐签约（8 折，只此一次）。附：另有一份『特邀导师』旧档案——内容包开放且赛季满 7 天后，可在事务区正式聘请。</div><div class="tiers"><button>收下报告</button></div>`;
     card.querySelector("button").onclick = () => { s.p3NoteSeen = true; mock.save(); render(); };
     el.appendChild(card);
   }
@@ -1806,7 +1826,7 @@ function renderEvents(){
     const totalMatches = Object.values(s.played || {}).reduce((a, b) => a + b, 0) / 2;
     const veterans = PLAYERS.concat(P1_PLAYERS).filter(p => isSigned(p) && +p.age >= 35).map(p => p.name);
     const card = document.createElement("div"); card.className = "card";
-    card.innerHTML = `<div class="pname">🏆 最后一周 · 收官预告</div><div class="pmeta">明天（11/30）赛季收官：冠军典礼＋老将告别赛。本季回顾——总场次 ${totalMatches}、总产出 ${s.output || 0}、本季声望 ${s.rep || 0}。${veterans.length ? "告别赛致谢名单：" + veterans.join("、") + "。" : ""}嘉宾席还空着一席——听说有位老朋友会在典礼那天出现。</div><div class="tiers"><button>知道了</button></div>`;
+    card.innerHTML = `<div class="pname">🏆 最后一周 · 收官预告</div><div class="pmeta">明天就是赛季收官日：冠军典礼＋老将告别赛。本季回顾——总场次 ${totalMatches}、总产出 ${s.output || 0}、本季声望 ${s.rep || 0}。${veterans.length ? "告别赛致谢名单：" + veterans.join("、") + "。" : ""}嘉宾席还空着一席——听说有位老朋友会在典礼那天出现。</div><div class="tiers"><button>知道了</button></div>`;
     card.querySelector("button").onclick = () => { s.p4Seen = true; mock.save(); render(); };
     el.appendChild(card);
   }
@@ -2590,6 +2610,7 @@ function renderToday(){
   const d = seasonDayN(), items = todayItems();
   const doneN = items.filter(i=>i.done).length;
   let h = `<div class="card"><div class="row"><div><span class="pname">📋 今日清单 · 赛季第 ${d} 天</span><div class="pmeta">每天十几分钟，把两支队都照顾到——已完成 ${doneN}/${items.length}</div></div></div><div style="margin-top:8px">`;
+  { const eT = envOfToday(); h += `<div class="pmeta" style="padding:2px 0 6px;border-bottom:1px dashed var(--line)">🌦 今日环境：${eT.icon} ${eT.name} · 最适配${STYLE_CN[eT.fav]}（+${ENV_CFG.bonusPct}%），${STYLE_CN[eT.weak]}逆环境（−${ENV_CFG.penaltyPct}%）——去战术页看本场匹配。</div>`; }
   let lastG = "", recUsed = false;
   for(const it of items){
     if(it.g && it.g !== lastG){ lastG = it.g; h += `<div class="tgroup ${{ match: "tg-green", ops: "tg-amber", grow: "tg-blue" }[it.g] || "tg-gray"}">${{ match: "⚽ 今日比赛", ops: "🏢 每日运营", grow: "🌱 成长与收藏" }[it.g] || ""}</div>`; }
@@ -5110,6 +5131,7 @@ function renderMatchGate(){
   if(node) node.innerHTML = `<div class="nodebox"><div class="pname">赛前准备 · ${kind} 对 ${P.opp}</div>
     <div style="margin-top:8px"><div class="kv"><span>实力对比</span><b>我方 ${teamPower()} · 对手 ${P.chal ? (P.chal.snap.sports[P.sportId].pow || 0) + "（阵容快照）" : sp.opp()[P.opp]}</b></div>
     <div class="kv"><span>打法</span><b>我方「${ment.name}」 对 「${om.name}」${cd > 0 ? "（克制 +" + cd + "）" : cd < 0 ? "（被克制 " + cd + "）" : ""}</b></div>
+    ${(()=>{ const eT = envOfToday(), eP = P.chal ? 0 : envMatchPct(ment.style, eT); return `<div class="kv"><span>今日环境</span><b>${eT.icon} ${eT.name} · 最适配${STYLE_CN[eT.fav]}${P.chal ? " · 战书赛不计环境" : eP > 0 ? " · 我方正合 +" + eP + "%" : eP < 0 ? " · 我方逆环境 " + eP + "%" : " · 我方无加减"}</b></div>`; })()}
     <div class="kv"><span>本场奖金</span><b>${P.chal ? "胜 +3 声望 · 败 +1（每日上限）· 不计积分榜 · 对方零损失" : P.frTier ? "赢 +30 资金 · 教练经验减半 · 不计积分榜" : "胜 80 · 平 30 资金"}</b></div>
     ${fm ? `<div class="kv"><span>今日词缀</span><b>${fm.icon} ${fm.name}</b></div>` : ""}
     ${P.frTier ? `<div class="kv"><span>今日热身赛剩余</span><b>${friendlyLeft()} 场</b></div>` : ""}
@@ -5124,13 +5146,16 @@ function startLiveMatch(){
   const sp = SPORT_PACKS[sportId];
   const F = window.__LM_FORCE || {}; window.__LM_FORCE = {};
   if(frTier){ friendlyState().used += 1; mock.save(); }
-  LIVE = { sportId, dayN, opp, friendly: frTier || null, challenge: chal, catchup: !!dayOverride, oppMent: chal ? { id: "bal" } : oppMentalityFor(sportId, dayN, opp), oppForm: chal ? null : oppFormOf(sportId, opp, dayN), minute: 0, my: 0, oppScore: 0, yc: 0,
+  const envT = envOfToday();
+  const envMulMy = chal ? 1 : envMulFor(mentalityOf(sportId).style, envT);
+  const envMulOpp = chal ? 1 : envMulFor((oppMentalityFor(sportId, dayN, opp) || {}).style, envT);
+  LIVE = { sportId, dayN, opp, friendly: frTier || null, challenge: chal, catchup: !!dayOverride, oppMent: chal ? { id: "bal" } : oppMentalityFor(sportId, dayN, opp), oppForm: chal ? null : oppFormOf(sportId, opp, dayN), envId: envT.id, envMulMy, envMulOpp, minute: 0, my: 0, oppScore: 0, yc: 0,
     lines: [], onPitch: clean.starters.map(x=>({ pid: x.pid, slot: x.slot, inMin: 0 })), bench: clean.rotation.slice(),
     subsLeft: 3, settled: false, timer: null, speed: 1, scorers: [], myGoals: 0, segMy: [], segOpp: [], _segCursor: 0, _tally: {}, _fouls: [0, 0],
     startMentality: mock.state.tprof[sportId].mentality, paused: false, playedMins: {}, timeouts: 2, _inMin: {}, _slotMap: {}, _evCursor: 0, _lastBuildTick: -999, _lastShotTick: -999, _acc: 0, S: null, forceQueue: [] };
   for(const x of LIVE.onPitch){ LIVE._inMin[x.pid] = 0; LIVE._slotMap[x.pid] = x.slot; }
   const seed = (dayN * 7919 + (frTier ? 131 : 0) + Math.floor(Math.random() * 1e9)) >>> 0;
-  LIVE.S = SIMCORE.createSim({ sport: sportId, seed, myTeam: simMyTeam(sportId, clean.starters), oppTeam: chal ? simOppTeamFromSnap(sportId, chal.snap.sports[sportId]) : simOppTeam(sportId, opp, LIVE.oppForm),
+  LIVE.S = SIMCORE.createSim({ sport: sportId, seed, myTeam: simMyTeam(sportId, clean.starters, envMulMy), oppTeam: chal ? simOppTeamFromSnap(sportId, chal.snap.sports[sportId]) : simOppTeam(sportId, opp, LIVE.oppForm, envMulOpp),
     myMent: mock.state.tprof[sportId].mentality, myInstr: Object.assign({}, mock.state.tprof[sportId].instr || {}),
     oppMent: (LIVE.oppMent && LIVE.oppMent.id) || "bal", oppInstr: {}, homeSide: sportId === "football" ? (dayN % 2 === 1 ? 0 : 1) : null });
   if(F.duel) LIVE.forceQueue.push({ type: "duel" });
@@ -5241,19 +5266,21 @@ function simSkillRaw(base, group, sportId, key){
   return { pace: d("pace", .85), shoot: d("shoot", .7), pass: d("pass", .85), ctrl: d("ctrl", .85), tackle: d("tackle", .8),
     save: sportId === "basketball" ? 50 : d("save", .1), decide: d("decide", .9), stam: Math.round(Math.max(45, Math.min(95, 55 + (base - 60) * .5))) };
 }
-function simSkillFor(p, sportId, group){ const raw = simSkillRaw(effBase(p), group || slotGroupOf(p, sportId), sportId, p.pid); const mul = (typeof gearPowerMul === "function") ? gearPowerMul() : 1; if(mul === 1) return raw; const out = {}; for(const k of Object.keys(raw)) out[k] = k === "stam" ? raw[k] : Math.min(99, Math.round(raw[k] * mul)); return out; }
-function simPlayerObj(pid, sportId, group){ const p = findPlayer(pid); if(!p) return null; return { pid, name: p.name, group: group || slotGroupOf(p, sportId), skill: simSkillFor(p, sportId, group) }; }
-function simMyTeam(sportId, starters){
-  const players = starters.map(x=>{ const p = findPlayer(x.pid); return { pid: x.pid, name: p ? p.name : x.pid, group: x.slot, skill: simSkillFor(p, sportId) }; });
+function simSkillFor(p, sportId, group, envMul){ const raw = simSkillRaw(effBase(p), group || slotGroupOf(p, sportId), sportId, p.pid); const mul = ((typeof gearPowerMul === "function") ? gearPowerMul() : 1) * (envMul || 1); if(mul === 1) return raw; const out = {}; for(const k of Object.keys(raw)) out[k] = k === "stam" ? raw[k] : Math.min(99, Math.round(raw[k] * mul)); return out; }
+function simPlayerObj(pid, sportId, group){ const p = findPlayer(pid); if(!p) return null; const em = (typeof LIVE !== "undefined" && LIVE && !LIVE.challenge && LIVE.envMulMy) ? LIVE.envMulMy : 1; return { pid, name: p.name, group: group || slotGroupOf(p, sportId), skill: simSkillFor(p, sportId, group, em) }; }
+function simMyTeam(sportId, starters, envMul){
+  const players = starters.map(x=>{ const p = findPlayer(x.pid); return { pid: x.pid, name: p ? p.name : x.pid, group: x.slot, skill: simSkillFor(p, sportId, null, envMul) }; });
   return { formation: starters.map(x=>x.slot), players };
 }
-function simOppTeam(sportId, oppName, form){
+function simOppTeam(sportId, oppName, form, envMul){
   const pow = (SPORT_PACKS[sportId].opp() || {})[oppName] || 88;
   const slots = (form && form.slots) ? form.slots.slice() : (sportId === "basketball" ? ["控卫","分卫","小前锋","大前锋","中锋"] : ["GK","DF","DF","DF","DF","MF","MF","MF","WG","ST","ST"]);
   const LAB = { GK:["门将"], DF:["左后卫","中卫","中卫","右后卫","后卫"], MF:["后腰","中前卫","中前卫","前腰","中场"], WG:["左边锋","右边锋","边锋"], ST:["中锋","影锋"], FW:["中锋","前锋"] };
   const seen = {};
   const players = slots.map((g, i)=>{ let label; if(sportId === "basketball") label = g; else { const arr = LAB[g] || [g]; const k = seen[g] || 0; seen[g] = k + 1; label = arr[Math.min(k, arr.length - 1)]; }
-    return { pid: "opp" + i, name: "对方" + label, group: g, skill: simSkillRaw(pow, g, sportId, oppName + i) }; });
+    let skill = simSkillRaw(pow, g, sportId, oppName + i);
+    if(envMul && envMul !== 1){ const o2 = {}; for(const k of Object.keys(skill)) o2[k] = k === "stam" ? skill[k] : Math.max(28, Math.min(99, Math.round(skill[k] * envMul))); skill = o2; }
+    return { pid: "opp" + i, name: "对方" + label, group: g, skill }; });
   return { formation: slots, players };
 }
 function stripSegIdx(L, min){ if(L.sportId === "basketball") return min < 10 ? 0 : min < 20 ? 1 : min < 30 ? 2 : min < 40 ? 3 : 4; return min < 45 ? 0 : 1; }
@@ -6291,11 +6318,19 @@ function settleMatch(){
     if(!starP){ const cands = (L.onPitch || []).map(x => findPlayer(x.pid)).filter(Boolean); cands.sort((a, b) => (b.ability + (s.growth[b.pid] || 0)) - (a.ability + (s.growth[a.pid] || 0))); starP = cands[0] || null; starN = 0; if(starP) starName = starP.name; }
     if(starP){ const gv = starP.ability + (s.growth[starP.pid] || 0);
       starHtml = `<div class="starpick">${portraitOf(starP) ? '<img src="' + portraitOf(starP) + '" width="52" height="60" alt="" style="border-radius:8px;object-fit:cover;flex:none;background:#f1e9d6">' : ""}<div class="ovr" style="background:${tierColor(gv)};width:52px;height:60px;flex:none"><b style="font-size:19px">${gv}</b><small>${starP.pos}</small></div><div><div class="pmeta">⭐ 本场之星</div><div class="pname" style="font-size:16px">${starName}</div><div class="pmeta">${starN ? (isB ? "得分 " + starN + " 次" : "进球 " + starN + " 球") : "全场发挥最佳"}</div></div></div>`; }
+    /* v79 战报纪念卡快照：closeMatch 会清 LIVE，本场数据先落到 MEMO_CARD */
+    const eTm = envOfToday(), nowD = new Date();
+    MEMO_CARD = { sportId: L.sportId, dayN: L.dayN, opp: L.opp, my: L.my, oppScore: L.oppScore, score: scoreTxt, res, friendly: isFr,
+      starName: starName || "", starNote: starName ? (starN ? (isB ? "得分 " + starN + " 次" : "进球 " + starN + " 球") : "全场发挥最佳") : "",
+      scorers: (L.scorers || []).slice(), mentName: ment.name, club: s.clubName || "新星联队",
+      envIcon: eTm.icon, envName: eTm.name,
+      dateStr: nowD.getFullYear() + "-" + String(nowD.getMonth() + 1).padStart(2, "0") + "-" + String(nowD.getDate()).padStart(2, "0"),
+      keyEvs: (L.lines || []).filter(x => x && (x.kind === "goal" || x.kind === "oppgoal" || x.kind === "pen")).slice(0, 2).map(x => x.min + "′ " + x.text) };
   }
   const box = $("#matchNode");
   if(box) box.innerHTML = isFr
-    ? `<div class="nodebox"><div style="display:flex;gap:12px;align-items:center"><span class="seal ${res === "胜" ? "win" : res === "平" ? "draw" : "lose"}">${res}</span><div><div class="pname">热身赛结束：${scoreTxt} 对 ${L.opp}</div><div class="pmeta">战术「${ment.name}」熟练度 +1 · 不计积分榜，${frMod.id === "rain" ? "雨战体能扣 3/4" : "体能只扣一半"} · 今日词缀：${frMod.icon} ${frMod.name}</div></div></div><div style="margin-top:8px"><div class="kv"><span>声望</span><b data-count="${repD}">+${repD}</b></div><div class="kv"><span>比赛奖金</span><b data-count="${fundD}">+${fundD}</b></div><div class="kv"><span>教练经验</span><b>+${xpD}</b></div></div><div class="pmeta" style="margin-top:6px">${isB ? "得分" : "进球"}：${L.scorers.length ? L.scorers.join("、") : "—"}<br>声望按胜负入账（每日上限 +${frMod.id === "derby" ? 8 : 4}）。今日还可打 ${friendlyLeft()} 场。</div>${starHtml}<button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`
-    : `<div class="nodebox"><div style="display:flex;gap:12px;align-items:center"><span class="seal ${res === "胜" ? "win" : res === "平" ? "draw" : "lose"}">${res}</span><div><div class="pname">全场结束：${scoreTxt} 对 ${L.opp}</div><div class="pmeta">第${L.dayN}轮 · 战术「${ment.name}」熟练度 +1</div></div></div><div style="margin-top:8px"><div class="kv"><span>声望</span><b data-count="${repD}">${repD >= 0 ? "+" : ""}${repD}</b></div><div class="kv"><span>比赛奖金</span><b data-count="${fundD}">+${fundD}</b></div><div class="kv"><span>教练经验</span><b>+${xpD}</b></div></div><div class="pmeta" style="margin-top:6px">${isB ? "得分" : "进球"}：${L.scorers.length ? L.scorers.join("、") : "—"}<br>首发体能已按出场时间扣除，未出场球员恢复 +${MATCH_CFG.staminaRestGain}。${friendlyLeft() > 0 ? "<br>老陈：正赛完了别散场，约场热身赛热热身——体能只算一半，输赢不记账。" : ""}</div>${starHtml}<div id="pressSlot"></div><button class="ghost" style="width:100%;margin-top:8px" onclick="closeMatch();openPosters('report')">🖼 生成战报海报</button><button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`;
+    ? `<div class="nodebox"><div style="display:flex;gap:12px;align-items:center"><span class="seal ${res === "胜" ? "win" : res === "平" ? "draw" : "lose"}">${res}</span><div><div class="pname">热身赛结束：${scoreTxt} 对 ${L.opp}</div><div class="pmeta">战术「${ment.name}」熟练度 +1 · 不计积分榜，${frMod.id === "rain" ? "雨战体能扣 3/4" : "体能只扣一半"} · 今日词缀：${frMod.icon} ${frMod.name}</div></div></div><div style="margin-top:8px"><div class="kv"><span>声望</span><b data-count="${repD}">+${repD}</b></div><div class="kv"><span>比赛奖金</span><b data-count="${fundD}">+${fundD}</b></div><div class="kv"><span>教练经验</span><b>+${xpD}</b></div></div><div class="pmeta" style="margin-top:6px">${isB ? "得分" : "进球"}：${L.scorers.length ? L.scorers.join("、") : "—"}<br>声望按胜负入账（每日上限 +${frMod.id === "derby" ? 8 : 4}）。今日还可打 ${friendlyLeft()} 场。</div>${starHtml}<button class="ghost" style="width:100%;margin-top:8px" onclick="openMemoCard()">🎴 生成纪念卡</button><button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`
+    : `<div class="nodebox"><div style="display:flex;gap:12px;align-items:center"><span class="seal ${res === "胜" ? "win" : res === "平" ? "draw" : "lose"}">${res}</span><div><div class="pname">全场结束：${scoreTxt} 对 ${L.opp}</div><div class="pmeta">第${L.dayN}轮 · 战术「${ment.name}」熟练度 +1</div></div></div><div style="margin-top:8px"><div class="kv"><span>声望</span><b data-count="${repD}">${repD >= 0 ? "+" : ""}${repD}</b></div><div class="kv"><span>比赛奖金</span><b data-count="${fundD}">+${fundD}</b></div><div class="kv"><span>教练经验</span><b>+${xpD}</b></div></div><div class="pmeta" style="margin-top:6px">${isB ? "得分" : "进球"}：${L.scorers.length ? L.scorers.join("、") : "—"}<br>首发体能已按出场时间扣除，未出场球员恢复 +${MATCH_CFG.staminaRestGain}。${friendlyLeft() > 0 ? "<br>老陈：正赛完了别散场，约场热身赛热热身——体能只算一半，输赢不记账。" : ""}</div>${starHtml}<div id="pressSlot"></div><button class="ghost" style="width:100%;margin-top:8px" onclick="closeMatch();openPosters('report')">🖼 生成战报海报</button><button class="ghost" style="width:100%;margin-top:8px" onclick="openMemoCard()">🎴 生成纪念卡</button><button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`;
   if(inShell && !isFr){ try{ api("/api/global/contribute", { matches: 1 }).then(()=>{ globalCache = null; }).catch(()=>{}); }catch(e){} }
   countUps(box);
   try{ renderPress(); }catch(e){}
@@ -6445,6 +6480,9 @@ function renderTactics(){
     <div id="counterPanel">
       <div class="pmeta">克制环：${ringTxt}。克制＝有效能力当量 +${MATCH_CFG.counterBonus}，被克制 −${MATCH_CFG.counterBonus}。</div>
       <div class="pmeta">本场：我方「${ment.name}」（${STYLE_CN[ment.style]}）对 ${opp}「${om.name}」（${STYLE_CN[om.style]}）→ ${cd > 0 ? "克制对方，有效能力当量 +" + cd : cd < 0 ? "被对方克制，有效能力当量 " + cd : "互不克制"}。</div>
+      ${(()=>{ const eT = envOfToday(), eP = envMatchPct(ment.style, eT); return `<div class="pmeta">🌦 今日环境：${eT.icon} ${eT.name}——${eT.note}</div>
+      <div class="pmeta">最适配：${STYLE_CN[eT.fav]}（+${ENV_CFG.bonusPct}%）· 逆环境：${STYLE_CN[eT.weak]}（−${ENV_CFG.penaltyPct}%），中性风格无加减；对手同样按自己的风格吃今日环境。</div>
+      <div class="pmeta">当前所选「${ment.name}」（${STYLE_CN[ment.style]}）：${eP > 0 ? `正合今日环境，临场技能 +${eP}%` : eP < 0 ? `逆环境，临场技能 −${-eP}%` : "与今日环境无加减"}。</div>`; })()}
       ${mentRows}
       ${insRows}
       <div class="hint">均为期望口径，按当前首发实时折算，换人会变；不保证单场结果。</div>
@@ -7148,6 +7186,74 @@ function savePosterImage(){
   toast("海报已生成，开始下载");
 }
 window.openPosters = openPosters; window.savePosterImage = savePosterImage;
+
+/* ================= v79 战报纪念卡（每场日常向；海报中心是里程碑向，两者分开） ================= */
+let MEMO_CARD = null;
+let memoCanvas = null;
+function openMemoCard(){
+  const m = MEMO_CARD; if(!m){ toast("先打完一场比赛，再来生成纪念卡"); return; }
+  const sh = $("#memoSheet"); if(!sh) return;
+  sh.innerHTML = `<div class="row"><span class="pname">🎴 本场纪念卡</span><button class="mini ghost" onclick="document.querySelector('#memoModal').classList.add('hidden')">关闭</button></div>
+  <div id="memoCanvasWrap" style="text-align:center;margin-top:10px"></div>
+  <button style="width:100%;margin-top:10px" onclick="saveMemoImage()">保存图片（PNG）</button>
+  <button class="ghost" style="width:100%;margin-top:8px" onclick="shareMemoCard()">分享给朋友</button>
+  <div class="hint" style="margin-top:6px">每场打完都能生成一张，留住这一场的比分和本场之星。壳内若未自动下载，长按图片保存。赛季里程碑海报在俱乐部页的海报中心。</div>`;
+  $("#memoModal").classList.remove("hidden");
+  drawMemoCard();
+}
+function drawMemoCard(){
+  const wrap = $("#memoCanvasWrap"); if(!wrap) return;
+  const m = MEMO_CARD; if(!m) return;
+  const W = 750, H = 1000, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  cv.style.cssText = "width:min(100%,380px);border-radius:10px;box-shadow:0 4px 18px rgba(0,0,0,.25)";
+  const ctx = cv.getContext("2d"), cx = W / 2;
+  ctx.fillStyle = "#f4efe4"; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "#a83226"; ctx.lineWidth = 6; ctx.strokeRect(22, 22, W - 44, H - 44);
+  ctx.strokeStyle = "#2b2620"; ctx.lineWidth = 2; ctx.strokeRect(38, 38, W - 76, H - 76);
+  ctx.textAlign = "center"; ctx.fillStyle = "#2b2620";
+  ctx.font = "700 27px sans-serif"; ctx.fillText("我 在 联 赛 当 经 理", cx, 96);
+  ctx.font = "15px sans-serif"; ctx.fillStyle = "#7a7261";
+  ctx.fillText("LEAGUE MANAGER · 本 场 纪 念 卡", cx, 126);
+  ctx.fillStyle = "#a83226"; ctx.fillRect(cx - 60, 146, 120, 3);
+  let y = 208;
+  const big = t => { ctx.fillStyle = "#2b2620"; ctx.font = "700 46px sans-serif"; ctx.fillText(t, cx, y); y += 58; };
+  const mid = t => { ctx.fillStyle = "#2b2620"; ctx.font = "700 25px sans-serif"; ctx.fillText(t, cx, y); y += 40; };
+  const line = t => { ctx.fillStyle = "#4c463c"; ctx.font = "20px sans-serif"; for(const ln of wrapLines(ctx, t, W - 170)){ ctx.fillText(ln, cx, y); y += 30; } };
+  const gap = n => { y += n; };
+  mid(m.friendly ? "热 身 赛" : "正 赛 · 第 " + m.dayN + " 轮"); gap(6);
+  big(m.club); gap(2);
+  ctx.fillStyle = m.res === "胜" ? "#2e6b46" : m.res === "平" ? "#8a6d1a" : "#a83226";
+  ctx.font = "700 64px sans-serif"; ctx.fillText(m.my + " : " + m.oppScore, cx, y); y += 74;
+  mid("对阵 " + m.opp + " · " + m.res); gap(10);
+  if(m.starName){ mid("⭐ 本场之星"); line(m.starName + (m.starNote ? " · " + m.starNote : "")); gap(8); }
+  if(m.keyEvs && m.keyEvs.length){ mid("关 键 时 刻"); for(const ev of m.keyEvs) line(ev); gap(8); }
+  line((m.sportId === "basketball" ? "得分：" : "进球：") + (m.scorers.length ? m.scorers.join("、") : "—"));
+  line("本场战术「" + m.mentName + "」 · 今日环境 " + m.envIcon + " " + m.envName);
+  ctx.fillStyle = "#7a7261"; ctx.font = "17px sans-serif";
+  ctx.fillText("赛季第 " + m.dayN + " 天 · " + m.dateStr, cx, H - 96);
+  ctx.font = "15px sans-serif";
+  ctx.fillText("足球＋篮球双队同营 · 离线也在成长 · 14 天一个赛季", cx, H - 66);
+  wrap.innerHTML = ""; wrap.appendChild(cv);
+  memoCanvas = cv;
+}
+function saveMemoImage(){
+  if(!memoCanvas){ toast("纪念卡还没画好"); return; }
+  const url = memoCanvas.toDataURL("image/png");
+  const a = document.createElement("a"); a.href = url; a.download = "联赛经理-本场纪念卡.png";
+  document.body.appendChild(a); a.click(); a.remove();
+  toast("纪念卡已生成，开始下载");
+}
+function shareMemoCard(){
+  const m = MEMO_CARD; if(!m){ toast("先打完一场比赛，再来生成纪念卡"); return; }
+  const data = { title: "我在联赛当经理 · 本场纪念卡", link: window.location.href,
+    text: m.club + " " + m.score + " " + (m.res === "胜" ? "战胜" : m.res === "平" ? "战平" : "不敌") + " " + m.opp + (m.starName ? "，本场之星 " + m.starName : "") + "——足球篮球双队同营，你也来当经理。" };
+  try{
+    if(window.ColorboxAI && window.ColorboxAI.social && window.ColorboxAI.social.share) return window.ColorboxAI.social.share(data);
+    if(window.ColorboxAI && window.ColorboxAI.bridge && window.ColorboxAI.bridge.device && window.ColorboxAI.bridge.device.share) return window.ColorboxAI.bridge.device.share(data);
+  }catch(e){}
+  toast("分享面板在虎扑 App 内打开；先把纪念卡图片保存下来发给朋友也一样");
+}
+window.openMemoCard = openMemoCard; window.saveMemoImage = saveMemoImage; window.shareMemoCard = shareMemoCard;
 
 function shareClub(){
   const data = { title: "我在联赛当经理", link: window.location.href, text: "接手一家自创俱乐部，足球篮球双队同营——你离开时球队照常训练赚钱，14 天赛季冲榜。" };
