@@ -171,6 +171,9 @@
 .chip span{display:block;font-size:10px;color:#7a7261}
 .chip.picked{border-color:#c9962e}
 .chip.rot{background:#f1e8d2}
+.namechip{background:#fffdf7;border:2px solid var(--line);border-radius:10px;padding:9px 4px;font-size:14px;font-weight:700;color:var(--ink);cursor:pointer}
+.namechip.sel{border-color:var(--acc);background:#fdf3e3}
+#nameNickBox.namesel{outline:2px solid var(--acc);outline-offset:2px;border-radius:10px}
 
 .ttable{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
 .ttable th,.ttable td{padding:3px 4px;text-align:center;border-bottom:1px solid #e7ddc6}
@@ -506,7 +509,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
     <div class="row" style="margin-top:6px"><span class="hint">长按文本框全选复制（平台限制，无法一键复制）。导入会先进所选档位再载入，请先备份。</span><span><button class="mini ghost" id="saveExportBtn">导出长码</button> <button class="mini" id="saveImportBtn">导入长码</button></span></div>
   </div>
   <div class="card" data-cseg="save" style="display:none">
-    <div class="row"><div><div class="pname">俱乐部改名</div><div class="pmeta">1–10 个字</div></div><button class="ghost" id="renameBtn">改名</button></div>
+    <div class="row"><div><div class="pname">俱乐部改名</div><div class="pmeta">点选新名字，不用打字</div></div><button class="ghost" id="renameBtn">改名</button></div>
   </div>
 </section>
 </div>
@@ -565,9 +568,21 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 
 <div class="modal hidden" id="nameModal">
   <div class="sheet">
-    <h2 style="color:var(--ink);font-size:16px;">给你的俱乐部起个名字</h2>
-    <input type="text" id="nameInput" maxlength="10" placeholder="新星联队">
-    <div class="hint">1–10 个字，不填就用默认名「新星联队」。这支队是你自己的，对手是 15 家真实豪门。<br>领队老陈：「名字先定下来，剩下的交给我们。」</div>
+    <h2 style="color:var(--ink);font-size:16px;" id="nameTitle">给你的俱乐部起个名字</h2>
+    <div id="nameNickBox" class="hidden">
+      <div class="hint" id="nameNickHint">将以你的虎扑昵称命名俱乐部：</div>
+      <div id="nameDerived" style="font-size:22px;font-weight:800;color:var(--ink);text-align:center;margin:10px 0 2px;"></div>
+      <button id="nameToPool" class="ghost" style="width:100%;margin-top:8px;">换个名字（从队名库里挑）</button>
+    </div>
+    <div id="namePoolBox" class="hidden">
+      <div class="hint">从队名库里挑一个，点中选中，再点下面的确认：</div>
+      <div id="namePoolGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button id="nameShuffle" class="ghost" style="flex:1;">换一批</button>
+        <button id="nameUseDefault" class="ghost" style="flex:1;">先用默认名</button>
+      </div>
+    </div>
+    <div class="hint" style="margin-top:10px;">名字不用打字：用你的虎扑昵称，或从队名库里挑一个。这支队是你自己的，对手是 15 家真实豪门。<br>领队老陈：「名字先定下来，剩下的交给我们。」</div>
     <div class="hint hidden" id="nameAdHint" style="margin-top:8px;color:#a83226;">改名需看一次广告，完整看完并确认奖励到账后才生效；中途退出或广告不可用，不落名、不惩罚，原名保留。</div>
     <div style="margin-top:14px; display:flex; gap:8px;"><button id="nameOk" style="flex:1;">就叫这个</button><button id="nameCancel" class="ghost hidden" style="flex:0 0 96px;">取消</button></div>
   </div>
@@ -647,7 +662,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 </div>
 
 <script>
-const BUILD_STAMP = "build 20261117-DEV793";
+const BUILD_STAMP = "build 20261117-DEV794";
 const PLAYERS = [{"pid": "P003", "name": "库尔图瓦", "pos": "GK", "posGroup": "GK", "ability": 91, "age": "34", "club": "皇家马德里", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P004", "name": "多纳鲁马", "pos": "GK", "posGroup": "GK", "ability": 91, "age": "27", "club": "曼城", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P005", "name": "阿利松", "pos": "GK", "posGroup": "GK", "ability": 90, "age": "34", "club": "利物浦", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P006", "name": "奥布拉克", "pos": "GK", "posGroup": "GK", "ability": 90, "age": "33", "club": "马德里竞技", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P008", "name": "拉亚", "pos": "GK", "posGroup": "GK", "ability": 87, "age": "31", "club": "阿森纳", "wage": "A", "pot": "低", "role": "首发"}, {"pid": "P009", "name": "马马尔达什维利", "pos": "GK", "posGroup": "GK", "ability": 87, "age": "26", "club": "利物浦", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P029", "name": "范戴克", "pos": "CB", "posGroup": "DF", "ability": 90, "age": "35", "club": "利物浦", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P030", "name": "鲁本·迪亚斯", "pos": "CB", "posGroup": "DF", "ability": 89, "age": "29", "club": "曼城", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P031", "name": "萨利巴", "pos": "CB", "posGroup": "DF", "ability": 88, "age": "25", "club": "阿森纳", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P032", "name": "巴斯托尼", "pos": "CB", "posGroup": "DF", "ability": 88, "age": "27", "club": "国际米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P033", "name": "加布里埃尔", "pos": "CB", "posGroup": "DF", "ability": 87, "age": "28", "club": "阿森纳", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P034", "name": "格瓦迪奥尔", "pos": "FB", "posGroup": "DF", "ability": 87, "age": "24", "club": "曼城", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P036", "name": "金玟哉", "pos": "CB", "posGroup": "DF", "ability": 85, "age": "30", "club": "拜仁慕尼黑", "wage": "B", "pot": "低", "role": "轮换"}, {"pid": "P038", "name": "卢卡斯·埃尔南德斯", "pos": "FB", "posGroup": "DF", "ability": 83, "age": "30", "club": "巴黎圣日耳曼", "wage": "B", "pot": "低", "role": "轮换"}, {"pid": "P039", "name": "富安健洋", "pos": "FB", "posGroup": "DF", "ability": 82, "age": "28", "club": "水晶宫", "wage": "C", "pot": "中", "role": "轮换"}, {"pid": "P040", "name": "阿坎吉", "pos": "CB", "posGroup": "DF", "ability": 82, "age": "31", "club": "国际米兰", "wage": "C", "pot": "低", "role": "轮换"}, {"pid": "P045", "name": "蒋光太", "pos": "CB", "posGroup": "DF", "ability": 76, "age": "32", "club": "上海海港", "wage": "D", "pot": "低", "role": "轮换"}, {"pid": "P052", "name": "罗德里", "pos": "DM", "posGroup": "MF", "ability": 91, "age": "30", "club": "曼城", "wage": "S", "pot": "低", "role": "首发"}, {"pid": "P055", "name": "莫德里奇", "pos": "CM", "posGroup": "MF", "ability": 91, "age": "41", "club": "AC米兰", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P056", "name": "德布劳内", "pos": "AM", "posGroup": "MF", "ability": 90, "age": "35", "club": "那不勒斯", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P057", "name": "贝林厄姆", "pos": "AM", "posGroup": "MF", "ability": 90, "age": "23", "club": "皇家马德里", "wage": "S", "pot": "中高", "role": "首发"}, {"pid": "P058", "name": "穆西亚拉", "pos": "AM", "posGroup": "MF", "ability": 90, "age": "23", "club": "拜仁慕尼黑", "wage": "S", "pot": "中高", "role": "首发"}, {"pid": "P061", "name": "维尔茨", "pos": "AM", "posGroup": "MF", "ability": 89, "age": "23", "club": "利物浦", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P062", "name": "佩德里", "pos": "CM", "posGroup": "MF", "ability": 88, "age": "24", "club": "巴塞罗那", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P063", "name": "维蒂尼亚", "pos": "CM", "posGroup": "MF", "ability": 88, "age": "26", "club": "巴黎圣日耳曼", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P064", "name": "麦卡利斯特", "pos": "CM", "posGroup": "MF", "ability": 87, "age": "27", "club": "利物浦", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P065", "name": "巴雷拉", "pos": "CM", "posGroup": "MF", "ability": 87, "age": "29", "club": "国际米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P067", "name": "恩佐·费尔南德斯", "pos": "DM", "posGroup": "MF", "ability": 86, "age": "25", "club": "切尔西", "wage": "B", "pot": "中高", "role": "首发"}, {"pid": "P070", "name": "远藤航", "pos": "DM", "posGroup": "MF", "ability": 80, "age": "33", "club": "利物浦", "wage": "C", "pot": "无(即战力)", "role": "轮换"}, {"pid": "P072", "name": "吴曦", "pos": "CM", "posGroup": "MF", "ability": 74, "age": "37", "club": "上海申花", "wage": "D", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P073", "name": "梅西", "pos": "WF", "posGroup": "WG", "ability": 97, "age": "39", "club": "迈阿密国际", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P076", "name": "姆巴佩", "pos": "WF", "posGroup": "WG", "ability": 92, "age": "27", "club": "皇家马德里", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P077", "name": "亚马尔", "pos": "WF", "posGroup": "WG", "ability": 91, "age": "19", "club": "巴塞罗那", "wage": "S", "pot": "高", "role": "青训梯队"}, {"pid": "P078", "name": "维尼修斯", "pos": "WF", "posGroup": "WG", "ability": 91, "age": "26", "club": "皇家马德里", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P079", "name": "萨拉赫", "pos": "WF", "posGroup": "WG", "ability": 90, "age": "34", "club": "利物浦", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P080", "name": "萨卡", "pos": "WF", "posGroup": "WG", "ability": 88, "age": "25", "club": "阿森纳", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P081", "name": "莱奥", "pos": "WF", "posGroup": "WG", "ability": 88, "age": "27", "club": "AC米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P085", "name": "三笘薰", "pos": "WM", "posGroup": "WG", "ability": 85, "age": "29", "club": "布莱顿", "wage": "B", "pot": "中", "role": "轮换"}, {"pid": "P087", "name": "久保建英", "pos": "WM", "posGroup": "WG", "ability": 82, "age": "25", "club": "皇家社会", "wage": "C", "pot": "中高", "role": "轮换"}, {"pid": "P096", "name": "王钰栋", "pos": "WF", "posGroup": "WG", "ability": 72, "age": "20", "club": "浙江队", "wage": "D", "pot": "高", "role": "青训梯队"}, {"pid": "P098", "name": "C罗", "pos": "CF", "posGroup": "ST", "ability": 95, "age": "41", "club": "利雅得胜利", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P101", "name": "哈兰德", "pos": "CF", "posGroup": "ST", "ability": 92, "age": "26", "club": "曼城", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P102", "name": "凯恩", "pos": "CF", "posGroup": "ST", "ability": 91, "age": "33", "club": "拜仁慕尼黑", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P103", "name": "莱万多夫斯基", "pos": "CF", "posGroup": "ST", "ability": 90, "age": "38", "club": "巴塞罗那", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P104", "name": "孙兴慜", "pos": "SS", "posGroup": "ST", "ability": 89, "age": "34", "club": "洛杉矶FC", "wage": "A", "pot": "无(即战力)", "role": "首发"}, {"pid": "P105", "name": "奥斯梅恩", "pos": "CF", "posGroup": "ST", "ability": 88, "age": "27", "club": "加拉塔萨雷", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P106", "name": "劳塔罗·马丁内斯", "pos": "SS", "posGroup": "ST", "ability": 88, "age": "29", "club": "国际米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P107", "name": "伊萨克", "pos": "CF", "posGroup": "ST", "ability": 88, "age": "27", "club": "利物浦", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P108", "name": "阿尔瓦雷斯", "pos": "SS", "posGroup": "ST", "ability": 88, "age": "26", "club": "马德里竞技", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P118", "name": "武磊", "pos": "SS", "posGroup": "ST", "ability": 76, "age": "34", "club": "上海海港", "wage": "D", "pot": "无(即战力)", "role": "轮换"}];
 const LEAGUES = ["皇家马德里","巴塞罗那","曼城","利物浦","阿森纳","拜仁慕尼黑","巴黎圣日耳曼","国际米兰","AC米兰","马德里竞技","切尔西","曼联","多特蒙德","那不勒斯","托特纳姆热刺"];
 const TIERS = {
@@ -2171,6 +2186,88 @@ async function fetchBoardUser(){
     }
   }catch(e){}
   return boardUser;
+}
+/* v79.4/HF3 俱乐部名去手输：昵称派生（auth.getUserInfo，清洗口径与 BFF handleClubName 对齐）＋60 名队名库点选，全程零文本输入 */
+function cleanClubName(raw){
+  let s = String(raw == null ? "" : raw).replace(/[\u0000-\u001F\u007F]/g, "").replace(/\s+/g, "");
+  const cp = [...s];
+  if(cp.length > 10) s = cp.slice(0, 10).join("");
+  return s;
+}
+async function deriveClubName(){
+  try{
+    if(window.ColorboxAI && window.ColorboxAI.auth && window.ColorboxAI.auth.getUserInfo){
+      const r = await window.ColorboxAI.auth.getUserInfo();
+      if(r && r.code === 200 && r.data && r.data.islogin == 1 && r.data.nickname) return cleanClubName(r.data.nickname);
+    }
+  }catch(e){}
+  return "";
+}
+const NAME_POOL = ["临江联队","云岭竞技","星港FC","北岸联队","南屿竞技","青屿联队","雾山FC","澜江竞技","枫桥联队","石门竞技","鹿原联队","鹤汀FC","松涛联队","竹海竞技","雪原联队","潮汐FC","晨光联队","晚风竞技","破晓联队","逐日FC","追风联队","踏浪竞技","登峰联队","问鼎FC","铁壁联队","锋线竞技","绿茵联队","橙风FC","苇岸联队","码头竞技","灯塔联队","钟楼FC","老街联队","新桥竞技","河畔联队","岭外联队","天际竞技","云端联队","星野FC","原野联队","林间竞技","溪谷联队","石桥FC","风铃联队","月湾竞技","日晖联队","长风FC","远航联队","归帆竞技","初心联队","热血FC","无畏联队","破阵竞技","守望FC","同行联队","征途竞技","归雁联队","春汛FC","秋实联队","望海竞技"];
+const nameUi = { mode: "found", view: "pool", derived: "", sel: "", selKind: "", deck: [], di: 0, touched: false };
+function shuffleNameDeck(){ const a = NAME_POOL.slice(); for(let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; } nameUi.deck = a; nameUi.di = 0; }
+function renderNamePool(){
+  if(!nameUi.deck.length || nameUi.di >= nameUi.deck.length) shuffleNameDeck();
+  const grid = $("#namePoolGrid"); if(!grid) return;
+  grid.innerHTML = "";
+  nameUi.deck.slice(nameUi.di, nameUi.di + 6).forEach((nm) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "namechip" + ((nameUi.selKind === "pool" && nameUi.sel === nm) ? " sel" : "");
+    b.textContent = nm;
+    b.onclick = () => { nameUi.touched = true; nameUi.sel = nm; nameUi.selKind = "pool"; renderNamePool(); renderNameModal(); };
+    grid.appendChild(b);
+  });
+}
+function renderNameModal(){
+  const nick = $("#nameNickBox"), pool = $("#namePoolBox"); if(!nick || !pool) return;
+  const hasD = !!nameUi.derived;
+  if(nameUi.mode === "rename"){
+    nick.classList.toggle("hidden", !hasD);
+    pool.classList.remove("hidden");
+    const tp = $("#nameToPool"); if(tp) tp.classList.add("hidden");
+    const same = hasD && nameUi.derived === (mock.state.clubName || "");
+    $("#nameNickHint").textContent = same ? "你的虎扑昵称（就是现在的名字，点它不会变化）：" : "用我的虎扑昵称（点此选用）：";
+    $("#nameDerived").textContent = nameUi.derived;
+    nick.classList.toggle("namesel", nameUi.selKind === "nick");
+    $("#nameOk").textContent = "看广告并改名";
+  } else {
+    const v = nameUi.view;
+    nick.classList.toggle("hidden", !(v === "nick" && hasD));
+    pool.classList.toggle("hidden", v !== "pool");
+    const tp = $("#nameToPool"); if(tp) tp.classList.remove("hidden");
+    $("#nameNickHint").textContent = "将以你的虎扑昵称命名俱乐部：";
+    $("#nameDerived").textContent = nameUi.derived;
+    nick.classList.remove("namesel");
+    $("#nameOk").textContent = v === "nick" ? "就用这个" : "就叫这个";
+  }
+}
+function currentNamePick(){
+  if(nameUi.selKind === "nick") return nameUi.derived;
+  if(nameUi.selKind === "pool") return nameUi.sel;
+  if(nameUi.mode === "found" && nameUi.view === "nick") return nameUi.derived;
+  return "";
+}
+async function submitClubName(nm){
+  const isRename = nameUi.mode === "rename" && !!mock.state.founded;
+  const r = await api("/api/club-name", { name: nm });
+  if(r.ok){ if(r.clubName){ mock.state.clubName = r.clubName; mock.save(); } $("#nameModal").classList.add("hidden"); window.__renameMode = false; if(!mock.state.founded && !mock.state.founding){ startFounding(); } else { render(); if(isRename) toast("改名成功！新名字已经挂上俱乐部大门"); } }
+  else toast("名字太长了（最多 10 字）");
+}
+async function openNameModal(mode){
+  nameUi.mode = mode; nameUi.view = "pool"; nameUi.derived = ""; nameUi.sel = ""; nameUi.selKind = ""; nameUi.touched = false;
+  window.__renameMode = (mode === "rename");
+  $("#nameTitle").textContent = mode === "rename" ? "给俱乐部换个名字" : "给你的俱乐部起个名字";
+  const h = $("#nameAdHint"); if(h) h.classList.toggle("hidden", mode !== "rename");
+  const c = $("#nameCancel"); if(c) c.classList.toggle("hidden", mode !== "rename");
+  const ud = $("#nameUseDefault"); if(ud) ud.style.display = mode === "rename" ? "none" : "";
+  shuffleNameDeck(); renderNamePool(); renderNameModal();
+  $("#nameModal").classList.remove("hidden");
+  const d = await deriveClubName();
+  if(!d) return;
+  nameUi.derived = d;
+  if(mode === "found" && !nameUi.touched) nameUi.view = "nick";
+  renderNameModal();
 }
 function myWinsTotal(){ const s = mock.state; let w = 0; for(const sp of ["football", "basketball"]){ const t = s.table && s.table[sp]; if(t && t.rows && t.rows["__ME__"]) w += t.rows["__ME__"].w || 0; } return w; }
 function noteBest(){ const s = mock.state; if(!s.best) s.best = { rep: 0, output: 0, wins: 0 }; s.best.rep = Math.max(s.best.rep || 0, s.rep || 0); s.best.output = Math.max(s.best.output || 0, s.output || 0); s.best.wins = Math.max(s.best.wins || 0, myWinsTotal()); }
@@ -6876,22 +6973,28 @@ $("#adBtn").onclick = async () => {
   mock.state.adCount+=1; mock.state.balance+=120; ensureV2State(); mock.state.buckets.commercial+=120; mock.save();
   toast(`补给到账 +120 资金（今日 ${mock.state.adCount}/3）`); render();
 };
-$("#renameBtn").onclick = () => { window.__renameMode = true; $("#nameInput").value=$("#clubName").textContent; const h=$("#nameAdHint"); if(h) h.classList.remove("hidden"); const c=$("#nameCancel"); if(c) c.classList.remove("hidden"); const ok=$("#nameOk"); if(ok) ok.textContent = "看广告并改名"; $("#nameModal").classList.remove("hidden"); };
+$("#renameBtn").onclick = () => { openNameModal("rename"); };
 $("#nameCancel").onclick = () => { window.__renameMode = false; $("#nameModal").classList.add("hidden"); };
+$("#nameToPool").onclick = () => { nameUi.touched = true; nameUi.view = "pool"; renderNameModal(); };
+$("#nameNickBox").onclick = () => {
+  if(nameUi.mode !== "rename" || !nameUi.derived) return;
+  if(nameUi.derived === (mock.state.clubName || "")) return;
+  nameUi.touched = true; nameUi.selKind = "nick"; nameUi.sel = nameUi.derived; renderNamePool(); renderNameModal();
+};
+$("#nameShuffle").onclick = () => { nameUi.touched = true; nameUi.di += 6; if(nameUi.di >= nameUi.deck.length) shuffleNameDeck(); renderNamePool(); };
+$("#nameUseDefault").onclick = () => { submitClubName("新星联队"); };
 $("#nameOk").onclick = async () => {
-  const isRename = !!window.__renameMode && !!mock.state.founded;
+  const isRename = nameUi.mode === "rename" && !!mock.state.founded;
+  const nm = currentNamePick();
+  if(!nm){ toast("先选一个名字"); return; }
   if(isRename){
-    const nm = ($("#nameInput").value || "").trim();
-    if(nm.length < 1 || nm.length > 10){ toast("名字要 1–10 个字"); return; }
     if(nm === (mock.state.clubName || "")){ toast("和现在的名字一样，不用改"); return; }
     const btn = $("#nameOk"); btn.disabled = true; btn.textContent = "广告播放中…";
     const okAd = await watchRenameAd();
     btn.disabled = false; btn.textContent = "看广告并改名";
     if(!okAd){ toast("广告未完成，改名未生效（原名保留）"); return; }
   }
-  const r = await api("/api/club-name", { name: $("#nameInput").value });
-  if(r.ok){ if(r.clubName){ mock.state.clubName = r.clubName; mock.save(); } $("#nameModal").classList.add("hidden"); window.__renameMode = false; if(!mock.state.founded && !mock.state.founding){ startFounding(); } else { render(); if(isRename) toast("改名成功！新名字已经挂上俱乐部大门"); } }
-  else toast("名字太长了（最多 10 字）");
+  await submitClubName(nm);
 };
 async function watchRenameAd(){
   if(inShell){
@@ -7462,7 +7565,7 @@ window.shareClub = shareClub; window.addDesktop = addDesktop;
      会被误判已建队；只给已建队/建队中的存档回填服务器名，新玩家本地名保持空、走起名建队链。 */
   if(inShell && h && h.clubName && !mock.state.clubName && (mock.state.founded || mock.state.founding)){ mock.state.clubName = h.clubName; mock.save(); }
   ensureV2State();
-  if(!mock.state.founded && !mock.state.founding){ $("#nameModal").classList.remove("hidden"); }
+  if(!mock.state.founded && !mock.state.founding){ openNameModal("found"); }
   await render();
   renderBootSlots();
   if(mock.state.founding){ openFounding(); }
