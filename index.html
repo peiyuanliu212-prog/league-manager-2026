@@ -740,7 +740,11 @@ async function api(path, body){
     /* 官方 SDK 形态（hupu-skills-pack 官方示例）：必须给完整 url，只给 {path} 会被 SDK 拒（Missing parameter: url）；
        应答按 statusCode＋code 判、业务数据在 res.data（网关信封 {code,message,data}） */
     try{
-      const r = await window.ColorboxAI.cloud.request({ url: LM_API_BASE + path, method:"POST", data: body||{}, envId: LM_ENV_ID, auth: true });
+      /* 超时兜底（2026-11-17）：SDK 请求可能永不回执（真壳第 9 步二度卡死实锤——首个请求挂起后
+         arrange 的防连点闸永久闩死、失败分支永远执行不到、玩家只见按钮静默失效）。10 秒未回按失败落
+         既有话术分支，防连点闸靠 finally 释放、可直接重试；迟到的应答由 race 丢弃。 */
+      const r = await Promise.race([ window.ColorboxAI.cloud.request({ url: LM_API_BASE + path, method:"POST", data: body||{}, envId: LM_ENV_ID, auth: true }), new Promise(res => setTimeout(() => res(null), 10000)) ]);
+      if(!r) return { ok:false, code:"TIMEOUT" };
       if(r && r.statusCode === 200 && (r.code === 0 || r.code === 200) && r.data) return r.data;
       if(r && r.statusCode === 401) return { ok:false, code:"UNAUTHORIZED" };
       return { ok:false, code:"EMPTY" };
@@ -6907,6 +6911,9 @@ function tourAutoStart(){
   if(navigator.webdriver) return;
   const s = mock.state; if(!s.founded) return;
   if(s.tour && s.tour.done) return;
+  /* 进行中的引导（已推进过步数）优先续走：不许被下面「已赛一场」判定静默吞掉——
+     否则玩家首场后关游戏回来、或换包重进，剩下的步数（9–14）凭空消失（2026-11-17 复验路径实锤） */
+  if(s.tour && s.tour.i > 0){ tourShow(); return; }
   if(Object.keys(s.played || {}).length > 0){ s.tour = { i:0, done:true, rewarded:true }; mock.save(); return; }
   tourShow();
 }
