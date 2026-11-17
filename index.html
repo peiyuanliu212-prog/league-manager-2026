@@ -342,6 +342,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
   <div id="bootSlots" style="width:100%;max-width:360px;margin-top:8px"></div>
   <button id="bootEnter" class="hidden" style="margin-top:8px;padding:12px 34px;font-size:17px">进入俱乐部</button>
   </div>
+  <div id="bootStamp" style="position:fixed;right:10px;bottom:8px;font-size:10px;color:#a39a83;pointer-events:none;z-index:81"></div>
 </div>
 <div id="eveningBar" class="hidden" style="background:#f7e8c9;color:#8a6d1a;border-bottom:1px solid var(--line);padding:8px 16px;font-size:13px;">晚市窗开启中（19:00–23:00）：离线产出 ×1.5</div>
 <div class="page on" data-page="league">
@@ -589,7 +590,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 </div>
 
 <div class="modal hidden" id="settingsModal">
-  <div class="sheet">
+  <div class="sheet" style="position:relative">
     <h2 style="color:var(--ink);font-size:16px;">⚙️ 设置</h2>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
       <button id="setNoticeBtn" class="ghost" style="width:100%;text-align:left" onclick="openNotice()">📣 更新公告</button>
@@ -603,6 +604,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
     </div>
     <div class="hint" style="margin-top:10px">「返回开始页」是回到选档页换档或重开；「退出游戏」在虎扑 App 里直接关掉游戏页。进度一直在自动保存，不用担心丢档。</div>
     <div style="margin-top:14px;"><button id="setClose" style="width:100%;" onclick="closeSettings()">关闭</button></div>
+    <div id="setStamp" style="position:absolute;right:12px;bottom:6px;font-size:10px;color:#a39a83;pointer-events:none"></div>
   </div>
 </div>
 
@@ -645,6 +647,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 </div>
 
 <script>
+const BUILD_STAMP = "build 20261117-DEV793";
 const PLAYERS = [{"pid": "P003", "name": "库尔图瓦", "pos": "GK", "posGroup": "GK", "ability": 91, "age": "34", "club": "皇家马德里", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P004", "name": "多纳鲁马", "pos": "GK", "posGroup": "GK", "ability": 91, "age": "27", "club": "曼城", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P005", "name": "阿利松", "pos": "GK", "posGroup": "GK", "ability": 90, "age": "34", "club": "利物浦", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P006", "name": "奥布拉克", "pos": "GK", "posGroup": "GK", "ability": 90, "age": "33", "club": "马德里竞技", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P008", "name": "拉亚", "pos": "GK", "posGroup": "GK", "ability": 87, "age": "31", "club": "阿森纳", "wage": "A", "pot": "低", "role": "首发"}, {"pid": "P009", "name": "马马尔达什维利", "pos": "GK", "posGroup": "GK", "ability": 87, "age": "26", "club": "利物浦", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P029", "name": "范戴克", "pos": "CB", "posGroup": "DF", "ability": 90, "age": "35", "club": "利物浦", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P030", "name": "鲁本·迪亚斯", "pos": "CB", "posGroup": "DF", "ability": 89, "age": "29", "club": "曼城", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P031", "name": "萨利巴", "pos": "CB", "posGroup": "DF", "ability": 88, "age": "25", "club": "阿森纳", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P032", "name": "巴斯托尼", "pos": "CB", "posGroup": "DF", "ability": 88, "age": "27", "club": "国际米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P033", "name": "加布里埃尔", "pos": "CB", "posGroup": "DF", "ability": 87, "age": "28", "club": "阿森纳", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P034", "name": "格瓦迪奥尔", "pos": "FB", "posGroup": "DF", "ability": 87, "age": "24", "club": "曼城", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P036", "name": "金玟哉", "pos": "CB", "posGroup": "DF", "ability": 85, "age": "30", "club": "拜仁慕尼黑", "wage": "B", "pot": "低", "role": "轮换"}, {"pid": "P038", "name": "卢卡斯·埃尔南德斯", "pos": "FB", "posGroup": "DF", "ability": 83, "age": "30", "club": "巴黎圣日耳曼", "wage": "B", "pot": "低", "role": "轮换"}, {"pid": "P039", "name": "富安健洋", "pos": "FB", "posGroup": "DF", "ability": 82, "age": "28", "club": "水晶宫", "wage": "C", "pot": "中", "role": "轮换"}, {"pid": "P040", "name": "阿坎吉", "pos": "CB", "posGroup": "DF", "ability": 82, "age": "31", "club": "国际米兰", "wage": "C", "pot": "低", "role": "轮换"}, {"pid": "P045", "name": "蒋光太", "pos": "CB", "posGroup": "DF", "ability": 76, "age": "32", "club": "上海海港", "wage": "D", "pot": "低", "role": "轮换"}, {"pid": "P052", "name": "罗德里", "pos": "DM", "posGroup": "MF", "ability": 91, "age": "30", "club": "曼城", "wage": "S", "pot": "低", "role": "首发"}, {"pid": "P055", "name": "莫德里奇", "pos": "CM", "posGroup": "MF", "ability": 91, "age": "41", "club": "AC米兰", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P056", "name": "德布劳内", "pos": "AM", "posGroup": "MF", "ability": 90, "age": "35", "club": "那不勒斯", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P057", "name": "贝林厄姆", "pos": "AM", "posGroup": "MF", "ability": 90, "age": "23", "club": "皇家马德里", "wage": "S", "pot": "中高", "role": "首发"}, {"pid": "P058", "name": "穆西亚拉", "pos": "AM", "posGroup": "MF", "ability": 90, "age": "23", "club": "拜仁慕尼黑", "wage": "S", "pot": "中高", "role": "首发"}, {"pid": "P061", "name": "维尔茨", "pos": "AM", "posGroup": "MF", "ability": 89, "age": "23", "club": "利物浦", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P062", "name": "佩德里", "pos": "CM", "posGroup": "MF", "ability": 88, "age": "24", "club": "巴塞罗那", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P063", "name": "维蒂尼亚", "pos": "CM", "posGroup": "MF", "ability": 88, "age": "26", "club": "巴黎圣日耳曼", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P064", "name": "麦卡利斯特", "pos": "CM", "posGroup": "MF", "ability": 87, "age": "27", "club": "利物浦", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P065", "name": "巴雷拉", "pos": "CM", "posGroup": "MF", "ability": 87, "age": "29", "club": "国际米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P067", "name": "恩佐·费尔南德斯", "pos": "DM", "posGroup": "MF", "ability": 86, "age": "25", "club": "切尔西", "wage": "B", "pot": "中高", "role": "首发"}, {"pid": "P070", "name": "远藤航", "pos": "DM", "posGroup": "MF", "ability": 80, "age": "33", "club": "利物浦", "wage": "C", "pot": "无(即战力)", "role": "轮换"}, {"pid": "P072", "name": "吴曦", "pos": "CM", "posGroup": "MF", "ability": 74, "age": "37", "club": "上海申花", "wage": "D", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P073", "name": "梅西", "pos": "WF", "posGroup": "WG", "ability": 97, "age": "39", "club": "迈阿密国际", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P076", "name": "姆巴佩", "pos": "WF", "posGroup": "WG", "ability": 92, "age": "27", "club": "皇家马德里", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P077", "name": "亚马尔", "pos": "WF", "posGroup": "WG", "ability": 91, "age": "19", "club": "巴塞罗那", "wage": "S", "pot": "高", "role": "青训梯队"}, {"pid": "P078", "name": "维尼修斯", "pos": "WF", "posGroup": "WG", "ability": 91, "age": "26", "club": "皇家马德里", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P079", "name": "萨拉赫", "pos": "WF", "posGroup": "WG", "ability": 90, "age": "34", "club": "利物浦", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P080", "name": "萨卡", "pos": "WF", "posGroup": "WG", "ability": 88, "age": "25", "club": "阿森纳", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P081", "name": "莱奥", "pos": "WF", "posGroup": "WG", "ability": 88, "age": "27", "club": "AC米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P085", "name": "三笘薰", "pos": "WM", "posGroup": "WG", "ability": 85, "age": "29", "club": "布莱顿", "wage": "B", "pot": "中", "role": "轮换"}, {"pid": "P087", "name": "久保建英", "pos": "WM", "posGroup": "WG", "ability": 82, "age": "25", "club": "皇家社会", "wage": "C", "pot": "中高", "role": "轮换"}, {"pid": "P096", "name": "王钰栋", "pos": "WF", "posGroup": "WG", "ability": 72, "age": "20", "club": "浙江队", "wage": "D", "pot": "高", "role": "青训梯队"}, {"pid": "P098", "name": "C罗", "pos": "CF", "posGroup": "ST", "ability": 95, "age": "41", "club": "利雅得胜利", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P101", "name": "哈兰德", "pos": "CF", "posGroup": "ST", "ability": 92, "age": "26", "club": "曼城", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P102", "name": "凯恩", "pos": "CF", "posGroup": "ST", "ability": 91, "age": "33", "club": "拜仁慕尼黑", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P103", "name": "莱万多夫斯基", "pos": "CF", "posGroup": "ST", "ability": 90, "age": "38", "club": "巴塞罗那", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P104", "name": "孙兴慜", "pos": "SS", "posGroup": "ST", "ability": 89, "age": "34", "club": "洛杉矶FC", "wage": "A", "pot": "无(即战力)", "role": "首发"}, {"pid": "P105", "name": "奥斯梅恩", "pos": "CF", "posGroup": "ST", "ability": 88, "age": "27", "club": "加拉塔萨雷", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P106", "name": "劳塔罗·马丁内斯", "pos": "SS", "posGroup": "ST", "ability": 88, "age": "29", "club": "国际米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P107", "name": "伊萨克", "pos": "CF", "posGroup": "ST", "ability": 88, "age": "27", "club": "利物浦", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P108", "name": "阿尔瓦雷斯", "pos": "SS", "posGroup": "ST", "ability": 88, "age": "26", "club": "马德里竞技", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P118", "name": "武磊", "pos": "SS", "posGroup": "ST", "ability": 76, "age": "34", "club": "上海海港", "wage": "D", "pot": "无(即战力)", "role": "轮换"}];
 const LEAGUES = ["皇家马德里","巴塞罗那","曼城","利物浦","阿森纳","拜仁慕尼黑","巴黎圣日耳曼","国际米兰","AC米兰","马德里竞技","切尔西","曼联","多特蒙德","那不勒斯","托特纳姆热刺"];
 const TIERS = {
@@ -656,6 +659,8 @@ const TIERS = {
   T5:{label:"海外拉练", dur:"22 小时", kind:"loan"},
 };
 const $ = (s) => document.querySelector(s);
+function fillStamps(){ try{ const a=document.querySelector("#bootStamp"); if(a) a.textContent = BUILD_STAMP; const b=document.querySelector("#setStamp"); if(b) b.textContent = BUILD_STAMP; }catch(e){} }
+fillStamps();
 function toast(msg){ const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2400); }
 
 /* ---------- 数据层：优先走 BFF（Shaper 壳内 ColorboxAI.cloud.request），无壳时本地模拟同形接口 ---------- */
@@ -1213,10 +1218,12 @@ function playerCard(p){
     fh2.textContent = "训练方向：只决定归队成长分到哪一项，不改归队时间和资金奖励；每向攒满 100 升 1 点成长，全队成长上限 +5（与发展课同规）。恢复向不攒成长，归队直接回 50 体能。";
     el.appendChild(fh2);
     const t=document.createElement("div"); t.className="tiers tiers5";
-    const t0ok = (()=>{ try{ const ts = mock.state.tour; return ts && !ts.done && !mock.state.t0Used && TOUR_STEPS[ts.i] && TOUR_STEPS[ts.i].id === "arrange"; }catch(e){ return false; } })();
+    /* HF2 脱钩：T0 瓦片与引导完成判定脱钩——已建队且未用过就在球员卡常驻，用掉即消失；
+       引导派人步只是「认识它」，不再是它唯一的出现窗口（第 9 步三度卡死的连带修复） */
+    const t0ok = !mock.state.t0Used;
     if(t0ok){
-      const b0=document.createElement("button"); b0.id="tourT0Btn"; b0.style.borderColor="var(--acc)"; b0.style.background="#f7e8c9"; b0.innerHTML="<span>🎓 "+TIERS.T0.label+"</span><small>"+TIERS.T0.dur+" · 仅教学一次</small>";
-      b0.onclick=()=>arrange(p,"T0",TIERS.T0);
+      const b0=document.createElement("button"); b0.id="tourT0Btn"; b0.style.borderColor="var(--acc)"; b0.style.background="#f3d27a"; b0.style.color="#5b4310"; b0.innerHTML="<span>🎓 "+TIERS.T0.label+"</span><small>"+TIERS.T0.dur+" · 仅教学一次</small>";
+      b0.onclick=(ev)=>arrange(p,"T0",TIERS.T0, ev.currentTarget);
       t.appendChild(b0);
     }
     for(const [k,v] of Object.entries(TIERS)){
@@ -1266,23 +1273,36 @@ function applyTrainFocus(c, p){
   return { focus, amt };
 }
 const arrangeInFlight = new Set();
-async function arrange(p, tierKey, tier){
+async function arrange(p, tierKey, tier, btnEl){
   /* 在途防连点：壳内请求往返慢，连点会叠出重复工单（2026-11-15 真壳第 9 步连点 20 秒的教训） */
   if(arrangeInFlight.has(p.pid)) return;
   arrangeInFlight.add(p.pid);
+  /* 在途反馈态（HF2）：与 arrangeInFlight 共用同一状态源——进闸置态、finally 恢复；
+     等待期按钮明示「安排中…」并禁用，不再出现点了像没点的静默窗口 */
+  let btnOrig = null;
+  if(btnEl){ btnOrig = btnEl.innerHTML; btnEl.disabled = true; btnEl.innerHTML = "<span>⏳ 安排中…</span><small>正在联系领队</small>"; }
   try{
     const focus = focusOf(p.pid);
     const body = tier.kind==="loan" ? { loans:[{playerId:p.pid, tier:tierKey, kind:"loan", focus}] } : { jobs:[{playerId:p.pid, tier:tierKey, kind:tier.kind||"training", focus}] };
     const r = await api("/api/arrange", body);
     if(r.ok){ guideFlag("arranged"); awayMap.set(p.pid, tier.label+"中");
-      if(tierKey === "T0"){ mock.state.t0Used = true; mock.save(); toast(`🎓 教学拉练完成：${p.name} 已归队，去联赛页迎接他！`); }
+      if(tierKey === "T0"){ mock.state.t0Used = true; window.__tourArrangeFails = 0; mock.save(); toast(`🎓 教学拉练完成：${p.name} 已归队，去联赛页迎接他！`); }
       else toast(`${p.name} 已出发：${tier.label}（${tier.dur}后归队）`);
       render(); tourHook("arrange"); }
     /* 失败只给玩家话术、不漏内部错误码；状态一概不动，引导停在原步可直接重试 */
-    else toast("安排没成功，可能是网络或服务暂时不稳，请再点一次");
-  } finally { arrangeInFlight.delete(p.pid); }
+    else { toast("安排没成功，可能是网络或服务暂时不稳，请再点一次");
+      /* 逃生口计数（HF2）：引导派人步内 T0 失败累计 2 次，重渲染讲解台多给「先跳过这步」，网络再烂也锁不死引导 */
+      if(tierKey === "T0"){ const ts = mock.state.tour; if(ts && !ts.done && TOUR_STEPS[ts.i] && TOUR_STEPS[ts.i].id === "arrange"){ window.__tourArrangeFails = (window.__tourArrangeFails || 0) + 1; if(window.__tourArrangeFails >= 2){ try{ tourShow(); }catch(e){} } } } }
+  } finally { arrangeInFlight.delete(p.pid); if(btnEl && btnOrig !== null && btnEl.isConnected){ btnEl.innerHTML = btnOrig; btnEl.disabled = false; } }
 }
-async function claimReturn(c){
+const claimInFlight = new Set();
+async function claimReturn(c, btnEl){
+  /* 在途闸＋反馈态（HF2）：与 arrange 同口径——进闸置态、finally 恢复；迎接同走 api()，等待期不再静默无反馈 */
+  if(claimInFlight.has(c.playerId)) return;
+  claimInFlight.add(c.playerId);
+  let btnOrig = null;
+  if(btnEl){ btnOrig = btnEl.textContent; btnEl.disabled = true; btnEl.textContent = "迎接中…"; }
+  try{
   const p = findPlayer(c.playerId);
   if(c.kind==="commission"){
     const r = await api("/api/return/claim", { playerId:c.playerId, plannedReturnEpoch:c.plannedReturnEpoch, baseReward:150 });
@@ -1298,6 +1318,7 @@ async function claimReturn(c){
   else if(r.ok){ toast("已领过啦"); }
   else { toast("迎接没成功，请再点一次"); return; }
   awayMap.delete(c.playerId); render();
+  } finally { claimInFlight.delete(c.playerId); if(btnEl && btnOrig !== null && btnEl.isConnected){ btnEl.textContent = btnOrig; btnEl.disabled = false; } }
 }
 function fmtDur(ms){ const m=Math.floor(ms/60000); if(m<60) return m+" 分钟"; const h=Math.floor(m/60); return h+" 小时 "+(m%60)+" 分钟"; }
 async function doSettle(showSheet){
@@ -6771,7 +6792,7 @@ async function render(){
         const p=findPlayer(c.playerId);
         const d=document.createElement("div"); d.className="card";
         d.innerHTML=`<div class="row">${p?`<div class="ovr" style="background:${tierColor(p.ability+(mock.state.growth[p.pid]||0))}"><b>${p.ability+(mock.state.growth[p.pid]||0)}</b><small>${p.pos}</small></div><div class="bust">${bustSVG(p)}</div>`:""}<div style="flex:1;min-width:0"><span class="pname">${p?p.name:c.playerId}</span> <span class="tag back">已归队</span><div class="pmeta">${c.kind==="loan"?"外租":"集训"}结束，回来报到了</div></div><button>迎接归队</button></div>`;
-        d.querySelector("button").onclick=()=>claimReturn(c);
+        d.querySelector("button").onclick=(ev)=>claimReturn(c, ev.currentTarget);
         pl.appendChild(d);
       }
     }
@@ -6917,7 +6938,7 @@ function tourAutoStart(){
   if(Object.keys(s.played || {}).length > 0){ s.tour = { i:0, done:true, rewarded:true }; mock.save(); return; }
   tourShow();
 }
-function tourStart(manual){ const s = mock.state; const prev = s.tour || {}; s.tour = { i:0, done:false, rewarded: !!prev.rewarded }; mock.save(); tourShow(); }
+function tourStart(manual){ window.__tourArrangeFails = 0; const s = mock.state; const prev = s.tour || {}; s.tour = { i:0, done:false, rewarded: !!prev.rewarded }; mock.save(); tourShow(); }
 let TOUR_GEN = 0;
 function tourShow(){
   const t = tourState(); if(t.done){ tourHide(); return; }
@@ -6974,8 +6995,10 @@ function tourRender(step, el){
   const right = actHint
     ? `<span class="pmeta" style="align-self:center">${actHint}</span>`
     : `<button class="mini" onclick="tourNext()">${t.i === TOUR_STEPS.length - 1 ? "完成引导" : "下一步"}</button>`;
+  /* 逃生口（HF2）：派人步 arrange 失败累计 2 次，讲解台多给「先跳过这步」——教学目标是认识瓦片，不被网络绑架 */
+  const skipStep = (step.id === "arrange" && (window.__tourArrangeFails || 0) >= 2) ? `<button class="mini" onclick="tourSkipArrange()">先跳过这步</button>` : "";
   const dots = TOUR_STEPS.map((_, k) => `<span class="${k === t.i ? "" : "off"}">●</span>`).join("");
-  bub.innerHTML = `<div class="row" style="justify-content:space-between;align-items:center"><span class="pmeta">🧭 新手引导 ${t.i + 1}/${TOUR_STEPS.length} · 领队老陈</span><span class="tourDots">${dots}</span></div><div class="pname" style="font-size:15px;margin:3px 0">${step.title}</div><div class="pmeta" style="line-height:1.6">${step.body}</div><div class="row" style="margin-top:9px"><button class="mini ghost" onclick="tourSkip()">跳过引导</button>${right}</div>`;
+  bub.innerHTML = `<div class="row" style="justify-content:space-between;align-items:center"><span class="pmeta">🧭 新手引导 ${t.i + 1}/${TOUR_STEPS.length} · 领队老陈</span><span class="tourDots">${dots}</span></div><div class="pname" style="font-size:15px;margin:3px 0">${step.title}</div><div class="pmeta" style="line-height:1.6">${step.body}</div><div class="row" style="margin-top:9px"><button class="mini ghost" onclick="tourSkip()">跳过引导</button>${skipStep}${right}</div>`;
   bub.style.display = "";
   if(el){ try{ const r0 = el.getBoundingClientRect(), vh0 = window.innerHeight, dockTop = vh0 - 62 - (bub.offsetHeight || 180);
     if(r0.top < 70 || r0.bottom > dockTop - 6){ el.scrollIntoView({ block: r0.height > vh0 * 0.45 ? "start" : "center", behavior:"auto" }); } }catch(e){} }
@@ -6993,6 +7016,7 @@ function tourPlace(el){
   ring.style.width = (r.width + 10) + "px"; ring.style.height = (r.height + 10) + "px";
 }
 function tourNext(){ const t = tourState(); t.i += 1; mock.save(); if(t.i >= TOUR_STEPS.length){ tourFinish(true); return; } tourShow(); }
+function tourSkipArrange(){ window.__tourArrangeFails = 0; tourNext(); }
 function tourSkip(){ tourFinish(false); }
 function tourFinish(completed){
   const s = mock.state, t = tourState(); t.done = true;
@@ -7014,7 +7038,7 @@ function tourHook(ev){
   if(ev === "close" && step.action === "close"){ tourNext(); return; }
   if(ev === "close" && t.i >= idx("settle") && t.i < idx("arrange")){ t.i = idx("arrange"); mock.save(); tourShow(); return; }
 }
-window.tourStart = tourStart; window.tourNext = tourNext; window.tourSkip = tourSkip; window.tourHook = tourHook; window.tourAutoStart = tourAutoStart;
+window.tourStart = tourStart; window.tourNext = tourNext; window.tourSkip = tourSkip; window.tourHook = tourHook; window.tourAutoStart = tourAutoStart; window.tourSkipArrange = tourSkipArrange;
 
 /* ---------- v14 新手引导（经理任务链） ---------- */
 const GUIDE_STEPS = [
