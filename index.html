@@ -92,6 +92,19 @@
   .hstat span { font-size:10.5px; color:#b9ac8d; }
   .page { display:none; }
   .page.on { display:block; }
+  /* 开始页矮高压缩：全屏容器开启后宿主 safe-top 注入会等量推高开始页内容，
+     900px 以下视口收紧封面与间距，保证「进入俱乐部」在 844/800 高 + safe-top 44 内完整入屏；
+     664 级短屏仍可滚动（既有口径不变）。 */
+  @media (max-height: 900px){
+    #bootScreen{ padding-bottom:12px !important; }
+    #bootScreen > div > img{ width:min(60vw,252px) !important; }
+    #bootSlots{ margin-top:4px !important; }
+    #bootSlots [data-bootslot]{ padding:6px 12px !important; margin-bottom:4px !important; }
+    #bootEnter{ margin-top:6px !important; }
+  }
+  @media (max-height: 820px){
+    #bootScreen > div > img{ width:min(54vw,224px) !important; }
+  }
   #tabbar { position:fixed; left:50%; transform:translateX(-50%); bottom:0; width:100%; max-width:480px; background:var(--panel); border-top:1px solid var(--line); display:flex; z-index:55; padding-bottom:env(safe-area-inset-bottom); box-shadow:0 -2px 10px rgba(80,64,30,.07); }
   .tabbtn { flex:1; background:none; border:none; color:var(--dim); padding:7px 0 8px; font-size:11px; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:2px; position:relative; border-radius:0; cursor:pointer; }
   .tabbtn .ic { font-size:20px; line-height:1.1; filter:grayscale(.5); }
@@ -662,7 +675,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 </div>
 
 <script>
-const BUILD_STAMP = "build 20261117-DEV794";
+const BUILD_STAMP = "build 20261117-DEV795";
 const PLAYERS = [{"pid": "P003", "name": "库尔图瓦", "pos": "GK", "posGroup": "GK", "ability": 91, "age": "34", "club": "皇家马德里", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P004", "name": "多纳鲁马", "pos": "GK", "posGroup": "GK", "ability": 91, "age": "27", "club": "曼城", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P005", "name": "阿利松", "pos": "GK", "posGroup": "GK", "ability": 90, "age": "34", "club": "利物浦", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P006", "name": "奥布拉克", "pos": "GK", "posGroup": "GK", "ability": 90, "age": "33", "club": "马德里竞技", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P008", "name": "拉亚", "pos": "GK", "posGroup": "GK", "ability": 87, "age": "31", "club": "阿森纳", "wage": "A", "pot": "低", "role": "首发"}, {"pid": "P009", "name": "马马尔达什维利", "pos": "GK", "posGroup": "GK", "ability": 87, "age": "26", "club": "利物浦", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P029", "name": "范戴克", "pos": "CB", "posGroup": "DF", "ability": 90, "age": "35", "club": "利物浦", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P030", "name": "鲁本·迪亚斯", "pos": "CB", "posGroup": "DF", "ability": 89, "age": "29", "club": "曼城", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P031", "name": "萨利巴", "pos": "CB", "posGroup": "DF", "ability": 88, "age": "25", "club": "阿森纳", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P032", "name": "巴斯托尼", "pos": "CB", "posGroup": "DF", "ability": 88, "age": "27", "club": "国际米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P033", "name": "加布里埃尔", "pos": "CB", "posGroup": "DF", "ability": 87, "age": "28", "club": "阿森纳", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P034", "name": "格瓦迪奥尔", "pos": "FB", "posGroup": "DF", "ability": 87, "age": "24", "club": "曼城", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P036", "name": "金玟哉", "pos": "CB", "posGroup": "DF", "ability": 85, "age": "30", "club": "拜仁慕尼黑", "wage": "B", "pot": "低", "role": "轮换"}, {"pid": "P038", "name": "卢卡斯·埃尔南德斯", "pos": "FB", "posGroup": "DF", "ability": 83, "age": "30", "club": "巴黎圣日耳曼", "wage": "B", "pot": "低", "role": "轮换"}, {"pid": "P039", "name": "富安健洋", "pos": "FB", "posGroup": "DF", "ability": 82, "age": "28", "club": "水晶宫", "wage": "C", "pot": "中", "role": "轮换"}, {"pid": "P040", "name": "阿坎吉", "pos": "CB", "posGroup": "DF", "ability": 82, "age": "31", "club": "国际米兰", "wage": "C", "pot": "低", "role": "轮换"}, {"pid": "P045", "name": "蒋光太", "pos": "CB", "posGroup": "DF", "ability": 76, "age": "32", "club": "上海海港", "wage": "D", "pot": "低", "role": "轮换"}, {"pid": "P052", "name": "罗德里", "pos": "DM", "posGroup": "MF", "ability": 91, "age": "30", "club": "曼城", "wage": "S", "pot": "低", "role": "首发"}, {"pid": "P055", "name": "莫德里奇", "pos": "CM", "posGroup": "MF", "ability": 91, "age": "41", "club": "AC米兰", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P056", "name": "德布劳内", "pos": "AM", "posGroup": "MF", "ability": 90, "age": "35", "club": "那不勒斯", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P057", "name": "贝林厄姆", "pos": "AM", "posGroup": "MF", "ability": 90, "age": "23", "club": "皇家马德里", "wage": "S", "pot": "中高", "role": "首发"}, {"pid": "P058", "name": "穆西亚拉", "pos": "AM", "posGroup": "MF", "ability": 90, "age": "23", "club": "拜仁慕尼黑", "wage": "S", "pot": "中高", "role": "首发"}, {"pid": "P061", "name": "维尔茨", "pos": "AM", "posGroup": "MF", "ability": 89, "age": "23", "club": "利物浦", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P062", "name": "佩德里", "pos": "CM", "posGroup": "MF", "ability": 88, "age": "24", "club": "巴塞罗那", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P063", "name": "维蒂尼亚", "pos": "CM", "posGroup": "MF", "ability": 88, "age": "26", "club": "巴黎圣日耳曼", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P064", "name": "麦卡利斯特", "pos": "CM", "posGroup": "MF", "ability": 87, "age": "27", "club": "利物浦", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P065", "name": "巴雷拉", "pos": "CM", "posGroup": "MF", "ability": 87, "age": "29", "club": "国际米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P067", "name": "恩佐·费尔南德斯", "pos": "DM", "posGroup": "MF", "ability": 86, "age": "25", "club": "切尔西", "wage": "B", "pot": "中高", "role": "首发"}, {"pid": "P070", "name": "远藤航", "pos": "DM", "posGroup": "MF", "ability": 80, "age": "33", "club": "利物浦", "wage": "C", "pot": "无(即战力)", "role": "轮换"}, {"pid": "P072", "name": "吴曦", "pos": "CM", "posGroup": "MF", "ability": 74, "age": "37", "club": "上海申花", "wage": "D", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P073", "name": "梅西", "pos": "WF", "posGroup": "WG", "ability": 97, "age": "39", "club": "迈阿密国际", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P076", "name": "姆巴佩", "pos": "WF", "posGroup": "WG", "ability": 92, "age": "27", "club": "皇家马德里", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P077", "name": "亚马尔", "pos": "WF", "posGroup": "WG", "ability": 91, "age": "19", "club": "巴塞罗那", "wage": "S", "pot": "高", "role": "青训梯队"}, {"pid": "P078", "name": "维尼修斯", "pos": "WF", "posGroup": "WG", "ability": 91, "age": "26", "club": "皇家马德里", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P079", "name": "萨拉赫", "pos": "WF", "posGroup": "WG", "ability": 90, "age": "34", "club": "利物浦", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P080", "name": "萨卡", "pos": "WF", "posGroup": "WG", "ability": 88, "age": "25", "club": "阿森纳", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P081", "name": "莱奥", "pos": "WF", "posGroup": "WG", "ability": 88, "age": "27", "club": "AC米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P085", "name": "三笘薰", "pos": "WM", "posGroup": "WG", "ability": 85, "age": "29", "club": "布莱顿", "wage": "B", "pot": "中", "role": "轮换"}, {"pid": "P087", "name": "久保建英", "pos": "WM", "posGroup": "WG", "ability": 82, "age": "25", "club": "皇家社会", "wage": "C", "pot": "中高", "role": "轮换"}, {"pid": "P096", "name": "王钰栋", "pos": "WF", "posGroup": "WG", "ability": 72, "age": "20", "club": "浙江队", "wage": "D", "pot": "高", "role": "青训梯队"}, {"pid": "P098", "name": "C罗", "pos": "CF", "posGroup": "ST", "ability": 95, "age": "41", "club": "利雅得胜利", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P101", "name": "哈兰德", "pos": "CF", "posGroup": "ST", "ability": 92, "age": "26", "club": "曼城", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P102", "name": "凯恩", "pos": "CF", "posGroup": "ST", "ability": 91, "age": "33", "club": "拜仁慕尼黑", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P103", "name": "莱万多夫斯基", "pos": "CF", "posGroup": "ST", "ability": 90, "age": "38", "club": "巴塞罗那", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P104", "name": "孙兴慜", "pos": "SS", "posGroup": "ST", "ability": 89, "age": "34", "club": "洛杉矶FC", "wage": "A", "pot": "无(即战力)", "role": "首发"}, {"pid": "P105", "name": "奥斯梅恩", "pos": "CF", "posGroup": "ST", "ability": 88, "age": "27", "club": "加拉塔萨雷", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P106", "name": "劳塔罗·马丁内斯", "pos": "SS", "posGroup": "ST", "ability": 88, "age": "29", "club": "国际米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P107", "name": "伊萨克", "pos": "CF", "posGroup": "ST", "ability": 88, "age": "27", "club": "利物浦", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P108", "name": "阿尔瓦雷斯", "pos": "SS", "posGroup": "ST", "ability": 88, "age": "26", "club": "马德里竞技", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P118", "name": "武磊", "pos": "SS", "posGroup": "ST", "ability": 76, "age": "34", "club": "上海海港", "wage": "D", "pot": "无(即战力)", "role": "轮换"}];
 const LEAGUES = ["皇家马德里","巴塞罗那","曼城","利物浦","阿森纳","拜仁慕尼黑","巴黎圣日耳曼","国际米兰","AC米兰","马德里竞技","切尔西","曼联","多特蒙德","那不勒斯","托特纳姆热刺"];
 const TIERS = {
@@ -1588,16 +1601,21 @@ function renderFriendly(){
 }
 async function friendlyAdUnlock(){
   const f = friendlyState(); if(f.ad) return;
-  if(inShell){
-    try{
-      if(window.ColorboxAI && window.ColorboxAI.vatask && window.ColorboxAI.vatask.completeRewardVideo){
-        const res = await window.ColorboxAI.vatask.completeRewardVideo();
-        if(!(res && res.code === 200 && res.data && res.data.rewarded === true)){ toast("广告没看完，这次不算"); return; }
-      } else { toast("广告位还没接通，稍后再试"); return; }
-    }catch(e){ toast("广告没看完，这次不算"); return; }
-  } else {
-    await new Promise(r=>setTimeout(r, 900));
-  }
+  if(adFlowBusy) return;
+  adFlowBusy = true;
+  try{
+    if(inShell){
+      try{
+        if(window.ColorboxAI && window.ColorboxAI.vatask && window.ColorboxAI.vatask.completeRewardVideo){
+          const res = await window.ColorboxAI.vatask.completeRewardVideo();
+          if(!(res && res.code === 200 && res.data && res.data.rewarded === true)){ toast("广告没看完，这次不算"); return; }
+          if(window.ColorboxAI.vatask.getActivityTaskState){ try{ await window.ColorboxAI.vatask.getActivityTaskState(); }catch(e){} }
+        } else { toast("广告位还没接通，稍后再试"); return; }
+      }catch(e){ toast("广告没看完，这次不算"); return; }
+    } else {
+      await new Promise(r=>setTimeout(r, 900));
+    }
+  } finally { adFlowBusy = false; }
   f.ad = true; mock.save(); toast("热身赛 +2 场，今天还能打 " + friendlyLeft() + " 场"); render();
 }
 window.friendlyAdUnlock = friendlyAdUnlock;
@@ -6996,18 +7014,29 @@ $("#nameOk").onclick = async () => {
   }
   await submitClubName(nm);
 };
+/* 激励广告在途闸（vatask 技能包约束：同一时间只允许一个激励视频流程）：
+   五个广告点位共用，进闸后并发调用直接落败（不排队、不叠开），finally 必释放——
+   与 v79.2 arrange 闸同口径，杜绝挂起闩死。 */
+let adFlowBusy = false;
 async function watchRenameAd(){
-  if(inShell){
-    try{
-      if(window.ColorboxAI && window.ColorboxAI.vatask && window.ColorboxAI.vatask.completeRewardVideo){
-        const res = await window.ColorboxAI.vatask.completeRewardVideo();
-        return !!(res && res.code === 200 && res.data && res.data.rewarded === true);
-      }
-    }catch(e){}
-    return false;
-  }
-  await new Promise(r=>setTimeout(r, 900));
-  return true;
+  if(adFlowBusy) return false;
+  adFlowBusy = true;
+  try{
+    if(inShell){
+      try{
+        if(window.ColorboxAI && window.ColorboxAI.vatask && window.ColorboxAI.vatask.completeRewardVideo){
+          const res = await window.ColorboxAI.vatask.completeRewardVideo();
+          const ok = !!(res && res.code === 200 && res.data && res.data.rewarded === true);
+          /* 技能包口径：成功后刷新活动任务状态（联赛走直接权益兑换、不展示平台次数，结果只取不用） */
+          if(ok && window.ColorboxAI.vatask.getActivityTaskState){ try{ await window.ColorboxAI.vatask.getActivityTaskState(); }catch(e){} }
+          return ok;
+        }
+      }catch(e){}
+      return false;
+    }
+    await new Promise(r=>setTimeout(r, 900));
+    return true;
+  } finally { adFlowBusy = false; }
 }
 window.watchRenameAd = watchRenameAd;
 
