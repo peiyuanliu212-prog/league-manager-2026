@@ -553,6 +553,11 @@ body.touring #matchModal .sheet{padding-bottom:330px}
     <div id="wheelBody" style="margin-top:6px"></div>
   </div>
   <div class="card">
+    <div class="pname">📣 营销造势 <span class="tag">待开放</span></div>
+    <div class="pmeta" style="margin-top:4px">赛前造势、炒热主场——把球迷声势变成真金白银的运营玩法，正在筹备中。</div>
+    <button class="ghost" style="width:100%;margin-top:8px" onclick="soonToast('营销造势','11月22日')">🔒 待开放 · 11月22日</button>
+  </div>
+  <div class="card">
     <div class="row"><div><div class="pname">补给加速</div><div class="pmeta" id="adDesc">看一段广告，立即到账 120 资金（每日 3 次）</div></div><button id="adBtn">领取</button></div>
     <div class="hint">奖励走服务端幂等发放，看完才算数，中途关掉不发。</div>
   </div>
@@ -605,6 +610,11 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 <section class="band band-green">
   <h2 data-no="01"><span class="eb">TACTICS</span>战术与排阵</h2>
   <div id="tacticsSlot"></div>
+  <div class="card">
+    <div class="pname">🧪 球员组合化学 <span class="tag">待开放</span></div>
+    <div class="pmeta" style="margin-top:4px">特定球员搭档同场会擦出化学反应——组合图鉴正在整理，开放后在排阵时自动点亮。</div>
+    <button class="ghost" style="width:100%;margin-top:8px" onclick="soonToast('球员组合化学','11月29日')">🔒 待开放 · 11月29日</button>
+  </div>
 </section>
 <section class="band band-blue">
   <h2 data-no="02"><span class="eb">SQUAD</span>一线队 · 安排明日计划</h2>
@@ -640,6 +650,11 @@ body.touring #matchModal .sheet{padding-bottom:330px}
   <div class="card" id="finCard" data-cseg="office" style="display:none">
     <div class="pname">财务面板</div>
     <div id="financeBody" style="margin-top:6px"></div>
+  </div>
+  <div class="card" data-cseg="office" style="display:none">
+    <div class="pname">🤝 俱乐部赞助 <span class="tag">待开放</span></div>
+    <div class="pmeta" style="margin-top:4px">和赞助商签约拿长期合作收入——谈判桌正在布置，开放后在财务面板旁接洽。</div>
+    <button class="ghost" style="width:100%;margin-top:8px" onclick="soonToast('俱乐部赞助','11月26日')">🔒 待开放 · 11月26日</button>
   </div>
   <div class="card" id="facCard" data-cseg="office" style="display:none">
     <div class="pname">俱乐部设施</div>
@@ -850,6 +865,9 @@ const $ = (s) => document.querySelector(s);
 function fillStamps(){ try{ const a=document.querySelector("#bootStamp"); if(a) a.textContent = BUILD_STAMP; const b=document.querySelector("#setStamp"); if(b) b.textContent = BUILD_STAMP; }catch(e){} }
 fillStamps();
 function toast(msg){ const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2400); }
+/* HF5 互鉴占位牌（只占位、零玩法逻辑）：点击才出提示，严禁自动弹 */
+function soonToast(name, date){ toast("「" + name + "」将于 " + date + " 开放，敬请期待"); }
+window.soonToast = soonToast;
 
 /* ---------- 数据层：优先走 BFF（Shaper 壳内 ColorboxAI.cloud.request），无壳时本地模拟同形接口 ---------- */
 const inShell = typeof window!=="undefined" && window.ColorboxAI && window.ColorboxAI.cloud;
@@ -1220,6 +1238,10 @@ function ensureV2State(){
   if(s.surprise === undefined) s.surprise = null;
   if(!s.devSpec) s.devSpec = {};
   if(!s.devSpecLv) s.devSpecLv = {};
+  /* HF5 广告 P0＋比赛中途续打：广告待办（播前落盘、boot 核对补发）、发放流水（幂等键）、进行中比赛快照 */
+  if(s.adPending === undefined) s.adPending = null;
+  if(!s.adGrants) s.adGrants = {};
+  if(s.liveSnap === undefined) s.liveSnap = null;
   if(!s.mentor) s.mentor = {};
   if(!s.mentorClass) s.mentorClass = {};
   if(s.chain2 === undefined) s.chain2 = null;
@@ -1769,22 +1791,10 @@ function renderFriendly(){
 }
 async function friendlyAdUnlock(){
   const f = friendlyState(); if(f.ad) return;
-  if(adFlowBusy) return;
-  adFlowBusy = true;
-  try{
-    if(inShell){
-      try{
-        if(window.ColorboxAI && window.ColorboxAI.vatask && window.ColorboxAI.vatask.completeRewardVideo){
-          const res = await window.ColorboxAI.vatask.completeRewardVideo();
-          if(!(res && res.code === 200 && res.data && res.data.rewarded === true)){ toast("广告没看完，这次不算"); return; }
-          if(window.ColorboxAI.vatask.getActivityTaskState){ try{ await window.ColorboxAI.vatask.getActivityTaskState(); }catch(e){} }
-        } else { toast("广告位还没接通，稍后再试"); return; }
-      }catch(e){ toast("广告没看完，这次不算"); return; }
-    } else {
-      await new Promise(r=>setTimeout(r, 900));
-    }
-  } finally { adFlowBusy = false; }
-  f.ad = true; mock.save(); toast("热身赛 +2 场，今天还能打 " + friendlyLeft() + " 场"); render();
+  const today = beijingDateStr();
+  const okAd = await runAdPoint("friendly", { dayKey: today }, "friendly|" + today, async ()=>{ friendlyState().ad = true; });
+  if(!okAd){ toast("广告没看完，这次不算"); return; }
+  toast("热身赛 +2 场，今天还能打 " + friendlyLeft() + " 场"); render();
 }
 window.friendlyAdUnlock = friendlyAdUnlock;
 function renderLoanPending(){
@@ -2633,6 +2643,8 @@ function openChallengeMatch(rec){
   const clean = sanitizeLineup(sportId);
   const sp = SPORT_PACKS[sportId];
   if(clean.starters.length < Math.min(sp.powerN, 5)){ toast("可用球员不足，先去市场补强阵容"); return; }
+  const snapC = mock.state.liveSnap;
+  if(snapC && liveSnapValid(snapC) && snapC.challenge && snapC.challenge.code === rec.code && snapC.sportId === sportId){ resumeLiveMatch(snapC); return; }
   PENDING_MATCH = { chal: { code: rec.code, snap: rec.snap, clubName: rec.clubName || "对手" }, sportId, dayN: seasonDayN(), opp: rec.clubName || "对手", clean };
   $("#matchModal").classList.remove("hidden"); BGM.pause();
   renderMatchGate();
@@ -3764,7 +3776,7 @@ function friendlyLeft(){ const f = friendlyState(); return Math.max(0, 4 + (f.ad
    Model: agent FSM + steering + ball physics; goals emerge from play (Buckland-style architecture, self-written).
    API: createSim(cfg) / stepSim(S) -> events[] / setSimTactics(S, side, mentId, instr) / simSubstitute(S, side, outPid, inn) / resolveSimNode(S, choice) / runHeadless(cfg, seed) */
 "use strict";
-function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function mulberry32(a){ const f = function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; f.getState = ()=> a | 0; f.setState = v=>{ a = v | 0; }; return f; }
 const clamp = (v, a, b)=>Math.max(a, Math.min(b, v));
 const dist2 = (ax, ay, bx, by)=>{ const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; };
 
@@ -5398,6 +5410,8 @@ let PENDING_MATCH = null;
 function openLiveMatch(frTier, dayOverride){
   ensureV2State();
   const sportId = mock.state.sport || "football", dayN = dayOverride || seasonDayN();
+  const snapR = liveSnapFor(sportId, dayN, frTier, dayOverride);
+  if(snapR){ resumeLiveMatch(snapR); return; }
   const sp = SPORT_PACKS[sportId];
   let opp;
   if(frTier){
@@ -5468,6 +5482,7 @@ function renderMatchGate(){
     <div class="kv"><span>首发体能</span><b>${lowSt.length ? "⚠ " + lowSt.map(p => p.name).join("、") + " 体能偏低（易受伤），先去阵容页轮休或换人" : "全队健康"}</b></div></div>
     <div class="hint" style="margin-top:6px">点「开始比赛」才正式开球。现在退出不消耗任何场次、不用看广告——误点进来也完全没损失。</div>
     <button id="startMatchBtn" style="width:100%;margin-top:10px;padding:12px;font-size:15px" onclick="startLiveMatch()">▶ 开始比赛</button>
+    <button class="ghost" style="width:100%;margin-top:6px" disabled>🌦 环境系统升级 · 11月24日开放（当前为基础环境加成）</button>
     <button class="ghost" style="width:100%;margin-top:6px" onclick="cancelPendingMatch()">先不打了</button></div>`;
 }
 function startLiveMatch(){
@@ -5482,7 +5497,7 @@ function startLiveMatch(){
   LIVE = { sportId, dayN, opp, friendly: frTier || null, challenge: chal, catchup: !!dayOverride, oppMent: chal ? { id: "bal" } : oppMentalityFor(sportId, dayN, opp), oppForm: chal ? null : oppFormOf(sportId, opp, dayN), envId: envT.id, envMulMy, envMulOpp, minute: 0, my: 0, oppScore: 0, yc: 0,
     lines: [], onPitch: clean.starters.map(x=>({ pid: x.pid, slot: x.slot, inMin: 0 })), bench: clean.rotation.slice(),
     subsLeft: 3, settled: false, timer: null, speed: 1, scorers: [], myGoals: 0, segMy: [], segOpp: [], _segCursor: 0, _tally: {}, _fouls: [0, 0],
-    startMentality: mock.state.tprof[sportId].mentality, paused: false, playedMins: {}, timeouts: 2, _inMin: {}, _slotMap: {}, _evCursor: 0, _lastBuildTick: -999, _lastShotTick: -999, _acc: 0, S: null, forceQueue: [] };
+    startMentality: mock.state.tprof[sportId].mentality, paused: false, playedMins: {}, timeouts: 2, _inMin: {}, _slotMap: {}, _evCursor: 0, _lastBuildTick: -999, _lastShotTick: -999, _acc: 0, S: null, forceQueue: [], clean };
   for(const x of LIVE.onPitch){ LIVE._inMin[x.pid] = 0; LIVE._slotMap[x.pid] = x.slot; }
   const seed = (dayN * 7919 + (frTier ? 131 : 0) + Math.floor(Math.random() * 1e9)) >>> 0;
   LIVE.S = SIMCORE.createSim({ sport: sportId, seed, myTeam: simMyTeam(sportId, clean.starters, envMulMy), oppTeam: chal ? simOppTeamFromSnap(sportId, chal.snap.sports[sportId]) : simOppTeam(sportId, opp, LIVE.oppForm, envMulOpp),
@@ -5502,7 +5517,7 @@ function startLiveMatch(){
   const ms = $("#matchSpeed"); if(ms) ms.textContent = "倍速 ×1";
   const _msr = $("#matchSpeed"); if(_msr && _msr.parentElement){ _msr.parentElement.style.display = ""; _msr.parentElement.style.pointerEvents = ""; _msr.parentElement.style.opacity = ""; }
   const _mp = $("#matchPitch"); if(_mp) _mp.style.display = "";
-  renderMatchHead(); renderMatchTicker(); pitchStart(); simDriveStart();
+  renderMatchHead(); renderMatchTicker(); pitchStart(); simDriveStart(); persistLiveSnap();
   tourHook("start");
 }
 function cancelPendingMatch(){
@@ -5719,6 +5734,7 @@ function simDriveStart(){
   const step = ()=>{
     if(!LIVE || LIVE !== L || L.settled || !L.S) return;
     L.timer = setTimeout(step, 16);
+    if(!L._snapAt || Date.now() - L._snapAt > 2000){ L._snapAt = Date.now(); persistLiveSnap(); }
     const S = L.S;
     if(L.paused || L.nodesPending) return;
     if(S.deadBall){ simOnDeadBall(); return; }
@@ -5741,6 +5757,136 @@ function simFinishToSettle(){
   simSyncFromEngine();
   settleMatch();
 }
+
+/* ================= HF5 比赛快照与续打（闪退/页面回收恢复） =================
+   引擎 S 是纯数据＋mulberry32 闭包 RNG（HF5 起带 getState/setState），可整场序列化：
+   球员对象引用（ball.lastTouchPlayer、事件 p 等）按下标占位、Map（篮球 transLanes）打标，
+   恢复后逐位还原——比分/分钟/场上形势/RNG 序列与不中断时完全一致（node 对照实测）。
+   落盘节律：开赛即存、驱动循环每 2 秒存、换人/变阵/切后台/页面隐藏时存；结算即清。
+   恢复失败两级兜底：B 按快照比分＋已赛 tick 重建续打；C 快照元数据直结算，绝不蒸发/0:0 重开。 */
+function serSim(S){
+  if(!S) return null;
+  const plIdx = new Map(); S.players.forEach((p, i)=>plIdx.set(p, i));
+  const json = JSON.stringify(S, function(k, v){
+    if(k === "rng" || k === "C") return undefined;
+    if(v instanceof Map) return { __map: [...v.entries()] };
+    if(v && typeof v === "object" && this !== S.players && plIdx.has(v)) return { __pl: plIdx.get(v) };
+    return v;
+  });
+  return { json, rng: (S.rng && S.rng.getState) ? S.rng.getState() : null, tick: S.tick };
+}
+function reviveSim(sd){
+  if(!sd || !sd.json) return null;
+  const S = JSON.parse(sd.json);
+  S.C = SIM_CFG[S.sport];
+  S.rng = mulberry32(987654321); if(sd.rng != null && S.rng.setState) S.rng.setState(sd.rng);
+  const walk = o => {
+    if(!o || typeof o !== "object") return o;
+    if(typeof o.__pl === "number" && Object.keys(o).length === 1) return S.players[o.__pl];
+    if(Array.isArray(o.__map) && Object.keys(o).length === 1) return new Map(o.__map.map(([k, val])=>[k, walk(val)]));
+    for(const k of Object.keys(o)) o[k] = walk(o[k]);
+    return o;
+  };
+  for(const k of Object.keys(S)) if(k !== "players" && k !== "rng" && k !== "C") S[k] = walk(S[k]);
+  return S;
+}
+function snapshotLiveData(L){
+  if(!L || !L.S) return null;
+  return { v: 1, sportId: L.sportId, dayN: L.dayN, opp: L.opp, friendly: L.friendly || null, challenge: L.challenge || null, catchup: !!L.catchup,
+    oppMent: L.oppMent, oppForm: L.oppForm, envId: L.envId, envMulMy: L.envMulMy, envMulOpp: L.envMulOpp,
+    minute: L.minute, my: L.my, oppScore: L.oppScore, yc: L.yc || 0, rc: L.rc || 0,
+    lines: (L.lines || []).slice(-80), onPitch: L.onPitch, bench: L.bench, subsLeft: L.subsLeft,
+    scorers: L.scorers || [], myGoals: L.myGoals || 0, segMy: L.segMy || [], segOpp: L.segOpp || [], _segCursor: L._segCursor || 0,
+    _tally: L._tally || {}, _fouls: L._fouls || [0, 0], playedMins: L.playedMins || {}, timeouts: L.timeouts,
+    _inMin: L._inMin || {}, _slotMap: L._slotMap || {}, _evCursor: L._evCursor || 0,
+    startMentality: L.startMentality, forceQueue: L.forceQueue || [], clean: L.clean || null,
+    sim: serSim(L.S), at: Date.now() };
+}
+function persistLiveSnap(){
+  const L = LIVE; if(!L || L.settled || !L.S) return;
+  try{ const sd = snapshotLiveData(L); if(!sd) return; mock.state.liveSnap = sd; mock.save(); }catch(e){}
+}
+function reviveLive(snap){
+  if(!snap) return null;
+  const base = { sportId: snap.sportId, dayN: snap.dayN, opp: snap.opp, friendly: snap.friendly || null, challenge: snap.challenge || null, catchup: !!snap.catchup,
+    oppMent: snap.oppMent, oppForm: snap.oppForm, envId: snap.envId, envMulMy: snap.envMulMy, envMulOpp: snap.envMulOpp,
+    minute: snap.minute || 0, my: snap.my || 0, oppScore: snap.oppScore || 0, yc: snap.yc || 0, rc: snap.rc || 0,
+    lines: snap.lines || [], onPitch: snap.onPitch || [], bench: snap.bench || [], subsLeft: snap.subsLeft != null ? snap.subsLeft : 3,
+    scorers: snap.scorers || [], myGoals: snap.myGoals || 0, segMy: snap.segMy || [], segOpp: snap.segOpp || [], _segCursor: snap._segCursor || 0,
+    _tally: snap._tally || {}, _fouls: snap._fouls || [0, 0], playedMins: snap.playedMins || {}, timeouts: snap.timeouts != null ? snap.timeouts : 2,
+    _inMin: snap._inMin || {}, _slotMap: snap._slotMap || {}, _evCursor: snap._evCursor || 0,
+    startMentality: snap.startMentality, forceQueue: snap.forceQueue || [], clean: snap.clean || null,
+    settled: false, timer: null, speed: 1, paused: false, nodesPending: false, _acc: 0, _lastBuildTick: -999, _lastShotTick: -999, _snapAt: 0, S: null };
+  const s = mock.state;
+  if(!base.challenge && !base.friendly && (s.catchup || []).some(c=>c.sport === snap.sportId && c.day === snap.dayN)) base.catchup = true;
+  try{
+    const S = reviveSim(snap.sim);
+    if(!S || !S.players || !S.players.length || typeof S.tick !== "number") throw new Error("bad sim");
+    base.S = S;
+    base.minute = Math.floor(S.tick / S.totalTicks * (snap.sportId === "basketball" ? 40 : 90));
+    base.my = S.score[0]; base.oppScore = S.score[1];
+    return base;
+  }catch(e){}
+  try{ /* 兜底 B：快照比分＋已赛 tick 重建，剩余赛程接着打（比分/得分手以快照为准，场上站位重开球） */
+    if(!snap.clean || !snap.clean.starters || !snap.clean.starters.length) throw new Error("no clean");
+    const tp = mock.state.tprof[snap.sportId] || {};
+    const S = SIMCORE.createSim({ sport: snap.sportId, seed: (snap.dayN * 7919 + 424243) >>> 0,
+      myTeam: simMyTeam(snap.sportId, snap.clean.starters, snap.envMulMy),
+      oppTeam: snap.challenge ? simOppTeamFromSnap(snap.sportId, snap.challenge.snap.sports[snap.sportId]) : simOppTeam(snap.sportId, snap.opp, snap.oppForm, snap.envMulOpp),
+      myMent: snap.startMentality || tp.mentality || "bal", myInstr: Object.assign({}, tp.instr || {}),
+      oppMent: (snap.oppMent && snap.oppMent.id) || "bal", oppInstr: {}, homeSide: snap.sportId === "football" ? (snap.dayN % 2 === 1 ? 0 : 1) : null });
+    S.score = [snap.my || 0, snap.oppScore || 0];
+    S.tick = Math.max(0, Math.min((snap.sim && snap.sim.tick) || 0, S.totalTicks - 1));
+    base.S = S; base._evCursor = 0; base._segCursor = 0;
+    return base;
+  }catch(e){}
+  base._directSettle = true; /* 兜底 C：只剩快照元数据，按中断比分直接结算 */
+  return base;
+}
+function liveSnapValid(snap){
+  const s = mock.state; if(!snap || !snap.sportId) return false;
+  const key = snap.sportId + ":" + snap.dayN;
+  if(!snap.friendly && !snap.challenge && s.played && s.played[key]) return false;
+  if((snap.friendly || snap.challenge) && snap.dayN !== seasonDayN()) return false;
+  if(!snap.friendly && !snap.challenge && !snap.catchup && snap.dayN < seasonDayN()) return false;
+  return true;
+}
+function liveSnapFor(sportId, dayN, frTier, dayOverride){
+  const snap = mock.state.liveSnap; if(!snap || !liveSnapValid(snap)) return null;
+  if(snap.sportId !== sportId) return null;
+  if(frTier) return snap.friendly ? snap : null;
+  if(dayOverride) return (snap.catchup && snap.dayN === dayOverride && !snap.friendly && !snap.challenge) ? snap : null;
+  return (!snap.friendly && !snap.challenge && snap.dayN === dayN) ? snap : null;
+}
+function checkLiveSnap(){ const s = mock.state; if(s.liveSnap && !liveSnapValid(s.liveSnap)){ s.liveSnap = null; mock.save(); } }
+function resumeLiveMatch(snap){
+  const L = reviveLive(snap);
+  if(!L){ toast("中断比赛恢复失败"); return; }
+  if(L._directSettle){
+    LIVE = L; settleMatch(); LIVE = null; render();
+    toast("上次比赛数据异常，已按中断比分 " + snap.my + ":" + snap.oppScore + " 结算");
+    return;
+  }
+  LIVE = L; L.paused = true;
+  const m = $("#matchModal"); if(m) m.classList.remove("hidden");
+  try{ BGM.pause(); }catch(e){}
+  renderMatchHead(); renderMatchTicker(); renderLiveBar(); pitchStart();
+  const mn = $("#matchNode");
+  if(mn) mn.innerHTML = `<div class="nodebox"><div class="pname">⏸ 上次比赛中断了（闪退/页面被回收）</div><div class="pmeta" style="margin-top:4px">进行到第 ${L.minute} 分钟、比分 ${L.my}:${L.oppScore} 时中断——比分、场上球员和形势都已按当时的样子恢复，这是<b>接着上次继续打</b>，不是从 0:0 重开。</div><button style="width:100%;margin-top:10px" onclick="resumeLiveGo()">▶ 继续比赛</button><button class="ghost" style="width:100%;margin-top:6px" onclick="resumeLiveSettle()">就此结算（模拟完剩余赛程）</button></div>`;
+  toast("已恢复中断的比赛：第 " + L.minute + " 分钟 " + L.my + ":" + L.oppScore);
+}
+function resumeLiveGo(){ const L = LIVE; if(!L || L.settled) return; closeNode(); L.paused = false; simDriveStart(); }
+function resumeLiveSettle(){ const L = LIVE; if(!L || L.settled || !L.S) return; closeNode(); finishSkipInPlace(L); }
+window.resumeLiveGo = resumeLiveGo; window.resumeLiveSettle = resumeLiveSettle;
+document.addEventListener("visibilitychange", ()=>{ if(document.hidden) persistLiveSnap(); });
+window.addEventListener("pagehide", ()=>persistLiveSnap());
+function finishSkipInPlace(L){
+  if(!L || L.settled || !L.S) return;
+  L._skip = true; if(L.timer) clearTimeout(L.timer); closeNode(); L.paused = false; L.nodesPending = false;
+  const S = L.S; let guard = S.totalTicks * 3 + 3000;
+  while(!S.over && guard-- > 0){ if(S.deadBall){ simAutoResolve(); continue; } SIMCORE.stepSim(S); }
+  simDrainEvents(); simFinishToSettle();
+}
 function simApplySub(outPid, inPid, free){
   const L = LIVE; if(!L || !L.S) return false;
   const inn = simPlayerObj(inPid, L.sportId, L._slotMap[outPid]); if(!inn) return false;
@@ -5750,6 +5896,7 @@ function simApplySub(outPid, inPid, free){
   L._inMin[inPid] = L.minute; L._slotMap[inPid] = L._slotMap[outPid];
   L.bench = L.bench.filter(x=>x !== inPid); L.bench.push(outPid);
   if(!free) L.subsLeft--;
+  persistLiveSnap();
   pushLine(L.minute, `换人：${(findPlayer(outPid) || {}).name || outPid} 下，${(findPlayer(inPid) || {}).name || inPid} 上。`, "chance");
   if(typeof bumpDaily === "function") bumpDaily("sub", 1);
   simSyncFromEngine();
@@ -5770,6 +5917,7 @@ function cockpitTodos(dayN){
   const s = mock.state, list = [];
   const pend = (window.__lastPending || []).length;
   if(pend) list.push({ u: 1, label: pend + " 名球员归队待迎接", act: "returns" });
+  if(s.liveSnap && typeof liveSnapValid === "function" && liveSnapValid(s.liveSnap)) list.push({ u: 1, label: "⏸ 有一场中断的比赛可续打（" + (s.liveSnap.sportId === "football" ? "⚽ 足球" : "🏀 篮球") + " 第 " + (s.liveSnap.minute || 0) + " 分钟 " + (s.liveSnap.my || 0) + ":" + (s.liveSnap.oppScore || 0) + "，点比赛卡继续）", act: "match:" + s.liveSnap.sportId });
   if(s.wageNote) list.push({ u: 1, label: "工资欠薪待处理（见俱乐部页）", act: "club" });
   for(const sid of ["football", "basketball"]){
     if(!(s.played || {})[sid + ":" + dayN]) list.push({ u: 2, label: (sid === "football" ? "⚽ 足球" : "🏀 篮球") + "今日比赛还没打", act: "match:" + sid });
@@ -6321,8 +6469,8 @@ function renderLiveBar(){
     `</div><div class="lvops"><button class="mini ghost" onclick="liveSubs()">换人（剩 ${LIVE.subsLeft}）</button>${LIVE.sportId === "basketball" ? `<button class="mini ghost" onclick="callTimeoutUI()">叫暂停（剩 ${LIVE.timeouts != null ? LIVE.timeouts : 2}）</button>` : ""}</div>
     <div class="hint" style="margin:2px 0 6px">${LIVE.sportId === "basketball" ? "临场调整即刻改写全队的打法：节奏快慢、盯人还是 2-3 联防、挡拆防守（沉退/换防/延误）当场可见；换人会暂停比赛。" : "临场调整即刻改写全队的跑法：阵线前压、逼抢人数、出手果断度当场可见；换人会暂停比赛。"}</div>`;
 }
-function liveSetMent(id){ const L = LIVE; if(!L) return; mock.state.tprof[L.sportId].mentality = id; mock.save(); if(L.S) SIMCORE.setSimTactics(L.S, 0, id, Object.assign({}, mock.state.tprof[L.sportId].instr || {})); pushLine(L.minute, `临场变阵：改打「${(MENTALITIES.find(m=>m.id === id) || {}).name}」——看场上，阵线开始移动了。`, "chance"); renderLiveBar(); toast(`已改打「${(MENTALITIES.find(m=>m.id === id) || {}).name}」，即刻生效`); }
-function liveToggleInstr(id){ const L = LIVE; if(!L) return; const tp = mock.state.tprof[L.sportId]; if(!tp.instr) tp.instr = {}; tp.instr[id] = !tp.instr[id]; mock.save(); if(L.S) SIMCORE.setSimTactics(L.S, 0, tp.mentality, Object.assign({}, tp.instr)); const d = INSTRUCTIONS[L.sportId].find(x=>x.id === id); pushLine(L.minute, `临场指令：「${d ? d.name : id}」${tp.instr[id] ? "开启" : "关闭"}——场上跑法马上跟着变。`, "chance"); renderLiveBar(); toast(`指令「${d ? d.name : id}」已${tp.instr[id] ? "开启" : "关闭"}，即刻生效`); }
+function liveSetMent(id){ const L = LIVE; if(!L) return; mock.state.tprof[L.sportId].mentality = id; mock.save(); if(L.S) SIMCORE.setSimTactics(L.S, 0, id, Object.assign({}, mock.state.tprof[L.sportId].instr || {})); persistLiveSnap(); pushLine(L.minute, `临场变阵：改打「${(MENTALITIES.find(m=>m.id === id) || {}).name}」——看场上，阵线开始移动了。`, "chance"); renderLiveBar(); toast(`已改打「${(MENTALITIES.find(m=>m.id === id) || {}).name}」，即刻生效`); }
+function liveToggleInstr(id){ const L = LIVE; if(!L) return; const tp = mock.state.tprof[L.sportId]; if(!tp.instr) tp.instr = {}; tp.instr[id] = !tp.instr[id]; mock.save(); if(L.S) SIMCORE.setSimTactics(L.S, 0, tp.mentality, Object.assign({}, tp.instr)); persistLiveSnap(); const d = INSTRUCTIONS[L.sportId].find(x=>x.id === id); pushLine(L.minute, `临场指令：「${d ? d.name : id}」${tp.instr[id] ? "开启" : "关闭"}——场上跑法马上跟着变。`, "chance"); renderLiveBar(); toast(`指令「${d ? d.name : id}」已${tp.instr[id] ? "开启" : "关闭"}，即刻生效`); }
 function liveSubs(){ const L = LIVE; if(!L || L.settled) return; if(L.paused){ toast("先处理完当前事件再换人"); return; } if(L.subsLeft <= 0){ toast("换人名额用完了"); return; }
   SUB_LIVE = true; L.paused = true; htSubs($("#livePanel"));
   const p = $("#livePanel"); if(p) p.innerHTML += `<button style="width:100%;margin-top:6px" onclick="closeLivePanel()">不换了 · 继续比赛</button>`; }
@@ -6332,15 +6480,13 @@ function skipIsFree(){ try{ return Object.keys(mock.state.played || {}).length =
 async function matchSkip(){ const L = LIVE; if(!L || L.settled || !L.S) return;
   if(!skipIsFree()){
     toast("跳过比赛要先看一段广告…");
-    let okAd = false;
-    try{ okAd = await watchRenameAd(); }catch(e){ okAd = false; }
+    const snap = snapshotLiveData(L);
+    const okAd = await runAdPoint("skip", { snap }, "skip|" + L.sportId + ":" + L.dayN + "|" + (snap ? snap.at : Date.now()), grantSkipAd);
     if(!okAd){ toast("广告没看完，未跳过——比赛继续"); return; }
-    if(LIVE !== L || L.settled || !L.S) return;
+    return;
   }
-  L._skip = true; if(L.timer) clearTimeout(L.timer); closeNode(); L.paused = false; L.nodesPending = false;
-  const S = L.S; let guard = S.totalTicks * 3 + 3000;
-  while(!S.over && guard-- > 0){ if(S.deadBall){ simAutoResolve(); continue; } SIMCORE.stepSim(S); }
-  simDrainEvents(); simFinishToSettle(); }
+  finishSkipInPlace(L);
+}
 /* ---------- 球场皮肤（纯外观，声望解锁；学 IdleFC 实机 Skins） ---------- */
 const SKINS = [
   { id:"classic", name:"经典绿", need:0, c1:"#2e6b46", c2:"#256040", stripe:"v", ball:"#fffdf7", bc1:"#d9a45b", bc2:"#c98f3d" },
@@ -6585,7 +6731,9 @@ function countUps(scope){
   });
 }
 function settleMatch(){
-  const L = LIVE; if(!L || L.settled) return; L.settled = true; if(L.sportId === "basketball") SFX.buzzer(); else SFX.whistle(3);
+  const L = LIVE; if(!L || L.settled) return; L.settled = true;
+  if(mock.state.liveSnap && mock.state.liveSnap.sportId === L.sportId && mock.state.liveSnap.dayN === L.dayN && !!mock.state.liveSnap.friendly === !!L.friendly && !!mock.state.liveSnap.challenge === !!L.challenge) mock.state.liveSnap = null;
+  if(L.sportId === "basketball") SFX.buzzer(); else SFX.whistle(3);
   if(L.challenge){ try{ settleChallenge(); }catch(e){} return; }
   const s = mock.state, isB = L.sportId === "basketball";
   const B = segBounds(L);
@@ -7069,12 +7217,10 @@ async function scoutReveal(pid){
   ensureV2State(); const s = mock.state, today = beijingDateStr();
   if(s.scoutAdDay !== today){ s.scoutAdDay = today; s.scoutAdCount = 0; }
   if((s.scoutAdCount || 0) >= 2){ toast("今天的提前揭晓次数用完了（2/2）"); return; }
-  let okAd = false;
-  try{ okAd = await watchRenameAd(); }catch(e){ okAd = false; }
+  const sc0 = s.scout[pid]; if(!sc0 || sc0.stage >= 3) return;
+  const okAd = await runAdPoint("scout", { pid, dayKey: today }, "scout|" + pid + "|" + today, async p => { grantScoutAd(p); });
   if(!okAd){ toast("广告没看完，这次不算"); return; }
-  const sc = s.scout[pid]; if(!sc || sc.stage >= 3) return;
-  s.scoutAdCount = (s.scoutAdCount || 0) + 1; sc.stage = 3; sc.t = Date.now();
-  mock.save(); toast("提前揭晓：真实能力已出，可以向对方询价了"); render();
+  toast("提前揭晓：真实能力已出，可以向对方询价了"); render();
 }
 
 async function render(){
@@ -7181,10 +7327,8 @@ $("#adBtn").onclick = async () => {
   const dayKey = new Date(Date.now()+8*3600*1000).toISOString().slice(0,10);
   if(mock.state.adDay!==dayKey){ mock.state.adDay=dayKey; mock.state.adCount=0; }
   if(mock.state.adCount>=3){ toast("今天的加速次数用完了（3/3）"); return; }
-  let okAd = false;
-  try{ okAd = await watchRenameAd(); }catch(e){ okAd = false; }
+  const okAd = await runAdPoint("supply", { dayKey }, "supply|" + dayKey + "|" + (mock.state.adCount || 0), async p => { grantSupplyAd(p); });
   if(!okAd){ toast("广告没看完，这次不算"); return; }
-  mock.state.adCount+=1; mock.state.balance+=120; ensureV2State(); mock.state.buckets.commercial+=120; mock.save();
   toast(`补给到账 +120 资金（今日 ${mock.state.adCount}/3）`); render();
 };
 $("#renameBtn").onclick = () => { openNameModal("rename"); };
@@ -7204,12 +7348,121 @@ $("#nameOk").onclick = async () => {
   if(isRename){
     if(nm === (mock.state.clubName || "")){ toast("和现在的名字一样，不用改"); return; }
     const btn = $("#nameOk"); btn.disabled = true; btn.textContent = "广告播放中…";
-    const okAd = await watchRenameAd();
+    const okAd = await runAdPoint("rename", { name: nm }, "rename|" + nm, async p => { if((mock.state.clubName || "") !== p.biz.name) await submitClubName(p.biz.name); });
     btn.disabled = false; btn.textContent = "看广告并改名";
     if(!okAd){ toast("广告未完成，改名未生效（原名保留）"); return; }
+    return;
   }
   await submitClubName(nm);
 };
+/* ================= HF5 广告 P0 通用链（五点位共用） =================
+   病根（2026-11-18 主人真机实锤）：五点位全是「内存里 await 广告 Promise → 回来才发奖」，
+   广告跳外部 App 时页面被壳回收/重载，Promise 与奖励一起蒸发、白看广告（跳过结算丢整场）。
+   口径：调广告前先把待办 adPending{key,point,biz,dayKey,baseline} 落盘 → boot 核对
+   reconcileAdPending() 用 getActivityTaskState 与 baseline 比对（reward 任务转 completed
+   或剩余次数变化＝平台侧已看完）→ 补执行并清待办；查询失败/不确定一律保留待办下次再核，
+   不猜不删；发放流水 adGrants[key] 幂等防双发；待办超 36 小时仍未核实才过期清除。 */
+async function adTaskSnap(){
+  if(!inShell || !(window.ColorboxAI && window.ColorboxAI.vatask && window.ColorboxAI.vatask.getActivityTaskState)) return null;
+  try{
+    const r = await window.ColorboxAI.vatask.getActivityTaskState();
+    if(r && r.code === 200 && r.data){
+      const t = (r.data.tasks || []).find(x=>x.taskCode === "reward");
+      return { status: t ? t.status : null, chances: (typeof r.data.availableChanceCount === "number") ? r.data.availableChanceCount : null };
+    }
+  }catch(e){}
+  return null;
+}
+function adConfirmed(base, now){
+  if(!now) return false;
+  if(!base) return now.status === "completed";
+  if(now.status === "completed" && base.status !== "completed") return true;
+  if(base.chances != null && now.chances != null && now.chances !== base.chances) return true;
+  return false;
+}
+async function runAdPoint(point, biz, key, grantFn){
+  if(adFlowBusy) return false;
+  const s = mock.state; ensureV2State();
+  if(s.adPending){ try{ await reconcileAdPending(); }catch(e){} }
+  if(s.adPending && s.adPending.key !== key) s.adPending = null; /* 旧待办平台证据始终未出现，不让它堵死新流程 */
+  if(s.adGrants && s.adGrants[key]){ s.adPending = null; mock.save(); return true; }
+  const base = await adTaskSnap();
+  const p = { key, point, biz, dayKey: (biz && biz.dayKey) || beijingDateStr(), baseline: base, t: Date.now(), claimed: false };
+  s.adPending = p; mock.save();
+  let ok = false;
+  try{ ok = await watchRenameAd(); }catch(e){ ok = false; }
+  if(!ok){ if(s.adPending === p) s.adPending = null; mock.save(); return false; }
+  try{ await grantFn(p); }catch(e){}
+  if(!s.adGrants) s.adGrants = {};
+  s.adGrants[key] = Date.now();
+  if(s.adPending === p) s.adPending = null;
+  mock.save();
+  return true;
+}
+let adReconcileBusy = false;
+async function reconcileAdPending(){
+  const s = mock.state; if(!s || !s.adPending || adReconcileBusy) return;
+  if(!inShell) return;
+  adReconcileBusy = true;
+  try{
+    ensureV2State();
+    const p = s.adPending;
+    if(s.adGrants && s.adGrants[p.key]){ s.adPending = null; mock.save(); return; }
+    const now = await adTaskSnap();
+    if(!adConfirmed(p.baseline, now)){
+      if(Date.now() - (p.t || 0) > 36 * 3600 * 1000){ s.adPending = null; mock.save(); toast("上次的广告奖励一直没能确认，已过期作废"); }
+      return;
+    }
+    p.claimed = true; mock.save();
+    const consumed = await applyAdGrant(p);
+    if(consumed){
+      if(!s.adGrants) s.adGrants = {};
+      s.adGrants[p.key] = Date.now();
+      if(s.adPending === p) s.adPending = null;
+      mock.save(); render();
+    }
+  }catch(e){}
+  finally{ adReconcileBusy = false; }
+}
+async function applyAdGrant(p){
+  const s = mock.state; ensureV2State();
+  if(p.point === "supply"){ grantSupplyAd(p); toast("补发：上次广告的补给 +120 资金已到账"); return true; }
+  if(p.point === "friendly"){ friendlyState().ad = true; toast("补发：上次广告解锁的热身赛 +2 场已生效"); return true; }
+  if(p.point === "scout"){ grantScoutAd(p); toast("补发：上次广告的球探提前揭晓已生效"); return true; }
+  if(p.point === "rename"){ if((s.clubName || "") !== p.biz.name) await submitClubName(p.biz.name); return true; }
+  if(p.point === "skip") return await grantSkipAd(p);
+  return true;
+}
+function grantSupplyAd(p){
+  const s = mock.state; ensureV2State();
+  if(s.adDay !== p.biz.dayKey){ s.adDay = p.biz.dayKey; s.adCount = 0; }
+  s.adCount = (s.adCount || 0) + 1; s.balance += 120; s.buckets.commercial += 120;
+}
+function grantScoutAd(p){
+  const s = mock.state; ensureV2State();
+  const sc = s.scout[p.biz.pid];
+  if(sc && sc.stage < 3){ sc.stage = 3; sc.t = Date.now(); }
+  if(s.scoutAdDay !== p.biz.dayKey){ s.scoutAdDay = p.biz.dayKey; s.scoutAdCount = 0; }
+  s.scoutAdCount = (s.scoutAdCount || 0) + 1;
+}
+async function grantSkipAd(p){
+  const s = mock.state, snap = p.biz && p.biz.snap;
+  if(!snap) return true;
+  const key = snap.sportId + ":" + snap.dayN;
+  if(!snap.friendly && !snap.challenge && s.played && s.played[key]) return true;
+  if(LIVE && !LIVE.settled && LIVE.S && LIVE.sportId === snap.sportId && LIVE.dayN === snap.dayN && !!LIVE.friendly === !!snap.friendly && !!LIVE.challenge === !!snap.challenge){ finishSkipInPlace(LIVE); return true; }
+  if(LIVE) return false; /* 另一场进行中：不抢，待办保留，下次 boot 再核 */
+  const L2 = reviveLive(snap);
+  if(!L2) return true;
+  LIVE = L2;
+  try{ if(L2._directSettle) settleMatch(); else finishSkipInPlace(L2); }
+  finally{ LIVE = null; }
+  render();
+  toast("补结算：上次看广告跳过的比赛已结算，战报见首页");
+  return true;
+}
+window.reconcileAdPending = reconcileAdPending;
+
 /* 激励广告在途闸（vatask 技能包约束：同一时间只允许一个激励视频流程）：
    五个广告点位共用，进闸后并发调用直接落败（不排队、不叠开），finally 必释放——
    与 v79.2 arrange 闸同口径，杜绝挂起闩死。 */
@@ -7814,6 +8067,9 @@ window.shareClub = shareClub; window.addDesktop = addDesktop;
   renderBootSlots();
   if(mock.state.founding){ openFounding(); }
   await doSettle(true);
+  /* HF5：boot 核对——广告待办（页面若在广告期间被回收，看完的广告在此补发/补结算）＋中断比赛快照有效性 */
+  try{ await reconcileAdPending(); }catch(e){}
+  try{ checkLiveSnap(); }catch(e){}
   try{ tourAutoStart(); }catch(e){}
 })();
 </script>
