@@ -491,6 +491,8 @@ body.touring #matchModal .sheet{padding-bottom:330px}
   /* ================= RD4 (2026-11-18) 性能优化：长列表卡 content-visibility（屏外卡跳过布局/绘制，视觉零改动）；
      背景照片已由 body 的 background-attachment:fixed 改挂 body::before 独立固定层（见 RD1 body 规则处），滚动时背景零重绘 ================= */
   .card{ content-visibility:auto; contain-intrinsic-size:auto 180px; }
+.goFlash{ animation: goFlashA 1.6s ease-out; }
+@keyframes goFlashA{ 0%,55%{ box-shadow: 0 0 0 3px rgba(217,164,65,.95), 0 0 18px rgba(217,164,65,.5); } 100%{ box-shadow: 0 0 0 0 rgba(217,164,65,0); } }
 </style>
 </head>
 <body>
@@ -850,7 +852,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 </div>
 
 <script>
-const BUILD_STAMP = "build 20261118-HF5";
+const BUILD_STAMP = "build 20261118-HF6";
 const PLAYERS = [{"pid": "P003", "name": "库尔图瓦", "pos": "GK", "posGroup": "GK", "ability": 91, "age": "34", "club": "皇家马德里", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P004", "name": "多纳鲁马", "pos": "GK", "posGroup": "GK", "ability": 91, "age": "27", "club": "曼城", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P005", "name": "阿利松", "pos": "GK", "posGroup": "GK", "ability": 90, "age": "34", "club": "利物浦", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P006", "name": "奥布拉克", "pos": "GK", "posGroup": "GK", "ability": 90, "age": "33", "club": "马德里竞技", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P008", "name": "拉亚", "pos": "GK", "posGroup": "GK", "ability": 87, "age": "31", "club": "阿森纳", "wage": "A", "pot": "低", "role": "首发"}, {"pid": "P009", "name": "马马尔达什维利", "pos": "GK", "posGroup": "GK", "ability": 87, "age": "26", "club": "利物浦", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P029", "name": "范戴克", "pos": "CB", "posGroup": "DF", "ability": 90, "age": "35", "club": "利物浦", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P030", "name": "鲁本·迪亚斯", "pos": "CB", "posGroup": "DF", "ability": 89, "age": "29", "club": "曼城", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P031", "name": "萨利巴", "pos": "CB", "posGroup": "DF", "ability": 88, "age": "25", "club": "阿森纳", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P032", "name": "巴斯托尼", "pos": "CB", "posGroup": "DF", "ability": 88, "age": "27", "club": "国际米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P033", "name": "加布里埃尔", "pos": "CB", "posGroup": "DF", "ability": 87, "age": "28", "club": "阿森纳", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P034", "name": "格瓦迪奥尔", "pos": "FB", "posGroup": "DF", "ability": 87, "age": "24", "club": "曼城", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P036", "name": "金玟哉", "pos": "CB", "posGroup": "DF", "ability": 85, "age": "30", "club": "拜仁慕尼黑", "wage": "B", "pot": "低", "role": "轮换"}, {"pid": "P038", "name": "卢卡斯·埃尔南德斯", "pos": "FB", "posGroup": "DF", "ability": 83, "age": "30", "club": "巴黎圣日耳曼", "wage": "B", "pot": "低", "role": "轮换"}, {"pid": "P039", "name": "富安健洋", "pos": "FB", "posGroup": "DF", "ability": 82, "age": "28", "club": "水晶宫", "wage": "C", "pot": "中", "role": "轮换"}, {"pid": "P040", "name": "阿坎吉", "pos": "CB", "posGroup": "DF", "ability": 82, "age": "31", "club": "国际米兰", "wage": "C", "pot": "低", "role": "轮换"}, {"pid": "P045", "name": "蒋光太", "pos": "CB", "posGroup": "DF", "ability": 76, "age": "32", "club": "上海海港", "wage": "D", "pot": "低", "role": "轮换"}, {"pid": "P052", "name": "罗德里", "pos": "DM", "posGroup": "MF", "ability": 91, "age": "30", "club": "曼城", "wage": "S", "pot": "低", "role": "首发"}, {"pid": "P055", "name": "莫德里奇", "pos": "CM", "posGroup": "MF", "ability": 91, "age": "41", "club": "AC米兰", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P056", "name": "德布劳内", "pos": "AM", "posGroup": "MF", "ability": 90, "age": "35", "club": "那不勒斯", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P057", "name": "贝林厄姆", "pos": "AM", "posGroup": "MF", "ability": 90, "age": "23", "club": "皇家马德里", "wage": "S", "pot": "中高", "role": "首发"}, {"pid": "P058", "name": "穆西亚拉", "pos": "AM", "posGroup": "MF", "ability": 90, "age": "23", "club": "拜仁慕尼黑", "wage": "S", "pot": "中高", "role": "首发"}, {"pid": "P061", "name": "维尔茨", "pos": "AM", "posGroup": "MF", "ability": 89, "age": "23", "club": "利物浦", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P062", "name": "佩德里", "pos": "CM", "posGroup": "MF", "ability": 88, "age": "24", "club": "巴塞罗那", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P063", "name": "维蒂尼亚", "pos": "CM", "posGroup": "MF", "ability": 88, "age": "26", "club": "巴黎圣日耳曼", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P064", "name": "麦卡利斯特", "pos": "CM", "posGroup": "MF", "ability": 87, "age": "27", "club": "利物浦", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P065", "name": "巴雷拉", "pos": "CM", "posGroup": "MF", "ability": 87, "age": "29", "club": "国际米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P067", "name": "恩佐·费尔南德斯", "pos": "DM", "posGroup": "MF", "ability": 86, "age": "25", "club": "切尔西", "wage": "B", "pot": "中高", "role": "首发"}, {"pid": "P070", "name": "远藤航", "pos": "DM", "posGroup": "MF", "ability": 80, "age": "33", "club": "利物浦", "wage": "C", "pot": "无(即战力)", "role": "轮换"}, {"pid": "P072", "name": "吴曦", "pos": "CM", "posGroup": "MF", "ability": 74, "age": "37", "club": "上海申花", "wage": "D", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P073", "name": "梅西", "pos": "WF", "posGroup": "WG", "ability": 97, "age": "39", "club": "迈阿密国际", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P076", "name": "姆巴佩", "pos": "WF", "posGroup": "WG", "ability": 92, "age": "27", "club": "皇家马德里", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P077", "name": "亚马尔", "pos": "WF", "posGroup": "WG", "ability": 91, "age": "19", "club": "巴塞罗那", "wage": "S", "pot": "高", "role": "青训梯队"}, {"pid": "P078", "name": "维尼修斯", "pos": "WF", "posGroup": "WG", "ability": 91, "age": "26", "club": "皇家马德里", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P079", "name": "萨拉赫", "pos": "WF", "posGroup": "WG", "ability": 90, "age": "34", "club": "利物浦", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P080", "name": "萨卡", "pos": "WF", "posGroup": "WG", "ability": 88, "age": "25", "club": "阿森纳", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P081", "name": "莱奥", "pos": "WF", "posGroup": "WG", "ability": 88, "age": "27", "club": "AC米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P085", "name": "三笘薰", "pos": "WM", "posGroup": "WG", "ability": 85, "age": "29", "club": "布莱顿", "wage": "B", "pot": "中", "role": "轮换"}, {"pid": "P087", "name": "久保建英", "pos": "WM", "posGroup": "WG", "ability": 82, "age": "25", "club": "皇家社会", "wage": "C", "pot": "中高", "role": "轮换"}, {"pid": "P096", "name": "王钰栋", "pos": "WF", "posGroup": "WG", "ability": 72, "age": "20", "club": "浙江队", "wage": "D", "pot": "高", "role": "青训梯队"}, {"pid": "P098", "name": "C罗", "pos": "CF", "posGroup": "ST", "ability": 95, "age": "41", "club": "利雅得胜利", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P101", "name": "哈兰德", "pos": "CF", "posGroup": "ST", "ability": 92, "age": "26", "club": "曼城", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P102", "name": "凯恩", "pos": "CF", "posGroup": "ST", "ability": 91, "age": "33", "club": "拜仁慕尼黑", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P103", "name": "莱万多夫斯基", "pos": "CF", "posGroup": "ST", "ability": 90, "age": "38", "club": "巴塞罗那", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P104", "name": "孙兴慜", "pos": "SS", "posGroup": "ST", "ability": 89, "age": "34", "club": "洛杉矶FC", "wage": "A", "pot": "无(即战力)", "role": "首发"}, {"pid": "P105", "name": "奥斯梅恩", "pos": "CF", "posGroup": "ST", "ability": 88, "age": "27", "club": "加拉塔萨雷", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P106", "name": "劳塔罗·马丁内斯", "pos": "SS", "posGroup": "ST", "ability": 88, "age": "29", "club": "国际米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P107", "name": "伊萨克", "pos": "CF", "posGroup": "ST", "ability": 88, "age": "27", "club": "利物浦", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P108", "name": "阿尔瓦雷斯", "pos": "SS", "posGroup": "ST", "ability": 88, "age": "26", "club": "马德里竞技", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P118", "name": "武磊", "pos": "SS", "posGroup": "ST", "ability": 76, "age": "34", "club": "上海海港", "wage": "D", "pot": "无(即战力)", "role": "轮换"}];
 const LEAGUES = ["皇家马德里","巴塞罗那","曼城","利物浦","阿森纳","拜仁慕尼黑","巴黎圣日耳曼","国际米兰","AC米兰","马德里竞技","切尔西","曼联","多特蒙德","那不勒斯","托特纳姆热刺"];
 const TIERS = {
@@ -870,7 +872,12 @@ function soonToast(name, date){ toast("「" + name + "」将于 " + date + " 开
 window.soonToast = soonToast;
 
 /* ---------- 数据层：优先走 BFF（Shaper 壳内 ColorboxAI.cloud.request），无壳时本地模拟同形接口 ---------- */
-const inShell = typeof window!=="undefined" && window.ColorboxAI && window.ColorboxAI.cloud;
+/* HF6（P0）：在壳判定改调用时现读。旧实现把加载期一瞬的快照定死成常量 inShell——虎扑桥是异步
+   注入的，脚本先跑、桥晚到一步，整会话就被误判无壳：api() 全落本地 mock、广告五点位走 900ms
+   模拟直发（真壳看不到广告、奖励白拿）、榜单/全服/反馈全线禁用、新 WebView 落空壳默认态。
+   官方示例全是交互时现读 window.ColorboxAI，本作从此同口径；广告单独判 vatask 可用性，不与 cloud 共闸。 */
+function shellNow(){ try{ return !!(typeof window !== "undefined" && window.ColorboxAI && window.ColorboxAI.cloud && typeof window.ColorboxAI.cloud.request === "function"); }catch(e){ return false; } }
+function vataskNow(){ try{ return !!(typeof window !== "undefined" && window.ColorboxAI && window.ColorboxAI.vatask && typeof window.ColorboxAI.vatask.completeRewardVideo === "function"); }catch(e){ return false; } }
 /* 全屏顶部安全适配（colorbox-fullscreen-safe-top / ADR-033 口径）：启动时读一次宿主安全距写入 --safe-top，
    header 与开始页覆层各自以 max(env, var) 计入一次——两源取大、永不叠加；宿主外取不到为 0、显示不变。 */
 function applySafeTop(){
@@ -947,7 +954,7 @@ const mock = {
 const LM_API_BASE = "https://app-e3301d52aa-d0g0tqijucebc60a8-1252166086.ap-shanghai.app.tcloudbase.com";
 const LM_ENV_ID = "app-e3301d52aa-d0g0tqijucebc60a8";
 async function api(path, body){
-  if(inShell){
+  if(shellNow()){
     /* 官方 SDK 形态（hupu-skills-pack 官方示例）：必须给完整 url，只给 {path} 会被 SDK 拒（Missing parameter: url）；
        应答按 statusCode＋code 判、业务数据在 res.data（网关信封 {code,message,data}） */
     try{
@@ -1982,7 +1989,7 @@ function renderEvents(){
     const adef = AFFAIRS.find(x=>x.id === af.id);
     if(adef){
       any = true;
-      const acard = document.createElement("div"); acard.className = "card";
+      const acard = document.createElement("div"); acard.className = "card"; acard.id = "evAffair";
       if(!af.done){
         acard.innerHTML = `<div class="pname">🏢 今日集团事务 · ${adef.tag}</div><div class="pmeta"><b>${adef.title}</b>——${adef.body}</div><div class="tiers" style="grid-template-columns:1fr 1fr 1fr">${adef.opts.map((o, i)=>`<button onclick="pickAffair(${i})">${o.label}<br><span class="hint">${fxText(o.fx)}</span></button>`).join("")}</div>`;
       } else {
@@ -1996,7 +2003,7 @@ function renderEvents(){
   if(vr){
     const vdef = VIDEO_OPTS.find(x=>x.id === vr.pick);
     any = true;
-    const vcard = document.createElement("div"); vcard.className = "card";
+    const vcard = document.createElement("div"); vcard.className = "card"; vcard.id = "evVideo";
     if(!vr.pick){
       vcard.innerHTML = `<div class="pname">🎬 录像分析室</div><div class="pmeta">视频组把昨天的比赛和下个对手的录像都备好了，今天看哪一盘？</div><div class="tiers" style="grid-template-columns:1fr 1fr 1fr">${VIDEO_OPTS.map((o, i)=>`<button onclick="pickVideo(${i})">${o.label}<br><span class="hint">${o.id === "personal" ? "随机一名球员 · 发展进度 +20" : fxText(o.fx)}</span></button>`).join("")}</div>`;
     } else {
@@ -2009,7 +2016,7 @@ function renderEvents(){
     const sdef = SURPRISES.find(x=>x.id === spx.id);
     if(sdef){
       any = true;
-      const scard = document.createElement("div"); scard.className = "card";
+      const scard = document.createElement("div"); scard.className = "card"; scard.id = "evSurprise";
       if(!spx.done){
         scard.innerHTML = `<div class="pname">⚡ 今日突发 · ${sdef.tag}</div><div class="pmeta"><b>${sdef.title}</b>——${sdef.body}</div><div class="tiers"><button onclick="pickSurprise('a')">${sdef.a.label}<br><span class="hint">${fxText(sdef.a.fx)}</span></button><button class="ghost" onclick="pickSurprise('b')">${sdef.b.label}<br><span class="hint">${fxText(sdef.b.fx)}</span></button></div>`;
       } else {
@@ -2021,7 +2028,7 @@ function renderEvents(){
   }
   if(s.founded && typeof mentorOpen === "function" && mentorOpen()){
     any = true;
-    const mcard = document.createElement("div"); mcard.className = "card";
+    const mcard = document.createElement("div"); mcard.className = "card"; mcard.id = "evMentor";
     let mh = `<div class="pname">🎓 特邀导师</div><div class="pmeta">球探手记里那份旧档案打开了：每支队可聘一位名宿导师（${MENTOR_FEE} 资金，整季有效），导师方向内的发展进度大幅加速；导师每天开一堂公开课（选一名球员，最弱向 +40）。</div>`;
     for(const sportId of ["football", "basketball"]){
       const mid = (s.mentor || {})[sportId];
@@ -2108,7 +2115,7 @@ function renderEvents(){
   if(c2v){
     storyHead();
     any = true;
-    const c2card = document.createElement("div"); c2card.className = "card";
+    const c2card = document.createElement("div"); c2card.className = "card"; c2card.id = "evChain";
     if(c2v.waiting) c2card.innerHTML = `<div class="pname">${c2v.title}</div><div class="pmeta">${c2v.body}</div>`;
     else c2card.innerHTML = `<div class="pname">${c2v.title}</div><div class="pmeta">${c2v.body}</div><div class="tiers" style="grid-template-columns:${c2v.opts.length > 1 ? "1fr 1fr" : "1fr"}">${c2v.opts.map((o, i) => `<button class="${i > 0 ? "ghost" : ""}" onclick="pickChain2(${i})">${o}</button>`).join("")}</div>`;
     el.appendChild(c2card);
@@ -2336,7 +2343,7 @@ function renderSlots(){
   const el = $("#slotsBody"); if(!el) return;
   const hint = $("#activeSlotHint"); if(hint) hint.textContent = "当前：存档 " + activeSlot();
   const sel = $("#importSlotSel"); if(sel && !sel.dataset.touched) sel.value = String(activeSlot());
-  if(!slotsCache){ el.innerHTML = '<div class="hint">档位加载中…</div>'; return; }
+  if(!slotsCache){ el.innerHTML = '<div class="hint">档位加载中… <button class="mini" onclick="refreshSlots()">重新加载</button></div>'; return; }
   el.innerHTML = slotsCache.map(x=>{
     const m = x.meta;
     const meta = m ? esc(m.clubName || "新星联队") + " · 资金 " + fmtN(m.balance) + " · 已赛 " + m.played + " 场" + (m.at ? ' <span style="white-space:nowrap">· ' + slotTimeText(m.at) + "</span>" : "") : "空档位";
@@ -2488,7 +2495,7 @@ function myWinsTotal(){ const s = mock.state; let w = 0; for(const sp of ["footb
 function noteBest(){ const s = mock.state; if(!s.best) s.best = { rep: 0, output: 0, wins: 0 }; s.best.rep = Math.max(s.best.rep || 0, s.rep || 0); s.best.output = Math.max(s.best.output || 0, s.output || 0); s.best.wins = Math.max(s.best.wins || 0, myWinsTotal()); }
 async function submitBoards(){
   noteBest();
-  if(inShell){
+  if(shellNow()){
     const u = (await fetchBoardUser()) || {};
     try{ await api("/api/leaderboard/submit",{board:"rep",score:mock.state.rep,nickname:u.nickname||"",avatar:u.avatar||""}); }catch(e){}
     try{ await api("/api/leaderboard/submit",{board:"output",nickname:u.nickname||"",avatar:u.avatar||""}); }catch(e){}
@@ -2502,7 +2509,7 @@ async function renderBoard(){
   $("#tabRep").className="mini"+(boardTab==="rep"?" act":""); $("#tabOut").className="mini"+(boardTab==="output"?" act":""); const tw = $("#tabWin"); if(tw) tw.className="mini"+(boardTab==="wins"?" act":""); const tf = $("#tabFan"); if(tf) tf.className="mini"+(boardTab==="fans"?" act":"");
   noteBest(); const bst = mock.state.best || { rep: 0, output: 0, wins: 0 };
   const meCard = `<div class="kv"><span>🏅 我的历史最佳</span><b>声望 ${fmtN(bst.rep)} · 产出 ${fmtN(bst.output)} · 胜场 ${fmtN(bst.wins)}</b></div>`;
-  if(inShell){
+  if(shellNow()){
     try{
       const r = await api("/api/leaderboard",{board:boardTab,limit:20});
       el.innerHTML = meCard + (((r&&r.top)||[]).map(x=>`<div class="brow"><span>${x.rank}. ${esc(x.nickname||("经理"+String(x.puid).slice(-4)))}</span><b>${fmtN(x.score)}</b></div>`).join("") || '<div class="hint">暂无数据，来打第一场。</div>');
@@ -2527,7 +2534,7 @@ document.addEventListener("click",e=>{
 let globalCache = null;
 async function renderGlobal(){
   const el = $("#globalSlot"); if(!el) return;
-  if(!inShell){ el.innerHTML = `<div class="card"><div class="pname" style="font-size:15px">🌍 全服协力 · 一起把赛季打热</div><div class="pmeta" style="margin-top:4px">所有经理打完的正赛都会汇成全服进度，达标后人人能领声望礼。进度只算真实比赛——在虎扑 App 内打开即可看到全服累计。</div></div>`; return; }
+  if(!shellNow()){ el.innerHTML = `<div class="card"><div class="pname" style="font-size:15px">🌍 全服协力 · 一起把赛季打热</div><div class="pmeta" style="margin-top:4px">所有经理打完的正赛都会汇成全服进度，达标后人人能领声望礼。进度只算真实比赛——在虎扑 App 内打开即可看到全服累计。</div></div>`; return; }
   if(!globalCache){
     try{ const r = await api("/api/global/progress"); if(r && r.ok) globalCache = r; }catch(e){}
   }
@@ -2576,7 +2583,7 @@ function buildSnap(){
 function renderChallenge(){
   const el = $("#chalSlot"); if(!el) return;
   const s = mock.state;
-  if(!inShell){ el.innerHTML = `<div class="pmeta">战书码是真人对战：把你的阵容冻结成一张码发给朋友，对方输码就能参观你的俱乐部、给你点赞，或用他的双队来挑战你。胜负只记战书墙与少量声望，谁也不掉东西。在虎扑 App 内打开后可用。</div>`; return; }
+  if(!shellNow()){ el.innerHTML = `<div class="pmeta">战书码是真人对战：把你的阵容冻结成一张码发给朋友，对方输码就能参观你的俱乐部、给你点赞，或用他的双队来挑战你。胜负只记战书墙与少量声望，谁也不掉东西。在虎扑 App 内打开后可用。</div>`; return; }
   const wall = (s.chalWall || []).slice(0, 5).map(w => `<div class="kv"><span>${w.win ? "🏆 胜" : "🤝 赛毕"} vs ${esc(w.opp)}</span><b>${w.my} : ${w.op}</b></div>`).join("");
   el.innerHTML = `
     ${s.chalCode ? `<div class="kv"><span>我的战书码（7 天有效）</span><b style="font-size:17px;letter-spacing:2px">${esc(s.chalCode)}</b></div>
@@ -2654,7 +2661,7 @@ async function settleChallenge(){
   const win = L.my > L.oppScore;
   const res = win ? "胜" : L.my === L.oppScore ? "平" : "负";
   let rep = 0;
-  if(inShell){ try{ const r = await api("/api/challenge/report", { code: L.challenge.code, win }); if(r && r.ok) rep = r.rep || 0; }catch(e){} }
+  if(shellNow()){ try{ const r = await api("/api/challenge/report", { code: L.challenge.code, win }); if(r && r.ok) rep = r.rep || 0; }catch(e){} }
   if(rep > 0){ s.rep = (s.rep || 0) + rep; }
   if(!s.chalWall) s.chalWall = [];
   s.chalWall.unshift({ opp: L.challenge.clubName, my: L.my, op: L.oppScore, win, at: Date.now() });
@@ -2830,7 +2837,7 @@ function pickDailyChoice(which){
   if(def.id === "data-report" && which === "a" && typeof facLv === "function" && facLv("data") > 0) applyChoiceFx({ coachXp: 8 * facLv("data") });
   dc.done = true; dc.pick = which;
   s.log.push(`每日抉择「${def.title}」：${opt.label}。`);
-  mock.save(); render();
+  mock.save(); renderKeepScroll("#todayChoice");
   toast("抉择已定：" + opt.label);
 }
 function ensureCatchup(){
@@ -2864,32 +2871,32 @@ function todayItems(){
   items.push({ label:"🏀 篮球正赛", done: !!s.played["basketball:" + d], go:"league:basketball" });
   items.push({ label:"🏃 今日热身赛（" + Math.min(fs.used, 4) + "/4 · " + friendlyModOf(d).name + "）", done: fs.used >= 4, go:"friendly" });
   items.push({ label:"🌱 成长安排（有人在外历练）", done: arrangeDone, go:"squad" });
-  items.push({ label:"🏋 个人发展课", done: !!(s.devSession && s.devSession.day === d), go:"squad" });
+  items.push({ label:"🏋 个人发展课", done: !!(s.devSession && s.devSession.day === d), go:"dev" });
   items.push({ label:"🔭 球探考察", done: scoutDone, go:"scout" });
-  items.push({ label:"🍀 球迷幸运日", done: !!ws.used, go:"league" });
+  items.push({ label:"🍀 球迷幸运日", done: !!ws.used, go:"wheel" });
   items.push({ label:"🎯 每日挑战（" + dl.ids.filter(id=>dl.claimed[id]).length + "/" + dl.ids.length + "）", done: dl.ids.every(id=>dl.claimed[id]), go:"daily" });
   const mc2 = morningOfToday();
-  items.push({ label:"🌅 每日晨检", done: !!(mc2 && mc2.pick), go:"choice" });
+  items.push({ label:"🌅 每日晨检", done: !!(mc2 && mc2.pick), go:"morning" });
   const dc = choiceOfToday();
   items.push({ label:"🗳 每日抉择", done: !!(dc && dc.done), go:"choice" });
   const pc2 = postChoiceOfToday();
-  items.push({ label:"🎙 赛后抉择（双赛后解锁）", done: !!(pc2 && pc2.done), go:"choice" });
+  items.push({ label:"🎙 赛后抉择（双赛后解锁）", done: !!(pc2 && pc2.done), go:"postchoice" });
   const af2 = affairOfToday();
   items.push({ label:"🏢 每日集团事务", done: !!(af2 && af2.done), go:"affair" });
   if(typeof gearActive === "function" && gearActive()){ const gs2 = gearState(); items.push({ label:"🎁 装备包（今日免费包）", done: gs2.freeDay === d, go:"gear" }); }
   if(d >= 9) items.push({ label:"📊 半程战报", done: !!mock.state.halfClaimed, go:"half" });
   const trI = (typeof travelOfToday === "function") ? travelOfToday() : null;
-  if(trI) items.push({ label:"🚌 客场出行清单", done: !!trI.claimed, go:"choice" });
+  if(trI) items.push({ label:"🚌 客场出行清单", done: !!trI.claimed, go:"travel" });
   const vrI = (typeof videoOfToday === "function") ? videoOfToday() : null;
   if(vrI) items.push({ label:"🎬 录像分析室", done: !!vrI.pick, go:"video" });
   const spI = (typeof surpriseOfToday === "function") ? surpriseOfToday() : null;
-  if(spI) items.push({ label:"⚡ 今日突发待处理", done: !!spI.done, go:"affair" });
+  if(spI) items.push({ label:"⚡ 今日突发待处理", done: !!spI.done, go:"surprise" });
   const c2I = (typeof chain2View === "function") ? chain2View() : null;
-  if(c2I) items.push({ label:"🔗 连锁事件" + (c2I.waiting ? "（进行中）" : ""), done: !!c2I.waiting, go:"affair" });
+  if(c2I) items.push({ label:"🔗 连锁事件" + (c2I.waiting ? "（进行中）" : ""), done: !!c2I.waiting, go:"chain" });
   if(typeof mentorOpen === "function" && mentorOpen()){
     const mm = s.mentor || {}, mcx2 = s.mentorClass || {};
-    if(!mm.football || !mm.basketball) items.push({ label:"🎓 特邀导师待聘请", done: false, go:"affair" });
-    else items.push({ label:"🎓 导师公开课", done: mcx2.football === d && mcx2.basketball === d, go:"affair" });
+    if(!mm.football || !mm.basketball) items.push({ label:"🎓 特邀导师待聘请", done: false, go:"mentor" });
+    else items.push({ label:"🎓 导师公开课", done: mcx2.football === d && mcx2.basketball === d, go:"mentor" });
   }
   const G = [["⚽", "match"], ["🏀", "match"], ["🏃", "match"], ["🌱", "grow"], ["🏋", "grow"], ["🔭", "grow"], ["🎁", "grow"], ["🎓", "grow"]];
   for(const it of items){ it.g = "ops"; for(const [pre, g] of G){ if(it.label.startsWith(pre)){ it.g = g; break; } } }
@@ -2897,15 +2904,72 @@ function todayItems(){
   items.sort((a, b) => ord[a.g] - ord[b.g]);
   return items;
 }
-function todayGo(go){
-  if(go === "league:football" || go === "league:basketball"){ mock.state.sport = go.split(":")[1]; mock.save(); switchTab("league"); render(); const el = $("#leagueCard"); if(el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
-  if(go === "friendly"){ switchTab("league"); const el = $("#friendlySlot"); if(el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
-  if(go === "daily"){ switchTab("league"); const el = $("#dailySlot"); if(el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
-  if(go === "choice"){ const el = $("#todaySlot"); if(el) el.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
-  if(go === "affair"){ switchTab("club"); const el = $("#eventList"); if(el) setTimeout(()=>el.scrollIntoView({ behavior:"smooth", block:"center" }), 60); return; }
-  if(go === "half"){ switchTab("league"); homeSeg("league"); const el = $("#halfSlot"); if(el) setTimeout(()=>el.scrollIntoView({ behavior:"smooth", block:"center" }), 60); return; }
-  if(go === "gear"){ switchTab("club"); clubSeg("gear"); const el = $("#gearBody"); if(el) setTimeout(()=>el.scrollIntoView({ behavior:"smooth", block:"center" }), 60); return; }
-  if(go === "video"){ switchTab("club"); const el = $("#eventList"); if(el) setTimeout(()=>el.scrollIntoView({ behavior:"smooth", block:"center" }), 60); return; }
+/* HF6：跳转落点高亮（点完「去完成」要让玩家一眼看到落在哪张卡上） */
+function flashEl(el){
+  if(!el) return;
+  el.classList.remove("goFlash"); void el.offsetWidth; el.classList.add("goFlash");
+  setTimeout(()=>{ try{ el.classList.remove("goFlash"); }catch(e){} }, 1700);
+}
+function jumpToEl(el, block){
+  if(!el) return;
+  const attempt = () => { try{ el.scrollIntoView({ behavior:"smooth", block: block || "center" }); }catch(e){} };
+  setTimeout(attempt, 60);
+  /* 二次校正：.card 的 content-visibility 懒布局会让首滚落点在途中漂移，布局落定后再滚一次并高亮 */
+  setTimeout(()=>{ attempt(); flashEl(el); }, 550);
+}
+/* HF6：同页内联动作保滚动锚——晨检/抉择等点选触发整页 render()，旧行为重渲染后滚动位置
+   丢失、视口被甩到无关位置：render 内的日历条 scrollIntoView 会抢滚动，异步子渲染
+   （全服/榜单）与 .card 懒布局又让锚点在渲染后继续漂移，单次修正拦不住。
+   修法：渲染前记锚点卡的视口位置，渲染全程＋渲染后短窗内反复把同一张卡对齐回原位，到稳为止。 */
+async function renderKeepScroll(anchorSel){
+  const y = window.scrollY;
+  const a = anchorSel ? document.querySelector(anchorSel) : null;
+  const top = a ? a.getBoundingClientRect().top : null;
+  let stable = 0;
+  const align = () => {
+    if(anchorSel && top !== null){
+      const a2 = document.querySelector(anchorSel);
+      if(a2){ const dy = a2.getBoundingClientRect().top - top; if(Math.abs(dy) > 1){ window.scrollBy(0, dy); stable = 0; } else stable++; return; }
+    }
+    stable++;
+  };
+  const iv = setInterval(align, 80);
+  try{ await render(); }catch(e){}
+  await new Promise(res => { let n = 0; const chk = setInterval(() => { n++; if(stable >= 3 || n >= 12){ clearInterval(chk); res(); } }, 80); });
+  clearInterval(iv);
+  align();
+  if(anchorSel && !document.querySelector(anchorSel)) window.scrollTo(0, y);
+}
+/* HF6 今日清单跳转审计（主人真壳实报「跳转不对」逐项钉死）：
+   幸运日在 homeSeg「daily」段里（默认隐藏）必须先开段；联赛/热身/挑战/半程在「league」段，
+   先前若停在别的段目标是隐藏的、滚不到；俱乐部事务类必须先把 clubSeg 切回「events」；
+   晨检/抉择/赛后抉择/出行清单是今日卡内的分段，滚整卡中心落不到位，逐段锚点直达；
+   事务/录像/突发/连锁/导师各有自己的卡（evXxx），不再一律扔到 #eventList 顶部。 */
+async function todayGo(go){
+  if(go === "league:football" || go === "league:basketball"){
+    mock.state.sport = go.split(":")[1]; mock.save();
+    switchTab("league"); homeSeg("league");
+    try{ await render(); }catch(e){}
+    jumpToEl($("#leagueCard")); return;
+  }
+  if(go === "friendly"){ switchTab("league"); homeSeg("league"); jumpToEl($("#friendlySlot")); return; }
+  if(go === "daily"){ switchTab("league"); homeSeg("league"); jumpToEl($("#dailySlot")); return; }
+  if(go === "wheel"){ switchTab("league"); homeSeg("daily"); jumpToEl($("#wheelBody")); return; }
+  if(go === "half"){ switchTab("league"); homeSeg("league"); jumpToEl($("#halfSlot")); return; }
+  if(go === "squad"){ switchTab("squad"); jumpToEl($("#squadList"), "start"); return; }
+  if(go === "dev"){ switchTab("squad"); jumpToEl($("#devSlot")); return; }
+  if(go === "scout"){ switchTab("scout"); jumpToEl($("#scoutList"), "start"); return; }
+  if(go === "morning" || go === "choice" || go === "postchoice" || go === "travel"){
+    switchTab("league");
+    jumpToEl($({ morning:"#todayMorning", choice:"#todayChoice", postchoice:"#todayPostChoice", travel:"#todayTravel" }[go]) || $("#todaySlot"));
+    return;
+  }
+  if(go === "affair" || go === "video" || go === "surprise" || go === "chain" || go === "mentor"){
+    switchTab("club"); clubSeg("events");
+    jumpToEl($({ affair:"#evAffair", video:"#evVideo", surprise:"#evSurprise", chain:"#evChain", mentor:"#evMentor" }[go]) || $("#eventList"));
+    return;
+  }
+  if(go === "gear"){ switchTab("club"); clubSeg("gear"); jumpToEl($("#gearBody")); return; }
   switchTab(go);
 }
 function fxText(fx){
@@ -2972,7 +3036,7 @@ function renderToday(){
   /* morning check (v41 wave1) */
   const tr = (typeof travelOfToday === "function") ? travelOfToday() : null;
   if(tr){
-    h += `<div class="tsub tg-blue"><span class="pname">🚌 客场出行清单</span><div class="pmeta" style="margin:2px 0 6px">今天是客场轮，后勤三件事逐项勾完有奖励。</div>`;
+    h += `<div class="tsub tg-blue" id="todayTravel"><span class="pname">🚌 客场出行清单</span><div class="pmeta" style="margin:2px 0 6px">今天是客场轮，后勤三件事逐项勾完有奖励。</div>`;
     h += TRAVEL_ITEMS.map(x => `<div class="row" style="margin-top:4px"><span class="pmeta">${tr.checks[x.id] ? "✅" : "⬜"} ${x.label} · ${x.desc}</span><button class="mini ${tr.checks[x.id] ? "ghost" : ""}" onclick="toggleTravel('${x.id}')">${tr.claimed ? "已就绪" : tr.checks[x.id] ? "取消" : "勾上"}</button></div>`).join("");
     if(tr.claimed) h += `<div class="hint" style="margin-top:4px">全部就绪，奖励已发：全队体能 +${2 + (typeof facLv === "function" ? facLv("kitroom") : 0)} · 声望 +1。</div>`;
     h += `</div>`;
@@ -2980,7 +3044,7 @@ function renderToday(){
   const mc = morningOfToday();
   if(mc){
     const ro = morningReadout();
-    h += `<div class="tsub tg-amber"><span class="pname">🌅 今日晨检</span><div class="pmeta" style="margin:2px 0 6px">`;
+    h += `<div class="tsub tg-amber" id="todayMorning"><span class="pname">🌅 今日晨检</span><div class="pmeta" style="margin:2px 0 6px">`;
     h += ro.tired.length ? `体能告急 ${ro.tired.length} 人：${ro.tired.slice(0, 4).map(p => p.name + "（" + ro.stam(p) + "）").join("、")}。` : `全队体能都在 60 以上，状态在线。`;
     if(ro.injured.length) h += ` 伤缺：${ro.injured.map(p => p.name + "（至第 " + ((s.pstat[p.pid] || {}).injUntil || "?") + " 天）").join("、")}。`;
     h += `</div>`;
@@ -2997,7 +3061,7 @@ function renderToday(){
   if(dc){
     const def = DAILY_CHOICES.find(x=>x.id === dc.id);
     if(def){
-      h += `<div class="tsub tg-red"><span class="pname">🗳 今日抉择 · ${def.tag}</span><div class="pmeta" style="margin:2px 0 6px"><b>${def.title}</b>——${def.body}</div>`;
+      h += `<div class="tsub tg-red" id="todayChoice"><span class="pname">🗳 今日抉择 · ${def.tag}</span><div class="pmeta" style="margin:2px 0 6px"><b>${def.title}</b>——${def.body}</div>`;
       if(!dc.done){
         h += `<div class="tiers" style="grid-template-columns:1fr 1fr"><button onclick="pickDailyChoice('a')">${def.a.label}<br><span class="hint">${fxText(def.a.fx)}</span></button><button onclick="pickDailyChoice('b')">${def.b.label}<br><span class="hint">${fxText(def.b.fx)}</span></button></div>`;
       } else {
@@ -3009,7 +3073,7 @@ function renderToday(){
   }
   /* post-match choice (v40) */
   const pc = postChoiceOfToday();
-  h += `<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><span class="pname">🎙 赛后抉择</span>`;
+  h += `<div id="todayPostChoice" style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><span class="pname">🎙 赛后抉择</span>`;
   if(!pc){
     h += `<div class="pmeta" style="margin-top:2px">🔒 今天两场正赛都打完后解锁——赢了怎么庆祝、输了谁来担责，都得你来拍板。</div>`;
   } else {
@@ -3115,7 +3179,7 @@ function pickPostChoice(which){
   applyChoiceFx(opt.fx);
   pc.done = true; pc.pick = which;
   s.log.push(`赛后抉择「${def.title}」：${opt.label}。`);
-  mock.save(); render();
+  mock.save(); renderKeepScroll("#todayPostChoice");
   toast("赛后决定：" + opt.label);
 }
 window.pickPostChoice = pickPostChoice;
@@ -3235,7 +3299,7 @@ function pickMorning(which){
   if((def.fx.staminaAll || 0) > 0 && typeof facLv === "function" && facLv("physio") > 0) applyChoiceFx({ staminaAll: 2 * facLv("physio") });
   mc.pick = which;
   s.log.push(`晨检决定：${def.label}。`);
-  mock.save(); render();
+  mock.save(); renderKeepScroll("#todayMorning");
   toast("晨检已定：" + def.label);
 }
 window.pickMorning = pickMorning;
@@ -3387,7 +3451,7 @@ function toggleTravel(id){
     s.log.push("客场出行清单全勾完：装备、名单、餐食就绪，全队体能 +" + tb + "、声望 +1。");
     toast("出行就绪！全队体能 +" + tb + " · 声望 +1");
   }
-  mock.save(); render();
+  mock.save(); renderKeepScroll("#todayTravel");
 }
 window.toggleTravel = toggleTravel;
 
@@ -6810,7 +6874,7 @@ function settleMatch(){
   if(box) box.innerHTML = isFr
     ? `<div class="nodebox"><div style="display:flex;gap:12px;align-items:center"><span class="seal ${res === "胜" ? "win" : res === "平" ? "draw" : "lose"}">${res}</span><div><div class="pname">热身赛结束：${scoreTxt} 对 ${L.opp}</div><div class="pmeta">战术「${ment.name}」熟练度 +1 · 不计积分榜，${frMod.id === "rain" ? "雨战体能扣 3/4" : "体能只扣一半"} · 今日词缀：${frMod.icon} ${frMod.name}</div></div></div><div style="margin-top:8px"><div class="kv"><span>声望</span><b data-count="${repD}">+${repD}</b></div><div class="kv"><span>比赛奖金</span><b data-count="${fundD}">+${fundD}</b></div><div class="kv"><span>教练经验</span><b>+${xpD}</b></div></div><div class="pmeta" style="margin-top:6px">${isB ? "得分" : "进球"}：${L.scorers.length ? L.scorers.join("、") : "—"}<br>声望按胜负入账（每日上限 +${frMod.id === "derby" ? 8 : 4}）。今日还可打 ${friendlyLeft()} 场。</div>${starHtml}<button class="ghost" style="width:100%;margin-top:8px" onclick="openMemoCard()">🎴 生成纪念卡</button><button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`
     : `<div class="nodebox"><div style="display:flex;gap:12px;align-items:center"><span class="seal ${res === "胜" ? "win" : res === "平" ? "draw" : "lose"}">${res}</span><div><div class="pname">全场结束：${scoreTxt} 对 ${L.opp}</div><div class="pmeta">第${L.dayN}轮 · 战术「${ment.name}」熟练度 +1</div></div></div><div style="margin-top:8px"><div class="kv"><span>声望</span><b data-count="${repD}">${repD >= 0 ? "+" : ""}${repD}</b></div><div class="kv"><span>比赛奖金</span><b data-count="${fundD}">+${fundD}</b></div><div class="kv"><span>教练经验</span><b>+${xpD}</b></div></div><div class="pmeta" style="margin-top:6px">${isB ? "得分" : "进球"}：${L.scorers.length ? L.scorers.join("、") : "—"}<br>首发体能已按出场时间扣除，未出场球员恢复 +${MATCH_CFG.staminaRestGain}。${friendlyLeft() > 0 ? "<br>老陈：正赛完了别散场，约场热身赛热热身——体能只算一半，输赢不记账。" : ""}</div>${starHtml}<div id="pressSlot"></div><button class="ghost" style="width:100%;margin-top:8px" onclick="closeMatch();openPosters('report')">🖼 生成战报海报</button><button class="ghost" style="width:100%;margin-top:8px" onclick="openMemoCard()">🎴 生成纪念卡</button><button style="width:100%;margin-top:8px" onclick="closeMatch()">完成</button></div>`;
-  if(inShell && !isFr){ try{ api("/api/global/contribute", { matches: 1 }).then(()=>{ globalCache = null; }).catch(()=>{}); }catch(e){} }
+  if(shellNow() && !isFr){ try{ api("/api/global/contribute", { matches: 1 }).then(()=>{ globalCache = null; }).catch(()=>{}); }catch(e){} }
   countUps(box);
   try{ renderPress(); }catch(e){}
   tourHook("settle");
@@ -7123,7 +7187,7 @@ function claimDaily(id){
   const rw = def.reward || 40; d.claimed[id] = 1; s.balance += rw; s.buckets.commercial += rw;
   if(d.ids.every(x=>d.claimed[x]) && !d.bonus){ d.bonus = true; s.coach.xp = (s.coach.xp || 0) + 50; toast("每日挑战全清！奖励 40 资金 · 教练经验 +50"); }
   else toast("挑战达成：+" + rw + " 资金");
-  mock.save(); render();
+  mock.save(); renderKeepScroll("#dailySlot");
 }
 function renderDaily(){
   const el = $("#dailySlot"); if(!el) return;
@@ -7158,7 +7222,7 @@ function renderHalfReport(){
 }
 function claimHalfReport(){
   const s = mock.state; if(!s.founded || s.halfClaimed || seasonDayN() < 9) return;
-  s.halfClaimed = true; s.balance += 100; s.buckets.commercial += 100; mock.save(); render(); toast("半程战报纪念奖励：+100 资金");
+  s.halfClaimed = true; s.balance += 100; s.buckets.commercial += 100; mock.save(); renderKeepScroll("#halfSlot"); toast("半程战报纪念奖励：+100 资金");
 }
 window.claimHalfReport = claimHalfReport;
 const WHEEL_TIERS = [ { pct:10, w:22 }, { pct:20, w:20 }, { pct:30, w:18 }, { pct:40, w:14 }, { pct:50, w:10 }, { pct:60, w:8 }, { pct:80, w:5 }, { pct:100, w:3 } ];
@@ -7254,6 +7318,13 @@ async function render(){
       }
     }
     syncHomeSegBadge();
+  } else {
+    /* HF6：home 失败（建流 500／身份被拒等）时页头用本地状态兜底显示，不许停在静态出厂默认
+       「新星联队 / 0」——那会让玩家以为档丢了（空壳诊断 2026-11-18 钉死）。 */
+    const cnEl = $("#clubName"); if(cnEl) cnEl.textContent = mock.state.clubName || "新星联队";
+    const bEl = $("#balance"); if(bEl) bEl.textContent = Math.floor(mock.state.balance || 0);
+    const rtEl = $("#repTop"); if(rtEl) rtEl.textContent = mock.state.rep || 0;
+    const sdEl = $("#seasonDay"); if(sdEl) sdEl.textContent = "赛季第 " + Math.min(Math.max(1, Math.floor((Date.now() - (mock.state.createdAt || Date.now())) / 86400000) + 1), 14) + " 天";
   }
   const dayN = Math.min(Math.max(1, Math.floor((Date.now()-(mock.state.createdAt||Date.now()))/86400000)+1),14);
   const spL = curSport(); const opp = spL.leagues()[(dayN-1)%spL.leagues().length];
@@ -7282,7 +7353,7 @@ async function render(){
   healCheck(); ensureCatchup(); renderToday(); renderSquad(); renderTactics(); renderTable(); renderCoach(); renderDaily(); renderWheel(); renderCalendar(); renderHalfReport();
   renderFinance(); renderFacility(); renderGear(); renderGuide(); renderOffline(h);
   renderEvents(); try{ decorateEventCards(); }catch(e){} renderScout(); renderLoanPending(); renderFriendly(); renderTickerCard(); renderFixtures(); drawPreviewPitch(); try{ renderGlobal(); }catch(e){} try{ renderChallenge(); }catch(e){}
-  if(!inShell) renderBoard();
+  if(!shellNow()) renderBoard();
   const hb=$("#heroBand");
   if(hb){ let dots=""; for(let d=1;d<=14;d++) dots+='<i class="'+(d<=dayN?"on":"")+'"></i>';
     hb.innerHTML = '<div><div class="hlab">'+(spL.id==="basketball"?"篮球一队":"足球一队")+' · 本队战力</div><div class="hbig">'+teamPower()+'</div><div class="hdots">'+dots+'</div></div><div class="hstats"><div class="hstat"><b>'+mock.state.rep+'</b><span>声望</span></div><div class="hstat"><b>'+dayN+'/14</b><span>赛季天</span></div><div class="hstat"><b>'+($("#capInfo").textContent||"").replace("仓储 ","").replace(" 小时档","h")+'</b><span>仓储档</span></div></div>'; }
@@ -7363,7 +7434,7 @@ $("#nameOk").onclick = async () => {
    或剩余次数变化＝平台侧已看完）→ 补执行并清待办；查询失败/不确定一律保留待办下次再核，
    不猜不删；发放流水 adGrants[key] 幂等防双发；待办超 36 小时仍未核实才过期清除。 */
 async function adTaskSnap(){
-  if(!inShell || !(window.ColorboxAI && window.ColorboxAI.vatask && window.ColorboxAI.vatask.getActivityTaskState)) return null;
+  if(!(window.ColorboxAI && window.ColorboxAI.vatask && typeof window.ColorboxAI.vatask.getActivityTaskState === "function")) return null;
   try{
     const r = await window.ColorboxAI.vatask.getActivityTaskState();
     if(r && r.code === 200 && r.data){
@@ -7402,7 +7473,7 @@ async function runAdPoint(point, biz, key, grantFn){
 let adReconcileBusy = false;
 async function reconcileAdPending(){
   const s = mock.state; if(!s || !s.adPending || adReconcileBusy) return;
-  if(!inShell) return;
+  if(!shellNow()) return;
   adReconcileBusy = true;
   try{
     ensureV2State();
@@ -7471,15 +7542,14 @@ async function watchRenameAd(){
   if(adFlowBusy) return false;
   adFlowBusy = true;
   try{
-    if(inShell){
+    /* HF6：广告单独判 vatask 现读可用性，不与 cloud 共闸——桥晚注入或单项缺失都不许误判成无壳直发 */
+    if(vataskNow()){
       try{
-        if(window.ColorboxAI && window.ColorboxAI.vatask && window.ColorboxAI.vatask.completeRewardVideo){
-          const res = await window.ColorboxAI.vatask.completeRewardVideo();
-          const ok = !!(res && res.code === 200 && res.data && res.data.rewarded === true);
-          /* 技能包口径：成功后刷新活动任务状态（联赛走直接权益兑换、不展示平台次数，结果只取不用） */
-          if(ok && window.ColorboxAI.vatask.getActivityTaskState){ try{ await window.ColorboxAI.vatask.getActivityTaskState(); }catch(e){} }
-          return ok;
-        }
+        const res = await window.ColorboxAI.vatask.completeRewardVideo();
+        const ok = !!(res && res.code === 200 && res.data && res.data.rewarded === true);
+        /* 技能包口径：成功后刷新活动任务状态（联赛走直接权益兑换、不展示平台次数，结果只取不用） */
+        if(ok && window.ColorboxAI.vatask.getActivityTaskState){ try{ await window.ColorboxAI.vatask.getActivityTaskState(); }catch(e){} }
+        return ok;
       }catch(e){}
       return false;
     }
@@ -7959,14 +8029,14 @@ function updateFbCount(){ const ta = $("#fbText"), c = $("#fbCharCount"); if(ta 
 async function renderFeedback(){
   const st = feedbackState();
   const box = $("#fbStatus"); if(!box) return;
-  if(inShell){
+  if(shellNow()){
     try{ const m = await api("/api/feedback/mine"); if(m && m.ok){ st.count = m.count || 0; st.granted = !!m.granted; mock.save(); } }catch(e){}
   }
   box.innerHTML = `<div class="kv"><span>我提交的反馈</span><b>${st.count} 条</b></div>`
     + `<div class="kv"><span>首提奖励（+100 资金）</span><b>${st.granted ? "已领取" : "未领取 · 提交第一条即可领"}</b></div>`
-    + (inShell ? "" : `<div class="hint" style="margin-top:6px">现在是网页预览，反馈要在虎扑 App 里打开游戏后提交。</div>`);
+    + (shellNow() ? "" : `<div class="hint" style="margin-top:6px">现在是网页预览，反馈要在虎扑 App 里打开游戏后提交。</div>`);
   const hb = $("#fbHonors"); if(!hb) return;
-  if(!inShell){ hb.innerHTML = `<div class="hint">进虎扑 App 里能看到最新鸣谢名单。</div>`; return; }
+  if(!shellNow()){ hb.innerHTML = `<div class="hint">进虎扑 App 里能看到最新鸣谢名单。</div>`; return; }
   hb.innerHTML = `<div class="hint">正在整理名单…</div>`;
   try{
     const r = await api("/api/feedback/honors");
@@ -7979,7 +8049,7 @@ async function submitFeedback(){
   const text = (ta.value || "").trim();
   if(!text){ toast(fbMsg("FB_EMPTY")); return; }
   if([...text].length > 2000){ toast(fbMsg("FB_TOO_LONG")); return; }
-  if(!inShell){ toast("反馈要在虎扑 App 里提交——打开游戏后从设置里发给我们"); return; }
+  if(!shellNow()){ toast("反馈要在虎扑 App 里提交——打开游戏后从设置里发给我们"); return; }
   const btn = $("#fbSubmit"); if(btn) btn.disabled = true;
   let r = null;
   try{
@@ -8055,14 +8125,30 @@ async function switchToSlot(n){
 window.renderBootSlots = renderBootSlots;
 window.shareClub = shareClub; window.addDesktop = addDesktop;
 
+/* HF6 看门狗：boot 走完仍未建队、且命名/建队弹窗都不在场（弹窗链中途抛错被吞时的空壳态），
+   强制把入口弹窗重新拉起；已建队或任一弹窗在场时不干预。补拉翻案后也会再过一遍。 */
+function bootWatchdog(){
+  try{
+    const s = mock.state; if(!s || s.founded) return;
+    const nm = $("#nameModal"), fm = $("#foundingModal");
+    if(nm && !nm.classList.contains("hidden")) return;
+    if(fm && !fm.classList.contains("hidden")) return;
+    if(s.founding){ openFounding(); } else { openNameModal("found"); }
+  }catch(e){}
+}
 (async function boot(){
   applySafeTop();
+  ensureV2State();
+  /* 命名弹窗不等桥：桥晚到不许把新玩家堵在门外等（等桥只留给首拉 home 的短宽限，见下）。 */
+  if(!mock.state.founded && !mock.state.founding){ openNameModal("found"); }
+  /* HF6：首拉 home 前给桥一个短宽限（≤600ms）——桥是异步注入的，加载期一瞬的缺席不许定死整会话
+     （见 shellNow 注释）；宽限内没到就按无壳继续，桥随后出现由下方翻案轮询接管，不再整段 boot 陪等。 */
+  for(let i = 0; i < 6 && !shellNow(); i++){ await new Promise(r => setTimeout(r, 100)); }
+  const bootShell = shellNow();
   const h = await api("/api/home");
   /* v73: 壳内 /api/home 会给新 puid 自动建档并回默认名，未建队玩家若把默认名同步进本地，
      会被误判已建队；只给已建队/建队中的存档回填服务器名，新玩家本地名保持空、走起名建队链。 */
-  if(inShell && h && h.clubName && !mock.state.clubName && (mock.state.founded || mock.state.founding)){ mock.state.clubName = h.clubName; mock.save(); }
-  ensureV2State();
-  if(!mock.state.founded && !mock.state.founding){ openNameModal("found"); }
+  if(bootShell && h && h.clubName && !mock.state.clubName && (mock.state.founded || mock.state.founding)){ mock.state.clubName = h.clubName; mock.save(); }
   await render();
   renderBootSlots();
   if(mock.state.founding){ openFounding(); }
@@ -8071,6 +8157,22 @@ window.shareClub = shareClub; window.addDesktop = addDesktop;
   try{ await reconcileAdPending(); }catch(e){}
   try{ checkLiveSnap(); }catch(e){}
   try{ tourAutoStart(); }catch(e){}
+  bootWatchdog();
+  /* HF6 翻案：开局落 mock（桥当时未到）时，桥在会话早期出现就切回云端状态源补拉 home/slots 并重渲染。
+     翻案语义＝与重新进游戏一致：以云端为准，不把 mock 进度并入云端（防双份进度对账风险）。 */
+  if(!bootShell){
+    let flipN = 0;
+    const flipTimer = setInterval(async () => {
+      flipN++;
+      if(!shellNow()){ if(flipN >= 100) clearInterval(flipTimer); return; }
+      clearInterval(flipTimer);
+      try{ const h2 = await api("/api/home"); if(h2 && h2.clubName && !mock.state.clubName && (mock.state.founded || mock.state.founding)){ mock.state.clubName = h2.clubName; mock.save(); } }catch(e){}
+      try{ slotsCache = null; await refreshSlots(); }catch(e){}
+      try{ await render(); }catch(e){}
+      try{ await reconcileAdPending(); }catch(e){}
+      bootWatchdog();
+    }, 300);
+  }
 })();
 </script>
 </body>
