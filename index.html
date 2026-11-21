@@ -508,7 +508,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
     #bootSlots [data-bootslot]{ padding:5px 10px !important; margin-bottom:3px !important; }
     #bootSlots [data-bootslot] .pname{ font-size:13px; }
     #bootSlots [data-bootslot] .pmeta{ font-size:11px; }
-    #whatsNewSlot .card{ padding:10px 12px; }
+    #whatsNewSlot .card, #showDaySlot .card{ padding:10px 12px; }
   }
 </style>
 </head>
@@ -535,6 +535,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
   <div class="boff"><span class="bmoon">🌙</span><div style="flex:1"><div style="font-weight:800;font-size:13.5px">你离开时，球队没闲着</div><div class="bcells"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div><div style="color:var(--dim);font-size:11.5px;margin-top:3px">离线照常训练、照常赚钱——回来记得收</div></div></div>
   <div id="bootSlots" style="width:100%;max-width:360px;margin-top:8px"></div>
   <div id="whatsNewSlot" style="width:100%;max-width:360px;margin-top:8px"></div>
+  <div id="showDaySlot" style="width:100%;max-width:360px;margin-top:8px"></div>
   <button id="bootEnter" class="hidden" style="margin-top:8px;padding:12px 34px;font-size:17px">进入俱乐部</button>
   </div>
   <div id="bootStamp" style="position:fixed;right:10px;bottom:8px;font-size:10px;color:rgba(253,246,227,.4);pointer-events:none;z-index:81"></div>
@@ -865,7 +866,7 @@ body.touring #matchModal .sheet{padding-bottom:330px}
 </div>
 
 <script>
-const BUILD_STAMP = "build 20261120-BRD1";
+const BUILD_STAMP = "build 20261121-SHOW1";
 const PLAYERS = [{"pid": "P003", "name": "库尔图瓦", "pos": "GK", "posGroup": "GK", "ability": 91, "age": "34", "club": "皇家马德里", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P004", "name": "多纳鲁马", "pos": "GK", "posGroup": "GK", "ability": 91, "age": "27", "club": "曼城", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P005", "name": "阿利松", "pos": "GK", "posGroup": "GK", "ability": 90, "age": "34", "club": "利物浦", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P006", "name": "奥布拉克", "pos": "GK", "posGroup": "GK", "ability": 90, "age": "33", "club": "马德里竞技", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P008", "name": "拉亚", "pos": "GK", "posGroup": "GK", "ability": 87, "age": "31", "club": "阿森纳", "wage": "A", "pot": "低", "role": "首发"}, {"pid": "P009", "name": "马马尔达什维利", "pos": "GK", "posGroup": "GK", "ability": 87, "age": "26", "club": "利物浦", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P029", "name": "范戴克", "pos": "CB", "posGroup": "DF", "ability": 90, "age": "35", "club": "利物浦", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P030", "name": "鲁本·迪亚斯", "pos": "CB", "posGroup": "DF", "ability": 89, "age": "29", "club": "曼城", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P031", "name": "萨利巴", "pos": "CB", "posGroup": "DF", "ability": 88, "age": "25", "club": "阿森纳", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P032", "name": "巴斯托尼", "pos": "CB", "posGroup": "DF", "ability": 88, "age": "27", "club": "国际米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P033", "name": "加布里埃尔", "pos": "CB", "posGroup": "DF", "ability": 87, "age": "28", "club": "阿森纳", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P034", "name": "格瓦迪奥尔", "pos": "FB", "posGroup": "DF", "ability": 87, "age": "24", "club": "曼城", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P036", "name": "金玟哉", "pos": "CB", "posGroup": "DF", "ability": 85, "age": "30", "club": "拜仁慕尼黑", "wage": "B", "pot": "低", "role": "轮换"}, {"pid": "P038", "name": "卢卡斯·埃尔南德斯", "pos": "FB", "posGroup": "DF", "ability": 83, "age": "30", "club": "巴黎圣日耳曼", "wage": "B", "pot": "低", "role": "轮换"}, {"pid": "P039", "name": "富安健洋", "pos": "FB", "posGroup": "DF", "ability": 82, "age": "28", "club": "水晶宫", "wage": "C", "pot": "中", "role": "轮换"}, {"pid": "P040", "name": "阿坎吉", "pos": "CB", "posGroup": "DF", "ability": 82, "age": "31", "club": "国际米兰", "wage": "C", "pot": "低", "role": "轮换"}, {"pid": "P045", "name": "蒋光太", "pos": "CB", "posGroup": "DF", "ability": 76, "age": "32", "club": "上海海港", "wage": "D", "pot": "低", "role": "轮换"}, {"pid": "P052", "name": "罗德里", "pos": "DM", "posGroup": "MF", "ability": 91, "age": "30", "club": "曼城", "wage": "S", "pot": "低", "role": "首发"}, {"pid": "P055", "name": "莫德里奇", "pos": "CM", "posGroup": "MF", "ability": 91, "age": "41", "club": "AC米兰", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P056", "name": "德布劳内", "pos": "AM", "posGroup": "MF", "ability": 90, "age": "35", "club": "那不勒斯", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P057", "name": "贝林厄姆", "pos": "AM", "posGroup": "MF", "ability": 90, "age": "23", "club": "皇家马德里", "wage": "S", "pot": "中高", "role": "首发"}, {"pid": "P058", "name": "穆西亚拉", "pos": "AM", "posGroup": "MF", "ability": 90, "age": "23", "club": "拜仁慕尼黑", "wage": "S", "pot": "中高", "role": "首发"}, {"pid": "P061", "name": "维尔茨", "pos": "AM", "posGroup": "MF", "ability": 89, "age": "23", "club": "利物浦", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P062", "name": "佩德里", "pos": "CM", "posGroup": "MF", "ability": 88, "age": "24", "club": "巴塞罗那", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P063", "name": "维蒂尼亚", "pos": "CM", "posGroup": "MF", "ability": 88, "age": "26", "club": "巴黎圣日耳曼", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P064", "name": "麦卡利斯特", "pos": "CM", "posGroup": "MF", "ability": 87, "age": "27", "club": "利物浦", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P065", "name": "巴雷拉", "pos": "CM", "posGroup": "MF", "ability": 87, "age": "29", "club": "国际米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P067", "name": "恩佐·费尔南德斯", "pos": "DM", "posGroup": "MF", "ability": 86, "age": "25", "club": "切尔西", "wage": "B", "pot": "中高", "role": "首发"}, {"pid": "P070", "name": "远藤航", "pos": "DM", "posGroup": "MF", "ability": 80, "age": "33", "club": "利物浦", "wage": "C", "pot": "无(即战力)", "role": "轮换"}, {"pid": "P072", "name": "吴曦", "pos": "CM", "posGroup": "MF", "ability": 74, "age": "37", "club": "上海申花", "wage": "D", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P073", "name": "梅西", "pos": "WF", "posGroup": "WG", "ability": 97, "age": "39", "club": "迈阿密国际", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P076", "name": "姆巴佩", "pos": "WF", "posGroup": "WG", "ability": 92, "age": "27", "club": "皇家马德里", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P077", "name": "亚马尔", "pos": "WF", "posGroup": "WG", "ability": 91, "age": "19", "club": "巴塞罗那", "wage": "S", "pot": "高", "role": "青训梯队"}, {"pid": "P078", "name": "维尼修斯", "pos": "WF", "posGroup": "WG", "ability": 91, "age": "26", "club": "皇家马德里", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P079", "name": "萨拉赫", "pos": "WF", "posGroup": "WG", "ability": 90, "age": "34", "club": "利物浦", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P080", "name": "萨卡", "pos": "WF", "posGroup": "WG", "ability": 88, "age": "25", "club": "阿森纳", "wage": "A", "pot": "中高", "role": "首发"}, {"pid": "P081", "name": "莱奥", "pos": "WF", "posGroup": "WG", "ability": 88, "age": "27", "club": "AC米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P085", "name": "三笘薰", "pos": "WM", "posGroup": "WG", "ability": 85, "age": "29", "club": "布莱顿", "wage": "B", "pot": "中", "role": "轮换"}, {"pid": "P087", "name": "久保建英", "pos": "WM", "posGroup": "WG", "ability": 82, "age": "25", "club": "皇家社会", "wage": "C", "pot": "中高", "role": "轮换"}, {"pid": "P096", "name": "王钰栋", "pos": "WF", "posGroup": "WG", "ability": 72, "age": "20", "club": "浙江队", "wage": "D", "pot": "高", "role": "青训梯队"}, {"pid": "P098", "name": "C罗", "pos": "CF", "posGroup": "ST", "ability": 95, "age": "41", "club": "利雅得胜利", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P101", "name": "哈兰德", "pos": "CF", "posGroup": "ST", "ability": 92, "age": "26", "club": "曼城", "wage": "S", "pot": "中", "role": "首发"}, {"pid": "P102", "name": "凯恩", "pos": "CF", "posGroup": "ST", "ability": 91, "age": "33", "club": "拜仁慕尼黑", "wage": "S", "pot": "无(即战力)", "role": "首发"}, {"pid": "P103", "name": "莱万多夫斯基", "pos": "CF", "posGroup": "ST", "ability": 90, "age": "38", "club": "巴塞罗那", "wage": "S", "pot": "无(即战力)", "role": "老将(告别赛候选)"}, {"pid": "P104", "name": "孙兴慜", "pos": "SS", "posGroup": "ST", "ability": 89, "age": "34", "club": "洛杉矶FC", "wage": "A", "pot": "无(即战力)", "role": "首发"}, {"pid": "P105", "name": "奥斯梅恩", "pos": "CF", "posGroup": "ST", "ability": 88, "age": "27", "club": "加拉塔萨雷", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P106", "name": "劳塔罗·马丁内斯", "pos": "SS", "posGroup": "ST", "ability": 88, "age": "29", "club": "国际米兰", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P107", "name": "伊萨克", "pos": "CF", "posGroup": "ST", "ability": 88, "age": "27", "club": "利物浦", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P108", "name": "阿尔瓦雷斯", "pos": "SS", "posGroup": "ST", "ability": 88, "age": "26", "club": "马德里竞技", "wage": "A", "pot": "中", "role": "首发"}, {"pid": "P118", "name": "武磊", "pos": "SS", "posGroup": "ST", "ability": 76, "age": "34", "club": "上海海港", "wage": "D", "pot": "无(即战力)", "role": "轮换"}];
 const LEAGUES = ["皇家马德里","巴塞罗那","曼城","利物浦","阿森纳","拜仁慕尼黑","巴黎圣日耳曼","国际米兰","AC米兰","马德里竞技","切尔西","曼联","多特蒙德","那不勒斯","托特纳姆热刺"];
 const TIERS = {
@@ -883,9 +884,9 @@ function fillStamps(){ try{ const a=document.querySelector("#bootStamp"); if(a) 
    形态只许开始页常驻卡片＋点击展开，严禁自动弹窗；玩家点开看过即消（localStorage 按 ver 标记），
    下个版本 ver 变更才再出现。 */
 const WHATS_NEW = {
-  ver: "20261120-BRD1",
+  ver: "20261121-SHOW1",
   items: [
-    { icon: "📊", name: "排行榜打开即刷新", what: "修好了排行榜打开一片空白的问题：现在点开就立刻拉全服最新排名——声望、产出、胜场、人气四榜都是全服真实数据。", where: "联赛页上方分段按钮「📊 排行榜」。", how: "点开就能看；打开的同时会自动把你最新的声望、产出、胜场报上榜，看到的就是你当下的名次。" },
+    { icon: "📸", name: "晒阵容日（今日限定）", what: "今天是晒阵容日：把球员包·贰的任意 1 名新援排进足球首发、打完一场比赛，就能领一次性奖励声望 +30，只限今天。", where: "开始页的「📸 晒阵容日」活动卡，看进度和领奖都在那张卡上。", how: "朱辰杰、刘洋、韦世豪、拜合拉木任意 1 人首发并完赛 → 回开始页点「领取」；打完记得去参赛帖晒一晒你的首发阵容。" },
   ],
 };
 function whatsNewSeen(){ try{ return localStorage.getItem("lm_whatsnew_seen") === WHATS_NEW.ver; }catch(e){ return false; } }
@@ -994,6 +995,18 @@ const mock = {
       const slot=Math.floor(Number(body.slot)); if(!(slot>=1&&slot<=5)) return { ok:false, code:"BAD_SLOT" };
       if(path==="/api/slots/save"){ if(typeof body.payload!=="string"||!body.payload) return { ok:false, code:"BAD_PAYLOAD" }; slots[slot]=body.payload; localStorage.setItem("lm_slots", JSON.stringify(slots)); return { ok:true, slot, meta: metaOf(body.payload) }; }
       return slots[slot] ? { ok:true, slot, payload: slots[slot] } : { ok:false, code:"SLOT_EMPTY" };
+    }
+    if(path==="/api/activity/status"||path==="/api/activity/claim"){
+      /* SHOW1 本地镜像（与 BFF handleActivityStatus/Claim 同口径：act 白名单＋北京时间日期窗＋防重领） */
+      const ACTS = { "show1-20261121": { date: "2026-11-21", rep: 30 } };
+      const cfg = ACTS[body && body.act]; if(!cfg) return { ok:false, code:"BAD_ACT" };
+      let acts = {}; try{ acts = JSON.parse(localStorage.getItem("lm_act")||"{}"); }catch(e){}
+      const open = beijingDateStr() === cfg.date;
+      if(path==="/api/activity/status") return { ok:true, act: body.act, claimed: acts[body.act]==="1", open, rep: cfg.rep };
+      if(!open) return { ok:false, code:"NOT_OPEN" };
+      if(acts[body.act]==="1") return { ok:false, code:"ALREADY_CLAIMED" };
+      acts[body.act] = "1"; try{ localStorage.setItem("lm_act", JSON.stringify(acts)); }catch(e){}
+      return { ok:true, act: body.act, rep: cfg.rep };
     }
     return { ok:false, code:"NO_ROUTE" };
   }
@@ -2617,6 +2630,96 @@ async function claimGlobal(){
   }catch(e){ toast("领取失败，稍后再试"); }
 }
 window.claimGlobal = claimGlobal;
+
+
+/* ---------- SHOW1 晒阵容日（2026-11-21 当日活动，总台 2026-11-21 诊断令①） ----------
+   真实日期门（北京时间，与内容包 beijingDateStr 同源）：11-20 预告卡 / 11-21 活动卡 /
+   11-22 收官卡 / 11-23 起下线（slot 清空）。达成判定落在 settleMatch 结算链：
+   开赛首发快照 startPids 含球员包·贰（P1B_PLAYERS）任意 1 人＋完整完赛（正赛/热身赛，
+   战书赛走 settleChallenge 不计）。领奖走服务端一次性 claim（/api/activity/claim：
+   act 白名单＋日期窗＋aclaim 防重领，BFF 同步实现）；本地 state.show1 只记进度与
+   已领镜像，声望以服务端回执 rep 入账（与全服协力 claim 同一信任模型）。 */
+const SHOW1_CFG = { act: "show1-20261121", date: "2026-11-21", recapDate: "2026-11-22", rep: 30 };
+let showDaySrv = null, showDaySrvTried = false;
+function showDaySt(){ const s = mock.state; if(!s.show1) s.show1 = {}; return s.show1; }
+function showDayClaimed(){ return !!(showDaySt().claimed || (showDaySrv && showDaySrv.claimed)); }
+async function showDayPullStatus(){
+  if(showDaySrvTried) return; showDaySrvTried = true;
+  try{ const r = await api("/api/activity/status", { act: SHOW1_CFG.act });
+    if(r && r.ok){ showDaySrv = { claimed: !!r.claimed, open: !!r.open };
+      if(r.claimed && !showDaySt().claimed){ showDaySt().claimed = true; mock.save(); }
+      renderShowDay(); }
+  }catch(e){}
+}
+function renderShowDay(){
+  const slot = $("#showDaySlot"); if(!slot) return;
+  const today = beijingDateStr();
+  if(today > SHOW1_CFG.recapDate){ slot.innerHTML = ""; return; }
+  if(today < SHOW1_CFG.date){
+    slot.innerHTML = `<div class="card" id="showDayCard" style="text-align:left;margin:0">
+      <div class="pname" style="font-size:15px">📸 晒阵容日 · 明日开启</div>
+      <div class="pmeta" style="margin-top:4px">11月21日当天限定：把球员包·贰任意 1 名新援排进足球首发、打完一场比赛，回这里领 声望 +${SHOW1_CFG.rep}。先把阵容备好，明天开打。</div>
+    </div>`; return;
+  }
+  if(today === SHOW1_CFG.recapDate){
+    slot.innerHTML = `<div class="card" id="showDayCard" style="text-align:left;margin:0">
+      <div class="pname" style="font-size:15px">📸 晒阵容日 · 已结束</div>
+      <div class="pmeta" style="margin-top:4px">活动已结束，谢谢参与——优秀阵容将在参赛帖公布。今天起赛季第 6 天的拉练委托开启，去联赛页看看。</div>
+    </div>`; return;
+  }
+  const st = showDaySt();
+  const owned = P1B_PLAYERS.filter(p => isSigned(p));
+  const day = seasonDayN();
+  let prog = "", goBtn = "", claimDis = true;
+  if(showDayClaimed()){ prog = `✅ 已领取：声望 +${SHOW1_CFG.rep} 已到账。把你的首发阵容截图晒到参赛帖，还有机会被评为优秀阵容。`; }
+  else if(st.done){ const p = P1B_PLAYERS.find(x => x.pid === st.donePid); prog = `🎉 已达成：${p ? p.name : "新援"} 已首发完赛，奖励可以领了。`; claimDis = false; }
+  else if(owned.length){ prog = `还差一步：把 ${owned.map(p => p.name).join("、")} 任意 1 人排进足球首发，打完一场比赛。`; goBtn = `<button class="mini" id="showDayGo" onclick="showDayGo('league')">去排首发</button>`; }
+  else if(day < 5){ prog = `球员包·贰在赛季第 5 天上架，你现在是赛季第 ${day} 天，还差 ${5 - day} 天——先把前几天的比赛打好。`; }
+  else { prog = `你还没有球员包·贰的新援（朱辰杰、刘洋、韦世豪、拜合拉木），先去市场签下任意 1 人。`; goBtn = `<button class="mini" id="showDayGo" onclick="showDayGo('market')">去市场开球员包·贰</button>`; }
+  slot.innerHTML = `<div class="card" id="showDayCard" style="text-align:left;margin:0">
+    <div class="row"><div class="pname" style="font-size:15px">📸 晒阵容日 · 今日限定</div><span class="tag" style="background:#a83226;color:#fff">声望 +${SHOW1_CFG.rep}</span></div>
+    <div class="pmeta" style="margin-top:4px">规则：球员包·贰任意 1 名新援（朱辰杰 / 刘洋 / 韦世豪 / 拜合拉木）排进足球首发，打完一场比赛即可领奖，只限今天。</div>
+    <div class="pmeta" style="margin-top:6px">${prog}</div>
+    <div class="row" style="margin-top:8px"><button class="mini" id="showDayClaim" ${claimDis ? "disabled" : ""} onclick="claimShowDay()">${showDayClaimed() ? "已领取" : "领取 声望 +" + SHOW1_CFG.rep}</button>${goBtn}</div>
+    <div class="pmeta" style="margin-top:8px">📣 打完记得截图你的首发阵容，去参赛帖晒一晒——优秀阵容将在参赛帖公布。</div>
+    <div class="pmeta" style="margin-top:4px">🌙 明日预告（赛季第 6 天）：拉练委托开启；晒阵容优秀阵容将在参赛帖公布。</div>
+  </div>`;
+  showDayPullStatus();
+}
+async function claimShowDay(){
+  const s = mock.state, st = showDaySt();
+  if(showDayClaimed()){ toast("晒阵容日奖励已经领过啦"); return; }
+  if(!st.done){ toast("还没达成：把球员包·贰新援排进足球首发，打完一场比赛再来领"); return; }
+  if(beijingDateStr() !== SHOW1_CFG.date){ toast("晒阵容日已结束，下次活动见"); return; }
+  try{
+    const r = await api("/api/activity/claim", { act: SHOW1_CFG.act });
+    if(r && r.ok){
+      st.claimed = true; s.rep = (s.rep || 0) + (r.rep || SHOW1_CFG.rep); mock.save();
+      if(showDaySrv) showDaySrv.claimed = true;
+      toast(`晒阵容日奖励到账：声望 +${r.rep || SHOW1_CFG.rep}`);
+      renderShowDay(); submitBoards();
+    } else if(r && r.code === "ALREADY_CLAIMED"){ st.claimed = true; mock.save(); toast("晒阵容日奖励已经领过啦"); renderShowDay(); }
+    else if(r && r.code === "NOT_OPEN"){ toast("晒阵容日已结束，下次活动见"); }
+    else toast("领取失败，稍后再试");
+  }catch(e){ toast("领取失败，稍后再试"); }
+}
+window.claimShowDay = claimShowDay;
+function showDayGo(dest){
+  const b = $("#bootEnter"); if(b) b.click();
+  setTimeout(() => { try{ switchTab(dest); }catch(e){} }, 350);
+}
+window.showDayGo = showDayGo;
+function showDayNoteSettle(L){
+  if(!L || L.challenge || L.sportId !== "football") return;
+  if(beijingDateStr() !== SHOW1_CFG.date) return;
+  const st = showDaySt(); if(st.done) return;
+  const starters = L.startPids || (L.clean && L.clean.starters ? L.clean.starters.map(x => x && x.pid) : []);
+  const hit = P1B_PLAYERS.find(p => starters.indexOf(p.pid) >= 0);
+  if(!hit) return;
+  st.done = true; st.donePid = hit.pid; st.doneAt = Date.now();
+  mock.save();
+  toast(`📸 晒阵容日达成：${hit.name} 首发完赛！回开始页领 声望 +${SHOW1_CFG.rep}`);
+}
 
 
 /* ---------- v72 战书码挑战＋参观＋点赞（快照冻结、零掠夺；后端已部署） ---------- */
@@ -5625,7 +5728,7 @@ function startLiveMatch(){
   const envMulMy = chal ? 1 : envMulFor(mentalityOf(sportId).style, envT);
   const envMulOpp = chal ? 1 : envMulFor((oppMentalityFor(sportId, dayN, opp) || {}).style, envT);
   LIVE = { sportId, dayN, opp, friendly: frTier || null, challenge: chal, catchup: !!dayOverride, oppMent: chal ? { id: "bal" } : oppMentalityFor(sportId, dayN, opp), oppForm: chal ? null : oppFormOf(sportId, opp, dayN), envId: envT.id, envMulMy, envMulOpp, envStamMul: (chal || frTier) ? 1 : envStamMulFor(envT), minute: 0, my: 0, oppScore: 0, yc: 0,
-    lines: [], onPitch: clean.starters.map(x=>({ pid: x.pid, slot: x.slot, inMin: 0 })), bench: clean.rotation.slice(),
+    lines: [], onPitch: clean.starters.map(x=>({ pid: x.pid, slot: x.slot, inMin: 0 })), startPids: clean.starters.map(x=>x.pid), bench: clean.rotation.slice(),
     subsLeft: 3, settled: false, timer: null, speed: 1, scorers: [], myGoals: 0, segMy: [], segOpp: [], _segCursor: 0, _tally: {}, _fouls: [0, 0],
     startMentality: mock.state.tprof[sportId].mentality, paused: false, playedMins: {}, timeouts: 2, _inMin: {}, _slotMap: {}, _evCursor: 0, _lastBuildTick: -999, _lastShotTick: -999, _acc: 0, S: null, forceQueue: [], clean };
   for(const x of LIVE.onPitch){ LIVE._inMin[x.pid] = 0; LIVE._slotMap[x.pid] = x.slot; }
@@ -5925,7 +6028,7 @@ function snapshotLiveData(L){
   return { v: 1, sportId: L.sportId, dayN: L.dayN, opp: L.opp, friendly: L.friendly || null, challenge: L.challenge || null, catchup: !!L.catchup,
     oppMent: L.oppMent, oppForm: L.oppForm, envId: L.envId, envMulMy: L.envMulMy, envMulOpp: L.envMulOpp,
     minute: L.minute, my: L.my, oppScore: L.oppScore, yc: L.yc || 0, rc: L.rc || 0,
-    lines: (L.lines || []).slice(-80), onPitch: L.onPitch, bench: L.bench, subsLeft: L.subsLeft,
+    lines: (L.lines || []).slice(-80), onPitch: L.onPitch, startPids: L.startPids || null, bench: L.bench, subsLeft: L.subsLeft,
     scorers: L.scorers || [], myGoals: L.myGoals || 0, segMy: L.segMy || [], segOpp: L.segOpp || [], _segCursor: L._segCursor || 0,
     _tally: L._tally || {}, _fouls: L._fouls || [0, 0], playedMins: L.playedMins || {}, timeouts: L.timeouts,
     _inMin: L._inMin || {}, _slotMap: L._slotMap || {}, _evCursor: L._evCursor || 0,
@@ -5941,7 +6044,7 @@ function reviveLive(snap){
   const base = { sportId: snap.sportId, dayN: snap.dayN, opp: snap.opp, friendly: snap.friendly || null, challenge: snap.challenge || null, catchup: !!snap.catchup,
     oppMent: snap.oppMent, oppForm: snap.oppForm, envId: snap.envId, envMulMy: snap.envMulMy, envMulOpp: snap.envMulOpp,
     minute: snap.minute || 0, my: snap.my || 0, oppScore: snap.oppScore || 0, yc: snap.yc || 0, rc: snap.rc || 0,
-    lines: snap.lines || [], onPitch: snap.onPitch || [], bench: snap.bench || [], subsLeft: snap.subsLeft != null ? snap.subsLeft : 3,
+    lines: snap.lines || [], onPitch: snap.onPitch || [], startPids: snap.startPids || null, bench: snap.bench || [], subsLeft: snap.subsLeft != null ? snap.subsLeft : 3,
     scorers: snap.scorers || [], myGoals: snap.myGoals || 0, segMy: snap.segMy || [], segOpp: snap.segOpp || [], _segCursor: snap._segCursor || 0,
     _tally: snap._tally || {}, _fouls: snap._fouls || [0, 0], playedMins: snap.playedMins || {}, timeouts: snap.timeouts != null ? snap.timeouts : 2,
     _inMin: snap._inMin || {}, _slotMap: snap._slotMap || {}, _evCursor: snap._evCursor || 0,
@@ -6958,6 +7061,7 @@ function settleMatch(){
   if(typeof bumpDaily === "function"){ bumpDaily("goals", L.myGoals); if(res === "胜"){ bumpDaily("win", 1); if(isFr) bumpDaily("frwin", 1); else bumpDaily("sprint", 1); } }
   s.lastTicker = { sportId: L.sportId, dayN: L.dayN, opp: L.opp, res, score: scoreTxt, fundD, friendly: isFr, lines: L.lines.slice(-10) };
   mock.save();
+  try{ showDayNoteSettle(L); }catch(e){} /* SHOW1 晒阵容日：完赛判定（开赛首发含包·贰新援） */
   /* —— v33 结算仪式：本场之星（进球/得分最多者，无进球取场上评分最高） —— */
   let starHtml = "";
   { const counts = {}; for(const nm of (L.scorers || [])) counts[nm] = (counts[nm] || 0) + 1;
@@ -8322,6 +8426,7 @@ function bootWatchdog(){
   await render();
   renderBootSlots();
   try{ renderWhatsNew(); }catch(e){}
+  try{ renderShowDay(); }catch(e){}
   if(mock.state.founding){ openFounding(); }
   await doSettle(true);
   /* HF5：boot 核对——广告待办（页面若在广告期间被回收，看完的广告在此补发/补结算）＋中断比赛快照有效性 */
