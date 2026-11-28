@@ -1908,7 +1908,7 @@ async function friendlyAdUnlock(){
   const f = friendlyState(); if(f.ad) return;
   const today = beijingDateStr();
   const okAd = await runAdPoint("friendly", { dayKey: today }, "friendly|" + today, async ()=>{ friendlyState().ad = true; });
-  if(!okAd){ toast("广告没看完，这次不算"); return; }
+  if(!okAd){ toast(adFailText("广告没看完，这次不算")); return; }
   toast("热身赛 +2 场，今天还能打 " + friendlyLeft() + " 场"); render();
 }
 window.friendlyAdUnlock = friendlyAdUnlock;
@@ -6790,7 +6790,7 @@ async function matchSkip(){ const L = LIVE; if(!L || L.settled || !L.S) return;
     toast("跳过比赛要先看一段广告…");
     const snap = snapshotLiveData(L);
     const okAd = await runAdPoint("skip", { snap }, "skip|" + L.sportId + ":" + L.dayN + "|" + (snap ? snap.at : Date.now()), grantSkipAd);
-    if(!okAd){ toast("广告没看完，未跳过——比赛继续"); return; }
+    if(!okAd){ toast(adFailText("广告没看完，未跳过——比赛继续")); return; }
     return;
   }
   finishSkipInPlace(L);
@@ -7614,7 +7614,7 @@ async function scoutReveal(pid){
   if((s.scoutAdCount || 0) >= 2){ toast("今天的提前揭晓次数用完了（2/2）"); return; }
   const sc0 = s.scout[pid]; if(!sc0 || sc0.stage >= 3) return;
   const okAd = await runAdPoint("scout", { pid, dayKey: today }, "scout|" + pid + "|" + today, async p => { grantScoutAd(p); });
-  if(!okAd){ toast("广告没看完，这次不算"); return; }
+  if(!okAd){ toast(adFailText("广告没看完，这次不算")); return; }
   toast("提前揭晓：真实能力已出，可以向对方询价了"); render();
 }
 
@@ -7742,7 +7742,7 @@ $("#adBtn").onclick = async () => {
   if(mock.state.adDay!==dayKey){ mock.state.adDay=dayKey; mock.state.adCount=0; }
   if(mock.state.adCount>=3){ toast("今天的加速次数用完了（3/3）"); return; }
   const okAd = await runAdPoint("supply", { dayKey }, "supply|" + dayKey + "|" + (mock.state.adCount || 0), async p => { grantSupplyAd(p); });
-  if(!okAd){ toast("广告没看完，这次不算"); return; }
+  if(!okAd){ toast(adFailText("广告没看完，这次不算")); return; }
   toast(`补给到账 +120 资金（今日 ${mock.state.adCount}/3）`); render();
 };
 $("#renameBtn").onclick = () => { openNameModal("rename"); };
@@ -7764,7 +7764,7 @@ $("#nameOk").onclick = async () => {
     const btn = $("#nameOk"); btn.disabled = true; btn.textContent = "广告播放中…";
     const okAd = await runAdPoint("rename", { name: nm }, "rename|" + nm, async p => { if((mock.state.clubName || "") !== p.biz.name) await submitClubName(p.biz.name); });
     btn.disabled = false; btn.textContent = "看广告并改名";
-    if(!okAd){ toast("广告未完成，改名未生效（原名保留）"); return; }
+    if(!okAd){ toast(adFailText("广告未完成，改名未生效（原名保留）")); return; }
     return;
   }
   await submitClubName(nm);
@@ -7788,8 +7788,11 @@ async function adTaskSnap(){
   return null;
 }
 function adConfirmed(base, now){
-  if(!now) return false;
-  if(!base) return now.status === "completed";
+  /* C4 口径（2026-11-28 横扫修）：补发只认差量证据——status 由未完成跃迁为 completed、
+     或 availableChanceCount 变化。baseline 缺失（点广告时状态查询失败）时不许凭
+     status==='completed' 单独认定：该 completed 可能早于本次看广告，凭它补发等于
+     无证据发奖。baseline 缺失一律不确认，待办保留待核（36 小时过期裁决兜底）。 */
+  if(!now || !base) return false;
   if(now.status === "completed" && base.status !== "completed") return true;
   if(base.chances != null && now.chances != null && now.chances !== base.chances) return true;
   return false;
@@ -7898,9 +7901,18 @@ let adFlowBusy = false;
    「未知」处理（不当成功也不当失败）：待办保留、立即对账，平台已确认则补发，未确认
    留待回前台钩子与 36 小时过期裁决。放对象上供回归探针调短，口径同其他 CFG。 */
 const AD_FLOW_CFG = { videoTimeoutMs: 90 * 1000 };
+/* 最近一次广告失败的平台回执摘要（C4 口径 2026-11-28）：供各点位区分失败文案——
+   UNAVAILABLE 类（任务/库存暂不可用）不许再报「广告没看完」误导玩家；失败只影响
+   本次尝试，任何点位都不因单次失败被锁（无全局 adRewardDone 式标记）。 */
+let adLastFail = null;
+function adFailText(fallback){
+  if(adLastFail && (adLastFail.code === 422 || /UNAVAILABLE|NO_FILL|NO_AD|NOT_AVAILABLE/i.test(adLastFail.reason || ""))) return "暂时没有可看的广告，稍后再试";
+  return fallback;
+}
 async function watchRenameAd(){
   if(adFlowBusy) return false;
   adFlowBusy = true;
+  adLastFail = null;
   try{
     /* HF6：广告单独判 vatask 现读可用性，不与 cloud 共闸——桥晚注入或单项缺失都不许误判成无壳直发 */
     if(vataskNow()){
@@ -7910,8 +7922,9 @@ async function watchRenameAd(){
           window.ColorboxAI.vatask.completeRewardVideo(),
           new Promise(r => setTimeout(() => { timedOut = true; r(null); }, AD_FLOW_CFG.videoTimeoutMs)),
         ]);
-        if(timedOut){ try{ reconcileAdPending(); }catch(e){} return false; }
+        if(timedOut){ adLastFail = { reason: "TIMEOUT", code: null }; try{ reconcileAdPending(); }catch(e){} return false; }
         const ok = !!(res && res.code === 200 && res.data && res.data.rewarded === true);
+        if(!ok && res) adLastFail = { reason: (res.data && res.data.reason) || res.reason || null, code: (typeof res.code === "number") ? res.code : null };
         /* 技能包口径：成功后刷新活动任务状态（联赛走直接权益兑换、不展示平台次数，结果只取不用） */
         if(ok && window.ColorboxAI.vatask.getActivityTaskState){ try{ await window.ColorboxAI.vatask.getActivityTaskState(); }catch(e){} }
         return ok;
